@@ -1,7 +1,17 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	"tp1/internal/worker/review"
+)
 
 func main() {
-	fmt.Println("Hola")
+	filter, err := review.New()
+	if err != nil {
+		fmt.Printf("Failed to create new reviews filter: %s", err.Error())
+		return
+	}
+
+	filter.Start()
 }
