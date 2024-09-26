@@ -1,0 +1,7 @@
+app_name = "TestApp"
+port = 8080
+debug = true
+
+[gateway]
+host = "127.0.0.1"
+port = 9876
