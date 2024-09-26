@@ -5,8 +5,8 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY internal/ ./internal/
-COPY pkg/ ./pkg/
-COPY cmd/workers/review_filter/review_filter.go ./main.go
+# Update path to desired entrypoint
+COPY cmd/worker/review/review.go ./main.go
+COPY internal/ pkg/ ./
 
 ENTRYPOINT ["go", "run", "main.go"]
