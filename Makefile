@@ -4,7 +4,7 @@ PWD := $(shell pwd)
 all:
 
 build:
-	docker build -f ./build/reviews-filter.Dockerfile -t "reviews-filter:latest" .
+	docker build -f ./build/review.Dockerfile -t "reviews-filter:latest" .
 .PHONY: build
 
 build-client:

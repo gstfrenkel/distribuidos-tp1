@@ -1,7 +1,7 @@
 services:
   rabbitmq:
     container_name: rabbitmq
-    image: rabbitmq:3.13-management
+    image: rabbitmq:management
     ports:
       - "15672:15672"
     environment:
