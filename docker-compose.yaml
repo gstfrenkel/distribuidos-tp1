@@ -1,0 +1,17 @@
+services:
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:3.13-management
+    ports:
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+
+  reviews-filter-1:
+    container_name: reviews-filter-1
+    image: reviews-filter:latest
+    depends_on:
+      - rabbitmq
+    links:
+      - rabbitmq
