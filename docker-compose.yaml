@@ -5,10 +5,11 @@ services:
     ports:
       - "15672:15672"
 
-  reviews-filter-1:
-    container_name: reviews-filter-1
-    image: reviews-filter:latest
+  gateway:
+    container_name: gateway
+    image: gateway:latest
     depends_on:
       - rabbitmq
     links:
       - rabbitmq
+

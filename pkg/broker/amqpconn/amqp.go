@@ -11,6 +11,7 @@ type messageBroker struct {
 	ch   *amqp.Channel
 }
 
+// New creates a new AMQP connection and channel
 func New() (broker.MessageBroker, error) {
 	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq:5672/")
 	if err != nil {
@@ -29,22 +30,27 @@ func New() (broker.MessageBroker, error) {
 	}, nil
 }
 
+// QueueDeclare declares a new queue
 func (b *messageBroker) QueueDeclare(name string) (amqp.Queue, error) {
 	return b.ch.QueueDeclare(name, true, false, false, false, nil)
 }
 
+// ExchangeDeclare declares a new exchange
 func (b *messageBroker) ExchangeDeclare(name string, kind string) error {
 	return b.ch.ExchangeDeclare(name, kind, true, false, false, false, nil)
 }
 
+// QueueBind binds a queue to an exchange
 func (b *messageBroker) QueueBind(name string, key string, exchange string) error {
 	return b.ch.QueueBind(name, key, exchange, false, nil)
 }
 
+// ExchangeBind binds an exchange to another exchange
 func (b *messageBroker) ExchangeBind(dst string, key string, src string) error {
 	return b.ch.ExchangeBind(dst, key, src, false, nil)
 }
 
+// Publish sends a message to an exchange
 func (b *messageBroker) Publish(exchange string, key string, msg amqp.Publishing) error {
 	return b.ch.Publish(exchange, key, true, false, msg)
 }

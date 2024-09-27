@@ -1,0 +1,13 @@
+[gateway]
+host = "127.0.0.1"
+port = 5050
+
+[rabbitmq]
+reviews_q = "reviews"
+games_q = "games"
+exchange_name = "gateway"
+exchange_type = "direct"
+reviews_routing_key = "reviews"
+games_routing_key = "games"
+
+
