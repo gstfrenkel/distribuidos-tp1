@@ -1,12 +1,13 @@
-package message
+package review
 
 import (
 	"bytes"
+
 	"tp1/pkg/ioutils"
-	"tp1/pkg/messages"
+	msg "tp1/pkg/message"
 )
 
-type ReviewMsg struct {
+type message struct {
 	appId       int64
 	appName     string
 	reviewText  string
@@ -14,42 +15,20 @@ type ReviewMsg struct {
 	reviewVotes int64
 }
 
-func (r *ReviewMsg) ToBytes() ([]byte, error) {
-	buf := new(bytes.Buffer)
-	fields := []interface{}{
-		r.appId,
-		uint64(len(r.appName)), []byte(r.appName),
-		uint64(len(r.reviewText)), []byte(r.reviewText),
-		r.reviewScore,
-		r.reviewVotes,
+func New(appId int64, appName string, reviewText string, reviewScore int64, reviewVotes int64) msg.Message {
+	return &message{
+		appId:       appId,
+		appName:     appName,
+		reviewText:  reviewText,
+		reviewScore: reviewScore,
+		reviewVotes: reviewVotes,
 	}
-
-	err := ioutils.WriteBytesToBuff(fields, buf)
-	if err != nil {
-		return nil, err
-	}
-
-	msgLen := uint64(buf.Len())
-	finalBuf := new(bytes.Buffer)
-
-	fields = []interface{}{
-		messages.REVIEW_ID_MSG,
-		msgLen,
-		buf.Bytes(),
-	}
-
-	err = ioutils.WriteBytesToBuff(fields, finalBuf)
-	if err != nil {
-		return nil, err
-	}
-
-	return finalBuf.Bytes(), nil
 }
 
-func (r *ReviewMsg) FromBytes(b []byte) (*ReviewMsg, error) {
+func FromBytes(b []byte) (msg.Message, error) {
 	buf := bytes.NewBuffer(b)
 
-	var msgId messages.MessageId
+	var msgId msg.ID
 	var msgLen uint64
 	fields := []interface{}{
 		&msgId,
@@ -96,11 +75,43 @@ func (r *ReviewMsg) FromBytes(b []byte) (*ReviewMsg, error) {
 		return nil, err
 	}
 
-	return &ReviewMsg{
+	return &message{
 		appId:       appId,
 		appName:     appName,
 		reviewText:  reviewText,
 		reviewScore: reviewScore,
 		reviewVotes: reviewVotes,
 	}, nil
+}
+
+func (m *message) ToBytes() ([]byte, error) {
+	buf := new(bytes.Buffer)
+	fields := []interface{}{
+		m.appId,
+		uint64(len(m.appName)), []byte(m.appName),
+		uint64(len(m.reviewText)), []byte(m.reviewText),
+		m.reviewScore,
+		m.reviewVotes,
+	}
+
+	err := ioutils.WriteBytesToBuff(fields, buf)
+	if err != nil {
+		return nil, err
+	}
+
+	msgLen := uint64(buf.Len())
+	finalBuf := new(bytes.Buffer)
+
+	fields = []interface{}{
+		msg.ReviewIdMsg,
+		msgLen,
+		buf.Bytes(),
+	}
+
+	err = ioutils.WriteBytesToBuff(fields, finalBuf)
+	if err != nil {
+		return nil, err
+	}
+
+	return finalBuf.Bytes(), nil
 }
