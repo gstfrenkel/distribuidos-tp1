@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"net"
 	"tp1/pkg/ioutils"
-	"tp1/pkg/messages"
+	"tp1/pkg/message"
 )
 
 var MsgIdSize = 1
@@ -105,5 +105,5 @@ func parsePayload(msgId uint8, payload []byte, payloadLen uint64, chunk []byte, 
 }
 
 func isEndOfFile(msgId uint8) bool {
-	return msgId == uint8(messages.EOF_MSG)
+	return msgId == uint8(message.EofMsg)
 }

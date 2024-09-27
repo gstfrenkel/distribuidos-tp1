@@ -1,14 +1,15 @@
 package gateway
 
 import (
-	"github.com/rabbitmq/amqp091-go"
 	"net"
-	"tp1/internal/gateway/connection"
+
 	"tp1/internal/gateway/rabbit"
 	"tp1/pkg/broker"
 	"tp1/pkg/broker/amqpconn"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
+
+	"github.com/rabbitmq/amqp091-go"
 )
 
 type Gateway struct {
@@ -58,14 +59,14 @@ func New() (*Gateway, error) {
 func (g Gateway) Start() {
 	defer g.broker.Close()
 
-	err := connection.CreateGatewaySocket(&g)
+	err := CreateGatewaySocket(&g)
 	if err != nil { //TODO handle
 		return
 	}
 
 	defer g.Listener.Close() //TODO handle
 
-	err = connection.ListenForNewClients(&g)
+	err = ListenForNewClients(&g)
 	if err != nil {
 		return
 	}

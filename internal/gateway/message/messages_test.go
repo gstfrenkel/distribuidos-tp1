@@ -2,18 +2,13 @@ package message
 
 import (
 	"testing"
+	"tp1/pkg/message/review"
 )
 
 func TestToBytes_ValidReviewMsg(t *testing.T) {
-	review := &ReviewMsg{
-		appId:       123,
-		appName:     "TestApp",
-		reviewText:  "Great app!",
-		reviewScore: 5,
-		reviewVotes: 100,
-	}
+	r := review.New(123, "TestApp", "Great app!", 5, 100)
 
-	data, err := review.ToBytes()
+	data, err := r.ToBytes()
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -24,15 +19,9 @@ func TestToBytes_ValidReviewMsg(t *testing.T) {
 }
 
 func TestFromBytes_ValidData(t *testing.T) {
-	review := &ReviewMsg{
-		appId:       123,
-		appName:     "TestApp",
-		reviewText:  "Great app!",
-		reviewScore: 5,
-		reviewVotes: 100,
-	}
+	r := review.New(123, "TestApp", "Great app!", 5, 100)
 
-	data, err := review.ToBytes()
+	data, err := r.ToBytes()
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -42,41 +31,27 @@ func TestFromBytes_ValidData(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	if newReview.appId != review.appId ||
-		newReview.appName != review.appName ||
-		newReview.reviewText != review.reviewText ||
-		newReview.reviewScore != review.reviewScore ||
-		newReview.reviewVotes != review.reviewVotes {
-		t.Fatalf("expected %v, got %v", review, newReview)
+	b1, _ := newReview.ToBytes()
+	b2, _ := r.ToBytes()
+
+	if string(b1) != string(b2) {
+		t.Fatalf("expected %v, got %v", r, newReview)
 	}
 }
 
 func TestFromBytes_InvalidData(t *testing.T) {
 	invalidData := []byte{0, 1, 2, 3, 4}
 
-	_, err := (&ReviewMsg{}).FromBytes(invalidData)
+	_, err := review.FromBytes(invalidData)
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
 }
 
-func TestToBytes_EmptyFields(t *testing.T) {
-	review := &ReviewMsg{}
-
-	data, err := review.ToBytes()
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-
-	if len(data) == 0 {
-		t.Fatalf("expected non-empty byte slice")
-	}
-}
-
 func TestFromBytes_EmptyFields(t *testing.T) {
-	review := &ReviewMsg{}
+	r := review.New(0, "", "", 0, 0)
 
-	data, err := review.ToBytes()
+	data, err := r.ToBytes()
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -86,11 +61,10 @@ func TestFromBytes_EmptyFields(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	if newReview.appId != review.appId ||
-		newReview.appName != review.appName ||
-		newReview.reviewText != review.reviewText ||
-		newReview.reviewScore != review.reviewScore ||
-		newReview.reviewVotes != review.reviewVotes {
-		t.Fatalf("expected %v, got %v", review, newReview)
+	b1, _ := newReview.ToBytes()
+	b2, _ := r.ToBytes()
+
+	if string(b1) != string(b2) {
+		t.Fatalf("expected %v, got %v", r, newReview)
 	}
 }
