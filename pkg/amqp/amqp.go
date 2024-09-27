@@ -5,7 +5,6 @@ import amqp "github.com/rabbitmq/amqp091-go"
 type MessageBroker struct {
 	conn *amqp.Connection
 	ch   *amqp.Channel
-	q    amqp.Queue
 }
 
 func New() (*MessageBroker, error) {
