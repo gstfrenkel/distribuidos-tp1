@@ -13,3 +13,11 @@ services:
     links:
       - rabbitmq
 
+  reviews-filter-1:
+    container_name: reviews-filter-1
+    image: reviews-filter:latest
+    depends_on:
+      - rabbitmq
+    links:
+      - rabbitmq
+

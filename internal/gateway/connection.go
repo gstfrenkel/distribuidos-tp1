@@ -1,15 +1,15 @@
-package connection
+package gateway
 
 import (
 	"net"
-	"tp1/internal/gateway"
+
 	"tp1/pkg/ioutils"
 )
 
 var MSG_ID_SIZE = 1
 var LEN_SIZE = 8
 
-func CreateGatewaySocket(g *gateway.Gateway) error {
+func CreateGatewaySocket(g *Gateway) error {
 	conn, err := net.Listen("tcp", g.Config.String("gateway.address", ""))
 	if err != nil {
 		return err
@@ -19,7 +19,7 @@ func CreateGatewaySocket(g *gateway.Gateway) error {
 	return nil
 }
 
-func ListenForNewClients(g *gateway.Gateway) error {
+func ListenForNewClients(g *Gateway) error {
 	for {
 		c, err := g.Listener.Accept()
 		if err != nil {
@@ -29,7 +29,7 @@ func ListenForNewClients(g *gateway.Gateway) error {
 	}
 }
 
-func handleConnection(g *gateway.Gateway, conn net.Conn) {
+func handleConnection(g *Gateway, conn net.Conn) {
 	//server_addr, client_addr := []byte(g.Listener.Addr().String()), []byte(conn.RemoteAddr().String())
 	bufferSize := g.Config.Int("gateway.buffer_size", 1024)
 	read := 0
