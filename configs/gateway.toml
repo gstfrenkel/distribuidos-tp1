@@ -1,5 +1,6 @@
 [gateway]
 address = "127.0.0.1:5050"
+buffer_size = 1024
 
 [rabbitmq]
 reviews_q = "reviews"

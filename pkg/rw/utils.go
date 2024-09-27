@@ -1,8 +1,9 @@
-package message
+package rw
 
 import (
 	"bytes"
 	"encoding/binary"
+	"net"
 )
 
 func WriteBytesToBuff(fields []interface{}, buf *bytes.Buffer) error {
@@ -10,6 +11,20 @@ func WriteBytesToBuff(fields []interface{}, buf *bytes.Buffer) error {
 		if err := binary.Write(buf, binary.BigEndian, field); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// SendAll Sends all data to a connection socket
+func SendAll(conn net.Conn, data []byte) error {
+	total := len(data)
+	for total > 0 {
+		n, err := conn.Write(data)
+		if err != nil {
+			return err
+		}
+		data = data[n:]
+		total -= n
 	}
 	return nil
 }
@@ -22,6 +37,14 @@ func ReadBytesFromBuff(fields []interface{}, buf *bytes.Buffer) error {
 		}
 	}
 	return nil
+}
+
+func ReadU8FromSlice(buf []byte) uint8 {
+	return buf[0]
+}
+
+func ReadU64FromSlice(buf []byte) uint64 {
+	return binary.BigEndian.Uint64(buf)
 }
 
 func ReadI64(buf *bytes.Buffer) (int64, error) {

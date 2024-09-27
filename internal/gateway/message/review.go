@@ -3,6 +3,7 @@ package message
 import (
 	"bytes"
 	"tp1/pkg/messages"
+	"tp1/pkg/rw"
 )
 
 type ReviewMsg struct {
@@ -23,7 +24,7 @@ func (r *ReviewMsg) ToBytes() ([]byte, error) {
 		r.reviewVotes,
 	}
 
-	err := WriteBytesToBuff(fields, buf)
+	err := rw.WriteBytesToBuff(fields, buf)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +38,7 @@ func (r *ReviewMsg) ToBytes() ([]byte, error) {
 		buf.Bytes(),
 	}
 
-	err = WriteBytesToBuff(fields, finalBuf)
+	err = rw.WriteBytesToBuff(fields, finalBuf)
 	if err != nil {
 		return nil, err
 	}
@@ -55,42 +56,42 @@ func (r *ReviewMsg) FromBytes(b []byte) (*ReviewMsg, error) {
 		&msgLen,
 	}
 
-	err := ReadBytesFromBuff(fields, buf)
+	err := rw.ReadBytesFromBuff(fields, buf)
 	if err != nil {
 		return nil, err
 	}
 
-	appId, err := ReadI64(buf)
+	appId, err := rw.ReadI64(buf)
 	if err != nil {
 		return nil, err
 	}
 
-	appNameLen, err := ReadU64(buf)
+	appNameLen, err := rw.ReadU64(buf)
 	if err != nil {
 		return nil, err
 	}
 
-	appName, err := ReadString(buf, appNameLen)
+	appName, err := rw.ReadString(buf, appNameLen)
 	if err != nil {
 		return nil, err
 	}
 
-	reviewTextLen, err := ReadU64(buf)
+	reviewTextLen, err := rw.ReadU64(buf)
 	if err != nil {
 		return nil, err
 	}
 
-	reviewText, err := ReadString(buf, reviewTextLen)
+	reviewText, err := rw.ReadString(buf, reviewTextLen)
 	if err != nil {
 		return nil, err
 	}
 
-	reviewScore, err := ReadI64(buf)
+	reviewScore, err := rw.ReadI64(buf)
 	if err != nil {
 		return nil, err
 	}
 
-	reviewVotes, err := ReadI64(buf)
+	reviewVotes, err := rw.ReadI64(buf)
 	if err != nil {
 		return nil, err
 	}
