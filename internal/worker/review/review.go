@@ -7,14 +7,11 @@ import (
 	"tp1/pkg/broker/amqpconn"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
-
-	"github.com/rabbitmq/amqp091-go"
 )
 
 type Filter struct {
-	config   config.Config
-	broker   broker.MessageBroker
-	srcQueue amqp091.Queue
+	config config.Config
+	broker broker.MessageBroker
 }
 
 func New() (*Filter, error) {
