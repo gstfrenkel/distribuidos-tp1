@@ -8,7 +8,7 @@ type MessageBroker struct {
 	q    amqp.Queue
 }
 
-func New(name string) (*MessageBroker, error) {
+func New() (*MessageBroker, error) {
 	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq:5672/")
 	if err != nil {
 		return nil, err
@@ -20,18 +20,15 @@ func New(name string) (*MessageBroker, error) {
 		return nil, err
 	}
 
-	q, err := ch.QueueDeclare(name, true, false, false, false, nil)
-	if err != nil {
-		conn.Close()
-		ch.Close()
-		return nil, err
-	}
-
 	return &MessageBroker{
 		conn: conn,
 		ch:   ch,
 		q:    q,
 	}, nil
+}
+
+func (b *MessageBroker) QueueDeclare(name string) (amqp.Queue, error) {
+	return b.ch.QueueDeclare(name, true, false, false, false, nil)
 }
 
 func (b *MessageBroker) Close() {
