@@ -46,54 +46,54 @@ func (r *ReviewMsg) ToBytes() ([]byte, error) {
 	return finalBuf.Bytes(), nil
 }
 
-func (r *ReviewMsg) FromBytes(b []byte) (*ReviewMsg, error) {
+func FromBytes(b []byte) error {
 	buf := bytes.NewBuffer(b)
 
 	var msgId messages.MessageId
 	var msgLen uint64
 	fields := []interface{}{
-		&msgId,
-		&msgLen,
+		msgId,
+		msgLen,
 	}
 
 	err := ioutils.ReadBytesFromBuff(fields, buf)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	appId, err := ioutils.ReadI64(buf)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	appNameLen, err := ioutils.ReadU64(buf)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	appName, err := ioutils.ReadString(buf, appNameLen)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	reviewTextLen, err := ioutils.ReadU64(buf)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	reviewText, err := ioutils.ReadString(buf, reviewTextLen)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	reviewScore, err := ioutils.ReadI64(buf)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	reviewVotes, err := ioutils.ReadI64(buf)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	return &ReviewMsg{
