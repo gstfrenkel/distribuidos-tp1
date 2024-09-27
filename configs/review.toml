@@ -1,0 +1,17 @@
+[gateway]
+queue-name = "reviews"
+
+[exchange]
+name = "reviews"
+kind = "direct"
+
+[positive-reviews]
+queue-name = "positive_reviews"
+
+[positive-reviews-sh]
+consumers = 1
+queue-name = "positive_reviews_%d"
+
+[negative-reviews-sh]
+consumers = 1
+queue-name = "negative_reviews_%d"

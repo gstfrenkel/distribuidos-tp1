@@ -3,7 +3,7 @@ package connection
 import (
 	"net"
 	"tp1/internal/gateway"
-	"tp1/pkg/rw"
+	"tp1/pkg/ioutils"
 )
 
 var MSG_ID_SIZE = 1
@@ -46,11 +46,11 @@ func handleConnection(g *gateway.Gateway, conn net.Conn) {
 
 		read += n
 		if read >= MSG_ID_SIZE && msgId == 0 {
-			msgId = rw.ReadU8FromSlice(data)
+			msgId = ioutils.ReadU8FromSlice(data)
 			data = data[MSG_ID_SIZE:]
 			read -= MSG_ID_SIZE
 			if read >= LEN_SIZE {
-				payloadLength = rw.ReadU64FromSlice(data)
+				payloadLength = ioutils.ReadU64FromSlice(data)
 				read -= LEN_SIZE
 			}
 		}

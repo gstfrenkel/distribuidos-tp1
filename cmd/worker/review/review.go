@@ -13,5 +13,10 @@ func main() {
 		return
 	}
 
+	if err = filter.Init(); err != nil {
+		fmt.Printf("Failed to initialize reviews filter: %s", err.Error())
+		return
+	}
+
 	filter.Start()
 }
