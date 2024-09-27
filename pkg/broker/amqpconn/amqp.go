@@ -35,6 +35,7 @@ func (b *messageBroker) QueueDeclare(name string) (amqp.Queue, error) {
 	return b.ch.QueueDeclare(name, true, false, false, false, nil)
 }
 
+// QueuesDeclare declares new queues
 func (b *messageBroker) QueuesDeclare(names ...string) ([]amqp.Queue, error) {
 	var queues []amqp.Queue
 
@@ -55,6 +56,7 @@ func (b *messageBroker) ExchangeDeclare(name string, kind string) error {
 	return b.ch.ExchangeDeclare(name, kind, true, false, false, false, nil)
 }
 
+// ExchangesDeclare declares new exchanges.
 func (b *messageBroker) ExchangesDeclare(exchanges ...broker.Exchange) error {
 	for _, ex := range exchanges {
 		if err := b.ExchangeDeclare(ex.Name, ex.Kind); err != nil {
@@ -69,7 +71,7 @@ func (b *messageBroker) QueueBind(name string, key string, exchange string) erro
 	return b.ch.QueueBind(name, key, exchange, false, nil)
 }
 
-// ExchangeBind binds an exchange to another exchange
+// QueuesBind binds queues to their respective exchanges.
 func (b *messageBroker) QueuesBind(binds ...broker.QueueBind) error {
 	for _, bind := range binds {
 		if err := b.ch.QueueBind(bind.Name, bind.Key, bind.Exchange, false, nil); err != nil {
@@ -79,6 +81,7 @@ func (b *messageBroker) QueuesBind(binds ...broker.QueueBind) error {
 	return nil
 }
 
+// ExchangeBind binds an exchange to another exchange
 func (b *messageBroker) ExchangeBind(dst string, key string, src string) error {
 	return b.ch.ExchangeBind(dst, key, src, false, nil)
 }
