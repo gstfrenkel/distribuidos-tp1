@@ -23,7 +23,6 @@ func New() (*MessageBroker, error) {
 	return &MessageBroker{
 		conn: conn,
 		ch:   ch,
-		q:    q,
 	}, nil
 }
 
