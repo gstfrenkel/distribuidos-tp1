@@ -32,7 +32,7 @@ func ListenForNewClients(g *gateway.Gateway) error {
 func handleConnection(g *gateway.Gateway, conn net.Conn) {
 	//server_addr, client_addr := []byte(g.Listener.Addr().String()), []byte(conn.RemoteAddr().String())
 	bufferSize := g.Config.Int("gateway.buffer_size", 1024)
-	read := 0
+	read := 0 //not considering the message id and length
 	data := make([]byte, bufferSize)
 	notEof := true
 	msgId := uint8(0)
@@ -57,16 +57,15 @@ func handleConnection(g *gateway.Gateway, conn net.Conn) {
 
 		if read >= int(payloadLength) {
 			read = 0
-			notEof, err = ParseData(data)
+			notEof, err, data = ParseData(msgId, payloadLength, data)
 			if err != nil {
 				return //TODO: handle error
 			}
-			data = make([]byte, bufferSize)
 		}
 	}
 }
 
-func ParseData(data []byte) (bool, error) {
+func ParseData(msgId uint8, payloadLength uint64, data []byte) (bool, error, []byte) {
 	//TODO: implement
-	return false, nil
+	return false, nil, nil
 }
