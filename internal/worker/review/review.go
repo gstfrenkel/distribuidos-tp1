@@ -3,14 +3,18 @@ package review
 import (
 	"fmt"
 
-	"tp1/pkg/amqp"
+	"tp1/pkg/broker"
+	"tp1/pkg/broker/amqpconn"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
+
+	"github.com/rabbitmq/amqp091-go"
 )
 
 type Filter struct {
-	config config.Config
-	broker *amqp.MessageBroker
+	config   config.Config
+	broker   broker.MessageBroker
+	srcQueue amqp091.Queue
 }
 
 func New() (*Filter, error) {
@@ -21,14 +25,14 @@ func New() (*Filter, error) {
 		return nil, err
 	}
 
-	broker, err := amqp.New()
+	b, err := amqpconn.New()
 	if err != nil {
 		return nil, err
 	}
 
 	return &Filter{
 		config: cfg,
-		broker: broker,
+		broker: b,
 	}, nil
 }
 
