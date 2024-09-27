@@ -21,7 +21,7 @@ func New() (*Filter, error) {
 		return nil, err
 	}
 
-	broker, err := amqp.New("positive_reviews_q")
+	broker, err := amqp.New()
 	if err != nil {
 		return nil, err
 	}
