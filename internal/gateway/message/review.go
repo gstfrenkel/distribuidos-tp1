@@ -17,8 +17,8 @@ func (r *ReviewMsg) ToBytes() ([]byte, error) {
 	buf := new(bytes.Buffer)
 	fields := []interface{}{
 		r.appId,
-		uint64(len(r.appName)), r.appName,
-		uint64(len(r.reviewText)), r.reviewText,
+		uint64(len(r.appName)), []byte(r.appName),
+		uint64(len(r.reviewText)), []byte(r.reviewText),
 		r.reviewScore,
 		r.reviewVotes,
 	}
