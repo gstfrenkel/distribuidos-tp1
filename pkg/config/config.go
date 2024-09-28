@@ -10,6 +10,7 @@ type Config interface {
 	Int32(k string, def int32) int32
 	Int64(k string, def int64) int64
 	Uint(k string, def uint) uint
+	Uint8(k string, def uint8) uint8
 	Uint16(k string, def uint16) uint16
 	Uint32(k string, def uint32) uint32
 	Uint64(k string, def uint64) uint64
