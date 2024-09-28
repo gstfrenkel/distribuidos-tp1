@@ -53,6 +53,12 @@ func ReadI64(buf *bytes.Buffer) (int64, error) {
 	return i, err
 }
 
+func ReadU8(buf *bytes.Buffer) (uint8, error) {
+	var i uint8
+	err := binary.Read(buf, binary.BigEndian, &i)
+	return i, err
+}
+
 func ReadU64(buf *bytes.Buffer) (uint64, error) {
 	var i uint64
 	err := binary.Read(buf, binary.BigEndian, &i)

@@ -1,14 +1,18 @@
 package message
 
-import "errors"
+import (
+	"errors"
+)
 
 var ErrFailedToConvert = errors.New("failed to convert to message with ID %d")
+var ErrEmptyByteSlice = errors.New("unable to convert empty slice of bytes into message")
 
 const (
 	ReviewIdMsg ID = iota + 1
 	GameIdMsg
 	EofMsg
 
+	ReviewID
 	PositiveReviewID
 	NegativeReviewID
 	PositiveReviewWithTextID

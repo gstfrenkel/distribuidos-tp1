@@ -1,4 +1,4 @@
-package scored_review
+package text_review
 
 import (
 	"bytes"
@@ -8,9 +8,9 @@ import (
 	"tp1/pkg/message/utils"
 )
 
-type message map[utils.Key]int64
+type message map[utils.Key][]string
 
-func New(m map[utils.Key]int64) msg.Message {
+func New(m map[utils.Key][]string) msg.Message {
 	return message(m)
 }
 
