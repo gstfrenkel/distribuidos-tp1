@@ -1,18 +1,19 @@
-package positive_review
+package scored_review
 
 import (
 	msg "tp1/pkg/message"
 	"tp1/pkg/message/utils"
 )
 
-type message map[utils.Key][]string
+type message map[utils.Key]int64
 
-func New(m map[utils.Key][]string) msg.Message {
+func New(m map[utils.Key]int64) msg.Message {
 	return message(m)
 }
 
 func FromBytes() msg.Message {
-	return message{}
+
+	return nil
 }
 
 func (m message) ToBytes() ([]byte, error) {
