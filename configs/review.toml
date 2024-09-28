@@ -11,7 +11,9 @@ queue-name = "positive_reviews"
 [positive-reviews-sh]
 consumers = 1
 queue-name = "positive_reviews_%d"
+key = "p%d"
 
 [negative-reviews-sh]
 consumers = 1
 queue-name = "negative_reviews_%d"
+key = "n%d"

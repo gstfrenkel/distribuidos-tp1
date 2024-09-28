@@ -18,6 +18,7 @@ services:
     image: reviews-filter:latest
     depends_on:
       - rabbitmq
+      - gateway
     links:
       - rabbitmq
 

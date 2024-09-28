@@ -6,6 +6,8 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+const MessageIdHeader = "x-message-id"
+
 type messageBroker struct {
 	conn *amqp.Connection
 	ch   *amqp.Channel
@@ -52,7 +54,7 @@ func (b *messageBroker) QueuesDeclare(names ...string) ([]amqp.Queue, error) {
 }
 
 // ExchangeDeclare declares a new exchange
-func (b *messageBroker) ExchangeDeclare(name string, kind string) error {
+func (b *messageBroker) ExchangeDeclare(name, kind string) error {
 	return b.ch.ExchangeDeclare(name, kind, true, false, false, false, nil)
 }
 
@@ -67,7 +69,7 @@ func (b *messageBroker) ExchangesDeclare(exchanges ...broker.Exchange) error {
 }
 
 // QueueBind binds a queue to an exchange
-func (b *messageBroker) QueueBind(name string, key string, exchange string) error {
+func (b *messageBroker) QueueBind(name, key, exchange string) error {
 	return b.ch.QueueBind(name, key, exchange, false, nil)
 }
 
@@ -82,19 +84,23 @@ func (b *messageBroker) QueuesBind(binds ...broker.QueueBind) error {
 }
 
 // ExchangeBind binds an exchange to another exchange
-func (b *messageBroker) ExchangeBind(dst string, key string, src string) error {
+func (b *messageBroker) ExchangeBind(dst, key, src string) error {
 	return b.ch.ExchangeBind(dst, key, src, false, nil)
 }
 
 // Publish sends a message to an exchange
-func (b *messageBroker) Publish(exchange string, key string, msgId uint8, msg []byte) error {
+func (b *messageBroker) Publish(exchange, key string, msgId uint8, msg []byte) error {
 	return b.ch.Publish(exchange, key, true, false, publishingFromBytes(msgId, msg))
+}
+
+func (b *messageBroker) Consume(queue, consumer string, autoAck, exclusive bool) (<-chan amqp.Delivery, error) {
+	return b.ch.Consume(queue, consumer, autoAck, exclusive, false, false, nil)
 }
 
 func publishingFromBytes(msgId uint8, msg []byte) amqp.Publishing {
 	return amqp.Publishing{
 		ContentType: "application/octet-stream",
-		Headers:     map[string]interface{}{"message_id": msgId},
+		Headers:     map[string]interface{}{MessageIdHeader: msgId},
 		Body:        msg,
 	}
 }

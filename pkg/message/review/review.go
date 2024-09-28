@@ -3,91 +3,85 @@ package review
 import (
 	"bytes"
 	"encoding/gob"
-	"fmt"
-
-	msg "tp1/pkg/message"
 	"tp1/pkg/message/scored_review"
 	"tp1/pkg/message/text_review"
 	"tp1/pkg/message/utils"
 )
 
-const positiveReviewScore = 1
+const (
+	positiveReviewScore = 1
+	negativeReviewScore = -1
+)
 
-type messages []message
-
-type message struct {
+type Message []struct {
 	GameId   int64
 	GameName string
 	Text     string
 	Score    int8
 }
 
-func FromBytes(b []byte) (msg.Message, error) {
-	var m messages
+func FromBytes(b []byte) (Message, error) {
+	var m Message
 	dec := gob.NewDecoder(bytes.NewBuffer(b))
 	return m, dec.Decode(&m)
 }
 
-func (ms messages) ToBytes() ([]byte, error) {
+func (m Message) ToBytes() ([]byte, error) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 
-	if err := enc.Encode(ms); err != nil {
+	if err := enc.Encode(m); err != nil {
 		return nil, err
 	}
 
 	return buf.Bytes(), nil
 }
 
-func (ms messages) ToMessage(id msg.ID) (msg.Message, error) {
-	switch id {
-	case msg.PositiveReviewID:
-		return ms.toReviewMessage(false), nil
-	case msg.NegativeReviewID:
-		return ms.toReviewMessage(true), nil
-	case msg.PositiveReviewWithTextID:
-		return ms.toPositiveReviewWithTextMessage(), nil
-	default:
-		return nil, fmt.Errorf(msg.ErrFailedToConvert.Error(), id)
-	}
+func (m Message) ToPositiveReviewMessage() scored_review.Messages {
+	return m.toScoredReviewMessage(positiveReviewScore)
 }
 
-func (ms messages) toReviewMessage(negative bool) msg.Message {
-	reviewMsg := map[utils.Key]int64{}
+func (m Message) ToNegativeReviewMessage() scored_review.Messages {
+	return m.toScoredReviewMessage(negativeReviewScore)
+}
 
-	for _, m := range ms {
-		if m.isPositive() == negative {
+func (m Message) toScoredReviewMessage(targetScore int8) scored_review.Messages {
+	scoredReviewMsg := scored_review.Messages{}
+	gameVotesMap := map[int64]int64{}
+	gameNamesMap := map[int64]string{}
+
+	for _, reviewMsg := range m {
+		if reviewMsg.Score != targetScore {
 			continue
 		}
 
-		key := utils.Key{GameId: m.GameId, GameName: m.GameName}
-
-		if count, exists := reviewMsg[key]; exists {
-			reviewMsg[key] = count + 1
+		if count, exists := gameVotesMap[reviewMsg.GameId]; exists {
+			gameVotesMap[reviewMsg.GameId] = count + 1
 		} else {
-			reviewMsg[key] = 1
+			gameVotesMap[reviewMsg.GameId] = 1
+			gameNamesMap[reviewMsg.GameId] = reviewMsg.GameName
 		}
 	}
 
-	return scored_review.New(reviewMsg)
+	for k, v := range gameVotesMap {
+		scoredReviewMsg = append(scoredReviewMsg, scored_review.Message{GameId: k, GameName: gameNamesMap[k], Votes: v})
+	}
+
+	return scoredReviewMsg
 }
 
-func (ms messages) toPositiveReviewWithTextMessage() msg.Message {
-	reviewMsg := map[utils.Key][]string{}
+func (m Message) ToPositiveReviewWithTextMessage() text_review.Message {
+	textReviewMessage := text_review.Message{}
 
-	for _, m := range ms {
-		key := utils.Key{GameId: m.GameId, GameName: m.GameName}
+	for _, reviewMsg := range m {
+		key := utils.Key{GameId: reviewMsg.GameId, GameName: reviewMsg.GameName}
 
-		if _, exists := reviewMsg[key]; exists {
-			reviewMsg[key] = append(reviewMsg[key], m.Text)
+		if _, exists := textReviewMessage[key]; exists {
+			textReviewMessage[key] = append(textReviewMessage[key], reviewMsg.Text)
 		} else {
-			reviewMsg[key] = []string{m.Text}
+			textReviewMessage[key] = []string{reviewMsg.Text}
 		}
 	}
 
-	return text_review.New(reviewMsg)
-}
-
-func (m message) isPositive() bool {
-	return m.Score == positiveReviewScore
+	return textReviewMessage
 }

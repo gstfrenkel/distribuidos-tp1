@@ -1,17 +1,13 @@
-package scored_review
+package text_review
 
 import (
 	"bytes"
 	"encoding/gob"
+
+	"tp1/pkg/message/utils"
 )
 
-type Messages []Message
-
-type Message struct {
-	GameId   int64
-	GameName string
-	Votes    int64
-}
+type Message map[utils.Key][]string
 
 func FromBytes(b []byte) (Message, error) {
 	var m Message

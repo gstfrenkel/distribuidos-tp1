@@ -20,7 +20,8 @@ const (
 
 type ID uint8
 
-type Message interface {
+/*type Message interface {
 	ToBytes() ([]byte, error)
-	ToMessage(id ID) (Message, error)
-}
+	ToMessage(id ID) ([]Message, error)
+	GameId()
+}*/

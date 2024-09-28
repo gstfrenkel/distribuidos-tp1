@@ -18,9 +18,10 @@ type MessageBroker interface {
 	QueuesDeclare(name ...string) ([]amqp.Queue, error)
 	ExchangeDeclare(name string, kind string) error
 	ExchangesDeclare(exchange ...Exchange) error
-	QueueBind(name string, key string, exchange string) error
+	QueueBind(name, key, exchange string) error
 	QueuesBind(binds ...QueueBind) error
-	ExchangeBind(dst string, key string, src string) error
-	Publish(exchange string, key string, msgId uint8, msg []byte) error
+	ExchangeBind(dst, key, src string) error
+	Publish(exchange, key string, msgId uint8, msg []byte) error
+	Consume(queue, consumer string, autoAck, exclusive bool) (<-chan amqp.Delivery, error)
 	Close()
 }

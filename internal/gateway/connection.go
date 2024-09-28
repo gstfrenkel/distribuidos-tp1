@@ -41,7 +41,7 @@ func handleConnection(g *Gateway, conn net.Conn) {
 	for notEof {
 		n, err := conn.Read(data[read:])
 		if err != nil {
-			return //TODO: handle error
+			return //TODO: handle errors
 		}
 
 		read += n
@@ -59,7 +59,7 @@ func handleConnection(g *Gateway, conn net.Conn) {
 			read = 0
 			notEof, err = ParseData(data)
 			if err != nil {
-				return //TODO: handle error
+				return //TODO: handle errors
 			}
 			data = make([]byte, bufferSize)
 		}
