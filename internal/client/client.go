@@ -2,20 +2,27 @@ package client
 
 import (
 	"log"
+	"tp1/pkg/config"
+	"tp1/pkg/config/provider"
 )
 
 type Client struct {
-	// TODO
+	Config config.Config
 }
 
-// NewClient creates a new Client instance with the provided configuration parameters.
-func NewClient() *Client {
-	return &Client{}
+func New() (*Client, error) {
+
+	cfg, err := provider.LoadConfig("config.toml")
+	if err != nil {
+		return nil, err
+	}
+
+	return &Client{
+		Config: cfg,
+	}, nil
 }
 
-// Start launches the client and begins processing queues and files.
 func (c *Client) Start() {
-	log.Println("Client started")
+	log.Println("Client running...")
 
-	// Todo
 }

@@ -6,10 +6,11 @@ all:
 build:
 	docker build -f ./build/review.Dockerfile -t "reviews-filter:latest" .
 	docker build -f ./build/gateway.Dockerfile -t "gateway:latest" .
+	docker build -f ./build/client.Dockerfile -t "client:latest" .
 .PHONY: build
 
 build-client:
-	docker build -f ./client/Dockerfile -t "client:latest" .
+	docker build -f ./build/client.Dockerfile -t "client:latest" .
 .PHONY: build-client
 
 docker-compose-up: build
