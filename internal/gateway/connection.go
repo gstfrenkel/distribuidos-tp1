@@ -39,6 +39,7 @@ func handleConnection(g *Gateway, conn net.Conn) {
 	read, msgId, payloadSize, receivedEof := 0, uint8(0), uint64(0), false
 	data := make([]byte, 0, bufferSize)
 	chunkReviews, chunkGames := make([]byte, 0), make([]byte, 0)
+	reviewsCount, gamesCount := uint8(0), uint8(0)
 
 	for !receivedEof {
 		n, err := conn.Read(data[read:])
@@ -56,14 +57,21 @@ func handleConnection(g *Gateway, conn net.Conn) {
 		}
 
 		if hasReadCompletePayload(read, payloadSize) {
-			receivedEof, err = parsePayload(msgId, data, payloadSize, chunkReviews, chunkGames, serverAddr, clientAddr)
+			receivedEof, err = parsePayload(msgId, data, payloadSize, chunkReviews, chunkGames, serverAddr, clientAddr, &reviewsCount, &gamesCount)
 			if err != nil {
 				return //TODO: handle error
 			}
-			sendChunk(g, msgId, chunkReviews, chunkSize, receivedEof)
-			sendChunk(g, msgId, chunkGames, chunkSize, receivedEof)
+			sendCorrespondingChunk(g, msgId, chunkReviews, chunkSize, receivedEof, chunkGames, &reviewsCount, &gamesCount)
 			msgId, read = 0, len(data)
 		}
+	}
+}
+
+func sendCorrespondingChunk(g *Gateway, msgId uint8, chunkReviews []byte, chunkSize uint8, receivedEof bool, chunkGames []byte, reviewsCount *uint8, gamesCount *uint8) {
+	if msgId == uint8(message.ReviewIdMsg) {
+		sendChunk(g, msgId, chunkReviews, chunkSize, receivedEof, reviewsCount)
+	} else {
+		sendChunk(g, msgId, chunkGames, chunkSize, receivedEof, gamesCount)
 	}
 }
 
@@ -90,14 +98,15 @@ func hasReadId(read int, msgId uint8) bool {
 	return read >= MsgIdSize && msgId == 0
 }
 
-func sendChunk(g *Gateway, key uint8, chunk []byte, maxChunkSize uint8, endOfFile bool) {
-	currentChunkSize := uint8(len(chunk))
-	if currentChunkSize == maxChunkSize || endOfFile {
-		auxChunk := make([]byte, currentChunkSize)
-		auxChunk = append(auxChunk, currentChunkSize)
+func sendChunk(g *Gateway, key uint8, chunk []byte, maxChunkLen uint8, endOfFile bool, count *uint8) {
+	if (*count == maxChunkLen || endOfFile) && *count > 0 {
+		auxChunk := make([]byte, *count)
+		auxChunk = append(auxChunk, key)
+		auxChunk = append(auxChunk, *count)
 		auxChunk = append(auxChunk, chunk...)
 
 		err := g.broker.Publish(g.exchange, string(key), auxChunk)
+		*count = 0
 		if err != nil { //TODO: handle error
 			return
 		}
@@ -107,7 +116,11 @@ func sendChunk(g *Gateway, key uint8, chunk []byte, maxChunkSize uint8, endOfFil
 // parsePayload parses the data received from the client and appends it to the corresponding chunk
 // Returns true if the end of the file was reached
 // Moves the buffer payloadLen positions
-func parsePayload(msgId uint8, payload []byte, payloadLen uint64, chunkR []byte, chunkG []byte, serverAddr []byte, clientAddr []byte) (bool, error) {
+func parsePayload(msgId uint8, payload []byte,
+	payloadLen uint64, chunkR []byte,
+	chunkG []byte, serverAddr []byte, clientAddr []byte,
+	reviewsCount *uint8, gamesCount *uint8) (bool, error) {
+
 	if isEndOfFile(msgId) {
 		return true, nil
 	}
@@ -126,18 +139,20 @@ func parsePayload(msgId uint8, payload []byte, payloadLen uint64, chunkR []byte,
 		return false, err
 	}
 
-	addToChunk(msgId, chunkR, newMsg, chunkG)
+	addToChunk(msgId, chunkR, newMsg, chunkG, reviewsCount, gamesCount)
 	payload = payload[:payloadLen]
 
 	return false, nil
 }
 
-func addToChunk(msgId uint8, chunkR []byte, newMsg *bytes.Buffer, chunkG []byte) {
+func addToChunk(msgId uint8, chunkR []byte, newMsg *bytes.Buffer, chunkG []byte, reviewsCount *uint8, gamesCount *uint8) {
 	switch msgId {
 	case uint8(message.ReviewIdMsg):
 		chunkR = append(chunkR, newMsg.Bytes()...)
+		*reviewsCount += 1
 	case uint8(message.GameIdMsg):
 		chunkG = append(chunkG, newMsg.Bytes()...)
+		*gamesCount += 1
 	}
 }
 
