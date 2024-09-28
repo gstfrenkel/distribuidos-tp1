@@ -8,6 +8,9 @@ import (
 
 const MessageIdHeader = "x-message-id"
 
+type Delivery = amqp.Delivery
+type Publishing = amqp.Publishing
+
 type messageBroker struct {
 	conn *amqp.Connection
 	ch   *amqp.Channel
@@ -93,11 +96,11 @@ func (b *messageBroker) Publish(exchange, key string, msgId uint8, msg []byte) e
 	return b.ch.Publish(exchange, key, true, false, publishingFromBytes(msgId, msg))
 }
 
-func (b *messageBroker) Consume(queue, consumer string, autoAck, exclusive bool) (<-chan amqp.Delivery, error) {
+func (b *messageBroker) Consume(queue, consumer string, autoAck, exclusive bool) (<-chan Delivery, error) {
 	return b.ch.Consume(queue, consumer, autoAck, exclusive, false, false, nil)
 }
 
-func publishingFromBytes(msgId uint8, msg []byte) amqp.Publishing {
+func publishingFromBytes(msgId uint8, msg []byte) Publishing {
 	return amqp.Publishing{
 		ContentType: "application/octet-stream",
 		Headers:     map[string]interface{}{MessageIdHeader: msgId},

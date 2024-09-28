@@ -2,7 +2,11 @@ package review
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
+
 	"tp1/internal/errors"
 	"tp1/pkg/broker"
 	"tp1/pkg/broker/amqpconn"
@@ -22,8 +26,9 @@ var (
 )
 
 type Filter struct {
-	config config.Config
-	broker broker.MessageBroker
+	config     config.Config
+	broker     broker.MessageBroker
+	signalChan chan os.Signal
 }
 
 func New() (*Filter, error) {
@@ -37,9 +42,13 @@ func New() (*Filter, error) {
 		return nil, err
 	}
 
+	signalChan := make(chan os.Signal, 2)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+
 	return &Filter{
-		config: cfg,
-		broker: b,
+		config:     cfg,
+		broker:     b,
+		signalChan: signalChan,
 	}, nil
 }
 
@@ -80,32 +89,43 @@ func (f Filter) Start() {
 		return
 	}
 
-	for reviewDelivery := range reviewChan {
-		messageId := message.ID(reviewDelivery.Headers[amqpconn.MessageIdHeader].(uint8))
-
-		if messageId != message.EofMsg && messageId != message.ReviewIdMsg {
-			fmt.Printf(errors.InvalidMessageId.Error(), messageId)
-			continue
-		}
-
-		if messageId == message.EofMsg {
-			if err = f.broker.Publish(exchange, "", uint8(message.EofMsg), reviewDelivery.Body); err != nil {
-				fmt.Printf(errors.FailedToPublish.Error())
+	for {
+		select {
+		case reviewDelivery, ok := <-reviewChan:
+			if !ok {
 				return
 			}
-			continue
+			f.process(reviewDelivery)
+		case sig := <-f.signalChan:
+			fmt.Printf("Received signal: %s. Shutting down...", sig.String())
+			return
 		}
+	}
+}
 
-		msg, err := review.FromBytes(reviewDelivery.Body)
-		if err != nil {
-			fmt.Printf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			continue
-		}
+func (f Filter) process(reviewDelivery amqpconn.Delivery) {
+	messageId := message.ID(reviewDelivery.Headers[amqpconn.MessageIdHeader].(uint8))
 
-		f.publish(msg)
+	if messageId != message.EofMsg && messageId != message.ReviewIdMsg {
+		fmt.Printf(errors.InvalidMessageId.Error(), messageId)
+		return
 	}
 
-	fmt.Println("Chauuuu")
+	if messageId == message.EofMsg {
+		if err := f.broker.Publish(exchange, "", uint8(message.EofMsg), reviewDelivery.Body); err != nil {
+			fmt.Printf(errors.FailedToPublish.Error())
+			return
+		}
+		return
+	}
+
+	msg, err := review.FromBytes(reviewDelivery.Body)
+	if err != nil {
+		fmt.Printf("%s: %s", errors.FailedToParse.Error(), err.Error())
+		return
+	}
+
+	f.publish(msg)
 }
 
 func (f Filter) publish(msg review.Message) {
