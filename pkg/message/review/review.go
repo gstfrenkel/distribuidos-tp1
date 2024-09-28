@@ -1,117 +1,86 @@
 package review
 
 import (
-	"bytes"
+	"fmt"
+	"tp1/pkg/message/positive_review"
+	"tp1/pkg/message/scored_review"
+	"tp1/pkg/message/utils"
 
-	"tp1/pkg/ioutils"
 	msg "tp1/pkg/message"
 )
 
+const positiveReviewScore = 1
+
+type messages []message
+
 type message struct {
-	appId       int64
-	appName     string
-	reviewText  string
-	reviewScore int64
-	reviewVotes int64
+	gameId   int64
+	gameName string
+	text     string
+	score    int8
 }
 
-func New(appId int64, appName string, reviewText string, reviewScore int64, reviewVotes int64) msg.Message {
-	return &message{
-		appId:       appId,
-		appName:     appName,
-		reviewText:  reviewText,
-		reviewScore: reviewScore,
-		reviewVotes: reviewVotes,
-	}
+func New(gameId int64, text string, score int8) msg.Message {
+	return &messages{{gameId: gameId, text: text, score: score}}
 }
 
 func FromBytes(b []byte) (msg.Message, error) {
-	buf := bytes.NewBuffer(b)
-
-	var msgId msg.ID
-	var msgLen uint64
-	fields := []interface{}{
-		&msgId,
-		&msgLen,
-	}
-
-	err := ioutils.ReadBytesFromBuff(fields, buf)
-	if err != nil {
-		return nil, err
-	}
-
-	appId, err := ioutils.ReadI64(buf)
-	if err != nil {
-		return nil, err
-	}
-
-	appNameLen, err := ioutils.ReadU64(buf)
-	if err != nil {
-		return nil, err
-	}
-
-	appName, err := ioutils.ReadString(buf, appNameLen)
-	if err != nil {
-		return nil, err
-	}
-
-	reviewTextLen, err := ioutils.ReadU64(buf)
-	if err != nil {
-		return nil, err
-	}
-
-	reviewText, err := ioutils.ReadString(buf, reviewTextLen)
-	if err != nil {
-		return nil, err
-	}
-
-	reviewScore, err := ioutils.ReadI64(buf)
-	if err != nil {
-		return nil, err
-	}
-
-	reviewVotes, err := ioutils.ReadI64(buf)
-	if err != nil {
-		return nil, err
-	}
-
-	return &message{
-		appId:       appId,
-		appName:     appName,
-		reviewText:  reviewText,
-		reviewScore: reviewScore,
-		reviewVotes: reviewVotes,
-	}, nil
+	return messages{}, nil
 }
 
-func (m *message) ToBytes() ([]byte, error) {
-	buf := new(bytes.Buffer)
-	fields := []interface{}{
-		m.appId,
-		uint64(len(m.appName)), []byte(m.appName),
-		uint64(len(m.reviewText)), []byte(m.reviewText),
-		m.reviewScore,
-		m.reviewVotes,
+func (ms messages) ToBytes() ([]byte, error) {
+	return nil, nil
+}
+
+func (ms messages) ToMessage(id msg.ID) (msg.Message, error) {
+	switch id {
+	case msg.PositiveReviewID:
+		return ms.toReviewMessage(false), nil
+	case msg.NegativeReviewID:
+		return ms.toReviewMessage(true), nil
+	case msg.PositiveReviewWithTextID:
+		return ms.toPositiveReviewWithTextMessage(), nil
+	default:
+		return nil, fmt.Errorf(msg.ErrFailedToConvert.Error(), id)
+	}
+}
+
+func (ms messages) toReviewMessage(negative bool) msg.Message {
+	reviewMsg := map[utils.Key]int64{}
+
+	for _, m := range ms {
+		if m.isPositive() == negative {
+			continue
+		}
+
+		key := utils.Key{GameId: m.gameId, GameName: m.gameName}
+
+		if count, exists := reviewMsg[key]; exists {
+			reviewMsg[key] = count + 1
+		} else {
+			reviewMsg[key] = 1
+		}
 	}
 
-	err := ioutils.WriteBytesToBuff(fields, buf)
-	if err != nil {
-		return nil, err
+	return scored_review.New(reviewMsg)
+}
+
+func (ms messages) toPositiveReviewWithTextMessage() msg.Message {
+	reviewMsg := map[utils.Key][]string{}
+
+	for _, m := range ms {
+		key := utils.Key{GameId: m.gameId, GameName: m.gameName}
+
+		if _, exists := reviewMsg[key]; exists {
+			reviewMsg[key] = append(reviewMsg[key], m.text)
+		} else {
+			reviewMsg[key] = []string{m.text}
+		}
 	}
 
-	msgLen := uint64(buf.Len())
-	finalBuf := new(bytes.Buffer)
+	return positive_review.New(reviewMsg)
+}
 
-	fields = []interface{}{
-		msg.ReviewIdMsg,
-		msgLen,
-		buf.Bytes(),
-	}
-
-	err = ioutils.WriteBytesToBuff(fields, finalBuf)
-	if err != nil {
-		return nil, err
-	}
-
-	return finalBuf.Bytes(), nil
+func (m message) isPositive() bool {
+	return m.score == positiveReviewScore
 }
