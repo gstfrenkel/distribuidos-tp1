@@ -2,6 +2,10 @@ package review
 
 import (
 	"fmt"
+	msg "tp1/pkg/message"
+	"tp1/pkg/message/scored_review"
+	"tp1/pkg/message/utils"
+
 	"tp1/pkg/broker"
 	"tp1/pkg/broker/amqpconn"
 	"tp1/pkg/config"
@@ -14,8 +18,6 @@ type Filter struct {
 }
 
 func New() (*Filter, error) {
-	fmt.Println("Holaaaa")
-
 	cfg, err := provider.LoadConfig("config.toml")
 	if err != nil {
 		return nil, err
@@ -45,6 +47,22 @@ func (f Filter) Init() error {
 
 func (f Filter) Start() {
 	defer f.broker.Close()
+
+	original := scored_review.New(map[utils.Key]int64{
+		utils.Key{GameId: 1, GameName: "Game1"}: 4,
+		utils.Key{GameId: 2, GameName: "Game1"}: 1,
+		utils.Key{GameId: 3, GameName: "Game1"}: 8,
+	})
+
+	b, err := original.ToBytes()
+	if err != nil {
+		fmt.Printf("\n\nErrorrrrrr: %s\n\n", err.Error())
+		return
+	}
+	if err = f.broker.Publish("reviews", "", uint8(msg.PositiveReviewID), b); err != nil {
+		fmt.Printf("\n\nErrorrrrrr: %s\n\n", err.Error())
+		return
+	}
 
 	fmt.Println("Chauuuu")
 }

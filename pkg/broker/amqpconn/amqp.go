@@ -87,13 +87,14 @@ func (b *messageBroker) ExchangeBind(dst string, key string, src string) error {
 }
 
 // Publish sends a message to an exchange
-func (b *messageBroker) Publish(exchange string, key string, msg []byte) error {
-	return b.ch.Publish(exchange, key, true, false, publishingFromBytes(msg))
+func (b *messageBroker) Publish(exchange string, key string, msgId uint8, msg []byte) error {
+	return b.ch.Publish(exchange, key, true, false, publishingFromBytes(msgId, msg))
 }
 
-func publishingFromBytes(msg []byte) amqp.Publishing {
+func publishingFromBytes(msgId uint8, msg []byte) amqp.Publishing {
 	return amqp.Publishing{
 		ContentType: "application/octet-stream",
+		Headers:     map[string]interface{}{"message_id": msgId},
 		Body:        msg,
 	}
 }
