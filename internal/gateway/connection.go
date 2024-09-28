@@ -5,6 +5,8 @@ import (
 	"net"
 	"tp1/pkg/ioutils"
 	"tp1/pkg/message"
+	"tp1/pkg/message/game"
+	"tp1/pkg/message/review"
 )
 
 const MsgIdSize = 1
@@ -57,7 +59,7 @@ func handleConnection(g *Gateway, conn net.Conn) {
 		}
 
 		if hasReadCompletePayload(read, payloadSize) {
-			receivedEof, err = parsePayload(msgId, data, payloadSize, chunkReviews, chunkGames, serverAddr, clientAddr, &reviewsCount, &gamesCount)
+			receivedEof, err = processPayload(msgId, data, payloadSize, chunkReviews, chunkGames, serverAddr, clientAddr, &reviewsCount, &gamesCount)
 			if err != nil {
 				return //TODO: handle error
 			}
@@ -82,7 +84,6 @@ func readPayloadSize(payloadSize *uint64, data []byte, read *int) {
 
 func readId(msgId *uint8, data []byte, read *int) {
 	*msgId = ioutils.ReadU8FromSlice(data)
-	data = data[MsgIdSize:]
 	*read -= MsgIdSize
 }
 
@@ -113,10 +114,10 @@ func sendChunk(g *Gateway, key uint8, chunk []byte, maxChunkLen uint8, endOfFile
 	}
 }
 
-// parsePayload parses the data received from the client and appends it to the corresponding chunk
+// processPayload parses the data received from the client and appends it to the corresponding chunk
 // Returns true if the end of the file was reached
 // Moves the buffer payloadLen positions
-func parsePayload(msgId uint8, payload []byte,
+func processPayload(msgId uint8, payload []byte,
 	payloadLen uint64, chunkR []byte,
 	chunkG []byte, serverAddr []byte, clientAddr []byte,
 	reviewsCount *uint8, gamesCount *uint8) (bool, error) {
@@ -125,10 +126,29 @@ func parsePayload(msgId uint8, payload []byte,
 		return true, nil
 	}
 
+	newMsg, b, err := parsePayload(msgId, payload, payloadLen, serverAddr, clientAddr)
+	if err != nil {
+		return b, err
+	}
+
+	addToChunk(msgId, chunkR, newMsg, chunkG, reviewsCount, gamesCount)
+	payload = payload[:payloadLen]
+
+	return false, nil
+}
+
+func parsePayload(msgId uint8, payload []byte, payloadLen uint64, serverAddr []byte, clientAddr []byte) (*bytes.Buffer, bool, error) {
+	payload = payload[:payloadLen]
+	var msg []byte
+	if msgId == uint8(message.ReviewIdMsg) {
+		msg = parseReviewPayload(payload)
+	} else {
+		msg = parseGamePayload(payload)
+	}
+
 	fields := []interface{}{
 		msgId,
-		payloadLen,
-		payload[:payloadLen],
+		msg,
 		uint64(len(serverAddr)), serverAddr,
 		uint64(len(clientAddr)), clientAddr,
 	}
@@ -136,13 +156,17 @@ func parsePayload(msgId uint8, payload []byte,
 	newMsg := new(bytes.Buffer)
 	err := ioutils.WriteBytesToBuff(fields, newMsg)
 	if err != nil {
-		return false, err
+		return nil, false, err
 	}
+	return newMsg, false, nil
+}
 
-	addToChunk(msgId, chunkR, newMsg, chunkG, reviewsCount, gamesCount)
-	payload = payload[:payloadLen]
+func parseReviewPayload(payload []byte) []byte {
+	return review.FromClientBytes(payload)
+}
 
-	return false, nil
+func parseGamePayload(payload []byte) []byte {
+	return game.FromClientBytes(payload)
 }
 
 func addToChunk(msgId uint8, chunkR []byte, newMsg *bytes.Buffer, chunkG []byte, reviewsCount *uint8, gamesCount *uint8) {

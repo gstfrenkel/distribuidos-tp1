@@ -26,7 +26,7 @@ func TestFromBytes_ValidData(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	newReview, err := review.FromBytes(data)
+	newReview, err := review.FromBytes()
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -42,7 +42,7 @@ func TestFromBytes_ValidData(t *testing.T) {
 func TestFromBytes_InvalidData(t *testing.T) {
 	invalidData := []byte{0, 1, 2, 3, 4}
 
-	_, err := review.FromBytes(invalidData)
+	_, err := review.FromBytes()
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
@@ -56,7 +56,7 @@ func TestFromBytes_EmptyFields(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	newReview, err := review.FromBytes(data)
+	newReview, err := review.FromBytes()
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

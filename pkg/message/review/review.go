@@ -2,6 +2,7 @@ package review
 
 import (
 	"fmt"
+	"tp1/pkg/ioutils"
 	"tp1/pkg/message/positive_review"
 	"tp1/pkg/message/scored_review"
 	"tp1/pkg/message/utils"
@@ -24,8 +25,19 @@ func New(gameId int64, text string, score int8) msg.Message {
 	return &messages{{gameId: gameId, text: text, score: score}}
 }
 
-func FromBytes(b []byte) (msg.Message, error) {
-	return messages{}, nil
+func FromClientBytes(c []byte) []byte {
+	gameId := c[:ioutils.I64Size]
+	c = c[ioutils.I64Size:]
+	gameNameLen := ioutils.ReadU8FromSlice(c)
+	gameName := c[:gameNameLen]
+	c = c[gameNameLen:]
+	textLen := ioutils.ReadU64FromSlice(c)
+	text := c[:textLen]
+	c = c[textLen:]
+	score := uint8(ioutils.ReadI64FromSlice(c))
+	_ = ioutils.ReadI64FromSlice(c) //ReviewVotes
+
+	return append(append(append(append(append(gameId, gameNameLen), gameName...), byte(textLen)), text...), score)
 }
 
 func (ms messages) ToBytes() ([]byte, error) {
