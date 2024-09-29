@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+
 	"tp1/internal/errors"
 	"tp1/internal/worker"
 	"tp1/pkg/broker"
