@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	"tp1/internal/errors"
+	"tp1/internal/worker"
 	"tp1/pkg/broker"
 	"tp1/pkg/broker/amqpconn"
 	"tp1/pkg/config"
@@ -16,26 +18,33 @@ import (
 )
 
 var (
-	exchange          = "reviews"
+	outputExchange = "reviews"
+
 	positiveConsumers = 1
-	positiveKey       = "p%d"
 	negativeConsumers = 1
-	negativeKey       = "n%d"
+
+	positiveKey = "p%d"
+	negativeKey = "n%d"
+
+	input   broker.Aaa
+	outputs []broker.Aaa
 )
 
 type Filter struct {
 	config     config.Config
 	broker     broker.MessageBroker
 	signalChan chan os.Signal
+	id         uint8
+	peers      uint8
 }
 
-func New() (*Filter, error) {
+func New() (worker.Worker, error) {
 	cfg, err := provider.LoadConfig("config.toml")
 	if err != nil {
 		return nil, err
 	}
 
-	b, err := amqpconn.New()
+	b, err := amqpconn.NewBroker()
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +52,11 @@ func New() (*Filter, error) {
 	signalChan := make(chan os.Signal, 2)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 
+	id, _ := strconv.Atoi(os.Getenv("worker-id"))
+
 	return &Filter{
+		id:         uint8(id),
+		peers:      uint8(cfg.Int("exchange.peers", 1)),
 		config:     cfg,
 		broker:     b,
 		signalChan: signalChan,
@@ -51,13 +64,29 @@ func New() (*Filter, error) {
 }
 
 func (f Filter) Init() error {
-	if err := f.broker.ExchangeDeclare(f.config.String("exchange.name", "reviews"), f.config.String("exchange.kind", "direct")); err != nil {
+	outputExchange = f.config.String("exchange.name", "reviews")
+	positiveKey = f.config.String("positive-reviews-sh.key", "p%d")
+	negativeKey = f.config.String("negative-reviews-sh.key", "n%d")
+	positiveConsumers = f.config.Int("positive-reviews-sh.consumers", 1)
+	negativeConsumers = f.config.Int("negative-reviews-sh.consumers", 1)
+
+	if err := f.broker.ExchangeDeclare(broker.Exchange{Name: outputExchange, Kind: f.config.String("outputExchange.kind", "direct")}); err != nil {
 		return err
-	} else if _, err = f.broker.QueuesDeclare(f.queues()...); err != nil {
+	} else if _, err = f.broker.QueueDeclare(f.queues()...); err != nil {
 		return err
-	} else if err = f.broker.QueuesBind(f.binds()...); err != nil {
+	} else if err = f.broker.QueueBind(f.binds()...); err != nil {
 		return err
 	}
+
+	input = broker.Aaa{Exchange: f.config.String("gateway.exchange", "reviews"), Key: f.config.String("gateway.key", "reviews")}
+	outputs = append(outputs, broker.Aaa{Exchange: outputExchange, Key: ""})
+	for i := 0; i < positiveConsumers; i++ {
+		outputs = append(outputs, broker.Aaa{Exchange: outputExchange, Key: fmt.Sprintf(positiveKey, i)})
+	}
+	for i := 0; i < negativeConsumers; i++ {
+		outputs = append(outputs, broker.Aaa{Exchange: outputExchange, Key: fmt.Sprintf(negativeKey, i)})
+	}
+
 	return nil
 }
 
@@ -66,20 +95,22 @@ func (f Filter) Start() {
 
 	b, _ := message.Review{
 		{GameId: 1, GameName: "Game1", Text: "Great game", Score: 1},
-		{GameId: 1, GameName: "Game1", Text: "Great game x2", Score: 1},
-		{GameId: 1, GameName: "Game1", Text: "Bad game", Score: -1},
-		{GameId: 2, GameName: "Game2", Text: "Bad game", Score: -1},
+		{GameId: 2, GameName: "Game2", Text: "Great game", Score: 1},
+		{GameId: 3, GameName: "Game3", Text: "Bad game", Score: -1},
 	}.ToBytes()
 
-	time.Sleep(time.Second * 10)
+	time.Sleep(time.Second * 5)
 
-	_ = f.broker.Publish("gateway", "reviews", uint8(message.ReviewIdMsg), b)
+	if f.id == 1 {
+		for _ = range 10 {
+			_ = f.broker.Publish("gateway", "reviews", uint8(message.ReviewIdMsg), b)
+		}
 
-	exchange = f.config.String("exchange.name", "reviews")
-	positiveKey = f.config.String("positive-reviews-sh.key", "p%d")
-	negativeKey = f.config.String("negative-reviews-sh.key", "n%d")
-	positiveConsumers = f.config.Int("positive-reviews-sh.consumers", 1)
-	negativeConsumers = f.config.Int("negative-reviews-sh.consumers", 1)
+		b, _ = message.Eof{}.ToBytes()
+
+		_ = f.broker.Publish("gateway", "reviews", uint8(message.EofMsg), b)
+		fmt.Printf("\n\nSent EOF to gateway\n\n")
+	}
 
 	reviewChan, err := f.broker.Consume(f.config.String("gateway.queue-name", "reviews"), "", true, false)
 	if err != nil {
@@ -104,33 +135,28 @@ func (f Filter) Start() {
 func (f Filter) process(reviewDelivery amqpconn.Delivery) {
 	messageId := message.ID(reviewDelivery.Headers[amqpconn.MessageIdHeader].(uint8))
 
-	if messageId != message.EofMsg && messageId != message.ReviewIdMsg {
-		fmt.Printf(errors.InvalidMessageId.Error(), messageId)
-		return
-	}
-
 	if messageId == message.EofMsg {
-		if err := f.broker.Publish(exchange, "", uint8(message.EofMsg), reviewDelivery.Body); err != nil {
-			fmt.Printf(errors.FailedToPublish.Error())
+		if err := f.broker.HandleEofMessage(f.id, f.peers, reviewDelivery.Body, input, outputs...); err != nil {
+			fmt.Printf("\n%s\n", errors.FailedToPublish.Error())
+		}
+	} else if messageId == message.ReviewIdMsg {
+		msg, err := message.ReviewFromBytes(reviewDelivery.Body)
+		if err != nil {
+			fmt.Printf("%s: %s", errors.FailedToParse.Error(), err.Error())
 			return
 		}
-		return
-	}
 
-	msg, err := message.ReviewFromBytes(reviewDelivery.Body)
-	if err != nil {
-		fmt.Printf("%s: %s", errors.FailedToParse.Error(), err.Error())
-		return
+		f.publish(msg)
+	} else {
+		fmt.Printf(errors.InvalidMessageId.Error(), messageId)
 	}
-
-	f.publish(msg)
 }
 
 func (f Filter) publish(msg message.Review) {
 	b, err := msg.ToPositiveReviewWithTextMessage().ToBytes()
 	if err != nil {
 		fmt.Printf("%s: %s", errors.FailedToParse.Error(), err.Error())
-	} else if err = f.broker.Publish(exchange, "", uint8(message.EofMsg), b); err != nil {
+	} else if err = f.broker.Publish(outputExchange, "", uint8(message.ReviewID), b); err != nil {
 		fmt.Printf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 
@@ -147,7 +173,7 @@ func (f Filter) shardPublish(reviews message.ScoredReviews, k string, consumers 
 		}
 
 		key := fmt.Sprintf(k, rv.GameId%int64(consumers))
-		if err = f.broker.Publish(exchange, key, uint8(message.EofMsg), b); err != nil {
+		if err = f.broker.Publish(outputExchange, key, uint8(message.ReviewID), b); err != nil {
 			fmt.Printf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	}

@@ -23,7 +23,7 @@ func (f Filter) queues() []string {
 }
 
 func (f Filter) binds() []broker.QueueBind {
-	ex := f.config.String("exchange.publishing-name", "reviews")
+	ex := f.config.String("outputExchange.publishing-name", "reviews")
 
 	b := []broker.QueueBind{{
 		Name:     f.config.String("positive-reviews.queue-name", "positive_reviews"),

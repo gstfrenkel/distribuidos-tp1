@@ -27,7 +27,7 @@ func New() (*Gateway, error) {
 		return nil, err
 	}
 
-	b, err := amqpconn.New()
+	b, err := amqpconn.NewBroker()
 	if err != nil {
 		return nil, err
 	}

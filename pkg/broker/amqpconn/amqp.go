@@ -2,6 +2,7 @@ package amqpconn
 
 import (
 	"tp1/pkg/broker"
+	"tp1/pkg/message"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -16,8 +17,8 @@ type messageBroker struct {
 	ch   *amqp.Channel
 }
 
-// New creates a new AMQP connection and channel
-func New() (broker.MessageBroker, error) {
+// NewBroker creates a new AMQP connection and channel
+func NewBroker() (broker.MessageBroker, error) {
 	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq:5672/")
 	if err != nil {
 		return nil, err
@@ -35,13 +36,8 @@ func New() (broker.MessageBroker, error) {
 	}, nil
 }
 
-// QueueDeclare declares a new queue
-func (b *messageBroker) QueueDeclare(name string) (amqp.Queue, error) {
-	return b.ch.QueueDeclare(name, true, false, false, false, nil)
-}
-
-// QueuesDeclare declares new queues
-func (b *messageBroker) QueuesDeclare(names ...string) ([]amqp.Queue, error) {
+// QueueDeclare declares new queues
+func (b *messageBroker) QueueDeclare(names ...string) ([]amqp.Queue, error) {
 	var queues []amqp.Queue
 
 	for _, n := range names {
@@ -56,28 +52,18 @@ func (b *messageBroker) QueuesDeclare(names ...string) ([]amqp.Queue, error) {
 	return queues, nil
 }
 
-// ExchangeDeclare declares a new exchange
-func (b *messageBroker) ExchangeDeclare(name, kind string) error {
-	return b.ch.ExchangeDeclare(name, kind, true, false, false, false, nil)
-}
-
-// ExchangesDeclare declares new exchanges.
-func (b *messageBroker) ExchangesDeclare(exchanges ...broker.Exchange) error {
+// ExchangeDeclare declares new exchanges.
+func (b *messageBroker) ExchangeDeclare(exchanges ...broker.Exchange) error {
 	for _, ex := range exchanges {
-		if err := b.ExchangeDeclare(ex.Name, ex.Kind); err != nil {
+		if err := b.ch.ExchangeDeclare(ex.Name, ex.Kind, true, false, false, false, nil); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// QueueBind binds a queue to an exchange
-func (b *messageBroker) QueueBind(name, key, exchange string) error {
-	return b.ch.QueueBind(name, key, exchange, false, nil)
-}
-
-// QueuesBind binds queues to their respective exchanges.
-func (b *messageBroker) QueuesBind(binds ...broker.QueueBind) error {
+// QueueBind binds queues to their respective exchanges.
+func (b *messageBroker) QueueBind(binds ...broker.QueueBind) error {
 	for _, bind := range binds {
 		if err := b.ch.QueueBind(bind.Name, bind.Key, bind.Exchange, false, nil); err != nil {
 			return err
@@ -100,15 +86,41 @@ func (b *messageBroker) Consume(queue, consumer string, autoAck, exclusive bool)
 	return b.ch.Consume(queue, consumer, autoAck, exclusive, false, false, nil)
 }
 
+func (b *messageBroker) HandleEofMessage(workerId uint8, peers uint8, msg []byte, input broker.Aaa, outputs ...broker.Aaa) error {
+	workersVisited, err := message.EofFromBytes(msg)
+	if err != nil {
+		return err
+	}
+
+	if !workersVisited.Contains(workerId) {
+		workersVisited = append(workersVisited, workerId)
+	}
+
+	if uint8(len(workersVisited)) < peers {
+		bytes, err := workersVisited.ToBytes()
+		if err != nil {
+			return err
+		}
+		return b.Publish(input.Exchange, input.Key, uint8(message.EofMsg), bytes)
+	}
+
+	for _, output := range outputs {
+		if err = b.Publish(output.Exchange, output.Key, uint8(message.EofMsg), message.Eof{}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *messageBroker) Close() {
+	_ = b.conn.Close()
+	_ = b.ch.Close()
+}
+
 func publishingFromBytes(msgId uint8, msg []byte) Publishing {
 	return amqp.Publishing{
 		ContentType: "application/octet-stream",
 		Headers:     map[string]interface{}{MessageIdHeader: msgId},
 		Body:        msg,
 	}
-}
-
-func (b *messageBroker) Close() {
-	_ = b.conn.Close()
-	_ = b.ch.Close()
 }
