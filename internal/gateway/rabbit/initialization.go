@@ -1,9 +1,10 @@
 package rabbit
 
 import (
-	"github.com/rabbitmq/amqp091-go"
 	"tp1/pkg/broker"
 	"tp1/pkg/config"
+
+	"github.com/rabbitmq/amqp091-go"
 )
 
 func CreateQueues(err error, b broker.MessageBroker, cfg config.Config) (amqp091.Queue, amqp091.Queue, error) {
