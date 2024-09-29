@@ -6,7 +6,6 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
-	"time"
 
 	"tp1/internal/errors"
 	"tp1/internal/worker"
@@ -93,21 +92,6 @@ func (f Filter) Init() error {
 func (f Filter) Start() {
 	defer f.broker.Close()
 
-	b, _ := message.Review{
-		{GameId: 1, GameName: "Game1", Text: "Great game", Score: 1},
-		{GameId: 2, GameName: "Game2", Text: "Great game", Score: 1},
-		{GameId: 3, GameName: "Game3", Text: "Bad game", Score: -1},
-	}.ToBytes()
-	time.Sleep(time.Second * 5)
-	if f.id == 1 {
-		for _ = range 100 {
-			_ = f.broker.Publish("gateway", "reviews", uint8(message.ReviewIdMsg), b)
-		}
-		b, _ = message.Eof{}.ToBytes()
-		_ = f.broker.Publish("gateway", "reviews", uint8(message.EofMsg), b)
-		fmt.Printf("\n\nSent EOF to gateway\n\n")
-	}
-
 	reviewChan, err := f.broker.Consume(f.config.String("gateway.queue-name", "reviews"), "", true, false)
 	if err != nil {
 		println(err.Error())
@@ -141,15 +125,15 @@ func (f Filter) publish(msg message.Review) {
 	b, err := msg.ToPositiveReviewWithTextMessage().ToBytes()
 	if err != nil {
 		fmt.Printf("%s: %s", errors.FailedToParse.Error(), err.Error())
-	} else if err = f.broker.Publish(outputExchange, "", uint8(message.ReviewID), b); err != nil {
+	} else if err = f.broker.Publish(outputExchange, "", uint8(message.PositiveReviewWithTextID), b); err != nil {
 		fmt.Printf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 
-	f.shardPublish(msg.ToPositiveReviewMessage(), positiveKey, positiveConsumers)
-	f.shardPublish(msg.ToNegativeReviewMessage(), negativeKey, negativeConsumers)
+	f.shardPublish(msg.ToPositiveReviewMessage(), positiveKey, positiveConsumers, uint8(message.PositiveReviewID))
+	f.shardPublish(msg.ToNegativeReviewMessage(), negativeKey, negativeConsumers, uint8(message.NegativeReviewID))
 }
 
-func (f Filter) shardPublish(reviews message.ScoredReviews, k string, consumers int) {
+func (f Filter) shardPublish(reviews message.ScoredReviews, k string, consumers int, id uint8) {
 	for _, rv := range reviews {
 		b, err := rv.ToBytes()
 		if err != nil {
@@ -158,7 +142,7 @@ func (f Filter) shardPublish(reviews message.ScoredReviews, k string, consumers 
 		}
 
 		key := fmt.Sprintf(k, rv.GameId%int64(consumers))
-		if err = f.broker.Publish(outputExchange, key, uint8(message.ReviewID), b); err != nil {
+		if err = f.broker.Publish(outputExchange, key, id, b); err != nil {
 			fmt.Printf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	}

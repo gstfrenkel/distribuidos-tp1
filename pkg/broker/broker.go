@@ -20,6 +20,6 @@ type MessageBroker interface {
 	ExchangeBind(dst, key, src string) error
 	Publish(exchange, key string, msgId uint8, msg []byte) error
 	Consume(queue, consumer string, autoAck, exclusive bool) (<-chan amqp.Delivery, error)
-	HandleEofMessage(workerId uint8, peers uint8, msg []byte, input Destination, outputs ...Destination) error
+	HandleEofMessage(workerId, peers uint8, msg []byte, input Destination, outputs ...Destination) error
 	Close()
 }

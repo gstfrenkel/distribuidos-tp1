@@ -86,7 +86,7 @@ func (b *messageBroker) Consume(queue, consumer string, autoAck, exclusive bool)
 	return b.ch.Consume(queue, consumer, autoAck, exclusive, false, false, nil)
 }
 
-func (b *messageBroker) HandleEofMessage(workerId uint8, peers uint8, msg []byte, input broker.Destination, outputs ...broker.Destination) error {
+func (b *messageBroker) HandleEofMessage(workerId, peers uint8, msg []byte, input broker.Destination, outputs ...broker.Destination) error {
 	workersVisited, err := message.EofFromBytes(msg)
 	if err != nil {
 		return err
