@@ -1,10 +1,6 @@
-package review
+package message
 
 import (
-	"bytes"
-	"encoding/gob"
-	"tp1/pkg/message/scored_review"
-	"tp1/pkg/message/text_review"
 	"tp1/pkg/message/utils"
 )
 
@@ -13,40 +9,32 @@ const (
 	negativeReviewScore = -1
 )
 
-type Message []struct {
+type Review []struct {
 	GameId   int64
 	GameName string
 	Text     string
 	Score    int8
 }
 
-func FromBytes(b []byte) (Message, error) {
-	var m Message
-	dec := gob.NewDecoder(bytes.NewBuffer(b))
-	return m, dec.Decode(&m)
+func ReviewFromBytes(b []byte) (Review, error) {
+	var m Review
+	return m, fromBytes(b, &m)
 }
 
-func (m Message) ToBytes() ([]byte, error) {
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-
-	if err := enc.Encode(m); err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
+func (m Review) ToBytes() ([]byte, error) {
+	return toBytes(m)
 }
 
-func (m Message) ToPositiveReviewMessage() scored_review.Messages {
+func (m Review) ToPositiveReviewMessage() ScoredReviews {
 	return m.toScoredReviewMessage(positiveReviewScore)
 }
 
-func (m Message) ToNegativeReviewMessage() scored_review.Messages {
+func (m Review) ToNegativeReviewMessage() ScoredReviews {
 	return m.toScoredReviewMessage(negativeReviewScore)
 }
 
-func (m Message) toScoredReviewMessage(targetScore int8) scored_review.Messages {
-	scoredReviewMsg := scored_review.Messages{}
+func (m Review) toScoredReviewMessage(targetScore int8) ScoredReviews {
+	scoredReviewMsg := ScoredReviews{}
 	gameVotesMap := map[int64]int64{}
 	gameNamesMap := map[int64]string{}
 
@@ -64,14 +52,14 @@ func (m Message) toScoredReviewMessage(targetScore int8) scored_review.Messages 
 	}
 
 	for k, v := range gameVotesMap {
-		scoredReviewMsg = append(scoredReviewMsg, scored_review.Message{GameId: k, GameName: gameNamesMap[k], Votes: v})
+		scoredReviewMsg = append(scoredReviewMsg, ScoredReview{GameId: k, GameName: gameNamesMap[k], Votes: v})
 	}
 
 	return scoredReviewMsg
 }
 
-func (m Message) ToPositiveReviewWithTextMessage() text_review.Message {
-	textReviewMessage := text_review.Message{}
+func (m Review) ToPositiveReviewWithTextMessage() TextReview {
+	textReviewMessage := TextReview{}
 
 	for _, reviewMsg := range m {
 		key := utils.Key{GameId: reviewMsg.GameId, GameName: reviewMsg.GameName}

@@ -21,7 +21,7 @@ docker-compose-up-client: build-client
 .PHONY: docker-compose-client
 
 docker-compose-down:
-	docker compose -f docker-compose.yaml stop -t 1
+	docker compose -f docker-compose.yaml stop
 	docker compose -f docker-compose.yaml down
 .PHONY: docker-compose-down
 

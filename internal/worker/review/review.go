@@ -13,8 +13,6 @@ import (
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
 	"tp1/pkg/message"
-	"tp1/pkg/message/review"
-	"tp1/pkg/message/scored_review"
 )
 
 var (
@@ -66,7 +64,7 @@ func (f Filter) Init() error {
 func (f Filter) Start() {
 	defer f.broker.Close()
 
-	b, _ := review.Message{
+	b, _ := message.Review{
 		{GameId: 1, GameName: "Game1", Text: "Great game", Score: 1},
 		{GameId: 1, GameName: "Game1", Text: "Great game x2", Score: 1},
 		{GameId: 1, GameName: "Game1", Text: "Bad game", Score: -1},
@@ -119,7 +117,7 @@ func (f Filter) process(reviewDelivery amqpconn.Delivery) {
 		return
 	}
 
-	msg, err := review.FromBytes(reviewDelivery.Body)
+	msg, err := message.ReviewFromBytes(reviewDelivery.Body)
 	if err != nil {
 		fmt.Printf("%s: %s", errors.FailedToParse.Error(), err.Error())
 		return
@@ -128,7 +126,7 @@ func (f Filter) process(reviewDelivery amqpconn.Delivery) {
 	f.publish(msg)
 }
 
-func (f Filter) publish(msg review.Message) {
+func (f Filter) publish(msg message.Review) {
 	b, err := msg.ToPositiveReviewWithTextMessage().ToBytes()
 	if err != nil {
 		fmt.Printf("%s: %s", errors.FailedToParse.Error(), err.Error())
@@ -140,7 +138,7 @@ func (f Filter) publish(msg review.Message) {
 	f.shardPublish(msg.ToNegativeReviewMessage(), negativeKey, negativeConsumers)
 }
 
-func (f Filter) shardPublish(reviews scored_review.Messages, k string, consumers int) {
+func (f Filter) shardPublish(reviews message.ScoredReviews, k string, consumers int) {
 	for _, rv := range reviews {
 		b, err := rv.ToBytes()
 		if err != nil {
