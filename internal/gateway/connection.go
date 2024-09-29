@@ -59,21 +59,12 @@ func handleConnection(g *Gateway, conn net.Conn) {
 		}
 
 		if hasReadCompletePayload(read, payloadSize) {
-			receivedEof, err = processPayload(msgId, data, payloadSize, chunkReviews, chunkGames, serverAddr, clientAddr, &reviewsCount, &gamesCount)
+			receivedEof, err = processPayload(g, msgId, data, payloadSize, chunkReviews, chunkGames, serverAddr, clientAddr, &reviewsCount, &gamesCount, chunkSize)
 			if err != nil {
 				return //TODO: handle error
 			}
-			sendCorrespondingChunk(g, msgId, chunkReviews, chunkSize, receivedEof, chunkGames, &reviewsCount, &gamesCount)
 			msgId, read = 0, len(data)
 		}
-	}
-}
-
-func sendCorrespondingChunk(g *Gateway, msgId uint8, chunkReviews []byte, chunkSize uint8, receivedEof bool, chunkGames []byte, reviewsCount *uint8, gamesCount *uint8) {
-	if msgId == uint8(message.ReviewIdMsg) {
-		sendChunk(g, msgId, chunkReviews, chunkSize, receivedEof, reviewsCount)
-	} else {
-		sendChunk(g, msgId, chunkGames, chunkSize, receivedEof, gamesCount)
 	}
 }
 
@@ -106,7 +97,7 @@ func sendChunk(g *Gateway, key uint8, chunk []byte, maxChunkLen uint8, endOfFile
 		auxChunk = append(auxChunk, *count)
 		auxChunk = append(auxChunk, chunk...)
 
-		err := g.broker.Publish(g.exchange, string(key), auxChunk)
+		err := g.broker.Publish(g.exchange, string(key), key, auxChunk)
 		*count = 0
 		if err != nil { //TODO: handle error
 			return
@@ -117,12 +108,13 @@ func sendChunk(g *Gateway, key uint8, chunk []byte, maxChunkLen uint8, endOfFile
 // processPayload parses the data received from the client and appends it to the corresponding chunk
 // Returns true if the end of the file was reached
 // Moves the buffer payloadLen positions
-func processPayload(msgId uint8, payload []byte,
+func processPayload(g *Gateway, msgId uint8, payload []byte,
 	payloadLen uint64, chunkR []byte,
 	chunkG []byte, serverAddr []byte, clientAddr []byte,
-	reviewsCount *uint8, gamesCount *uint8) (bool, error) {
+	reviewsCount *uint8, gamesCount *uint8, chunkSize uint8) (bool, error) {
 
 	if isEndOfFile(msgId) {
+		processChunk(g, msgId, chunkR, nil, chunkG, reviewsCount, gamesCount, chunkSize)
 		return true, nil
 	}
 
@@ -131,7 +123,7 @@ func processPayload(msgId uint8, payload []byte,
 		return b, err
 	}
 
-	addToChunk(msgId, chunkR, newMsg, chunkG, reviewsCount, gamesCount)
+	processChunk(g, msgId, chunkR, newMsg, chunkG, reviewsCount, gamesCount, chunkSize)
 	payload = payload[:payloadLen]
 
 	return false, nil
@@ -147,7 +139,6 @@ func parsePayload(msgId uint8, payload []byte, payloadLen uint64, serverAddr []b
 	}
 
 	fields := []interface{}{
-		msgId,
 		msg,
 		uint64(len(serverAddr)), serverAddr,
 		uint64(len(clientAddr)), clientAddr,
@@ -169,14 +160,18 @@ func parseGamePayload(payload []byte) []byte {
 	return game.FromClientBytes(payload)
 }
 
-func addToChunk(msgId uint8, chunkR []byte, newMsg *bytes.Buffer, chunkG []byte, reviewsCount *uint8, gamesCount *uint8) {
+func processChunk(g *Gateway, msgId uint8, chunkR []byte, newMsg *bytes.Buffer, chunkG []byte, reviewsCount *uint8, gamesCount *uint8, chunkSize uint8) {
 	switch msgId {
 	case uint8(message.ReviewIdMsg):
 		chunkR = append(chunkR, newMsg.Bytes()...)
 		*reviewsCount += 1
+		sendChunk(g, msgId, chunkR, chunkSize, false, reviewsCount)
 	case uint8(message.GameIdMsg):
 		chunkG = append(chunkG, newMsg.Bytes()...)
 		*gamesCount += 1
+		sendChunk(g, msgId, chunkG, chunkSize, false, gamesCount)
+	case uint8(message.EofMsg):
+		sendChunk(g, msgId, chunkR, chunkSize, true, reviewsCount)
 	}
 }
 
