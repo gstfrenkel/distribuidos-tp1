@@ -6,8 +6,6 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
-	"time"
-
 	"tp1/internal/errors"
 	"tp1/internal/worker"
 	"tp1/pkg/broker"
@@ -92,25 +90,6 @@ func (f Filter) Init() error {
 
 func (f Filter) Start() {
 	defer f.broker.Close()
-
-	b, _ := message.Review{
-		{GameId: 1, GameName: "Game1", Text: "Great game", Score: 1},
-		{GameId: 2, GameName: "Game2", Text: "Great game", Score: 1},
-		{GameId: 3, GameName: "Game3", Text: "Bad game", Score: -1},
-	}.ToBytes()
-
-	time.Sleep(time.Second * 5)
-
-	if f.id == 1 {
-		for _ = range 10 {
-			_ = f.broker.Publish("gateway", "reviews", uint8(message.ReviewIdMsg), b)
-		}
-
-		b, _ = message.Eof{}.ToBytes()
-
-		_ = f.broker.Publish("gateway", "reviews", uint8(message.EofMsg), b)
-		fmt.Printf("\n\nSent EOF to gateway\n\n")
-	}
 
 	reviewChan, err := f.broker.Consume(f.config.String("gateway.queue-name", "reviews"), "", true, false)
 	if err != nil {
