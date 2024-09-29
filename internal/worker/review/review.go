@@ -6,7 +6,6 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
-
 	"tp1/internal/errors"
 	"tp1/internal/worker"
 	"tp1/pkg/broker"
@@ -98,18 +97,7 @@ func (f Filter) Start() {
 		return
 	}
 
-	for {
-		select {
-		case reviewDelivery, ok := <-reviewChan:
-			if !ok {
-				return
-			}
-			f.process(reviewDelivery)
-		case sig := <-f.signalChan:
-			fmt.Printf("Received signal: %s. Shutting down...", sig.String())
-			return
-		}
-	}
+	worker.Consume(f.process, f.signalChan, reviewChan)
 }
 
 func (f Filter) process(reviewDelivery amqpconn.Delivery) {
