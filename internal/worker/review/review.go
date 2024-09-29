@@ -25,8 +25,8 @@ var (
 	positiveKey = "p%d"
 	negativeKey = "n%d"
 
-	input   broker.Aaa
-	outputs []broker.Aaa
+	input   broker.Destination
+	outputs []broker.Destination
 )
 
 type Filter struct {
@@ -77,13 +77,13 @@ func (f Filter) Init() error {
 		return err
 	}
 
-	input = broker.Aaa{Exchange: f.config.String("gateway.exchange", "reviews"), Key: f.config.String("gateway.key", "reviews")}
-	outputs = append(outputs, broker.Aaa{Exchange: outputExchange, Key: ""})
+	input = broker.Destination{Exchange: f.config.String("gateway.exchange", "reviews"), Key: f.config.String("gateway.key", "reviews")}
+	outputs = append(outputs, broker.Destination{Exchange: outputExchange, Key: ""})
 	for i := 0; i < positiveConsumers; i++ {
-		outputs = append(outputs, broker.Aaa{Exchange: outputExchange, Key: fmt.Sprintf(positiveKey, i)})
+		outputs = append(outputs, broker.Destination{Exchange: outputExchange, Key: fmt.Sprintf(positiveKey, i)})
 	}
 	for i := 0; i < negativeConsumers; i++ {
-		outputs = append(outputs, broker.Aaa{Exchange: outputExchange, Key: fmt.Sprintf(negativeKey, i)})
+		outputs = append(outputs, broker.Destination{Exchange: outputExchange, Key: fmt.Sprintf(negativeKey, i)})
 	}
 
 	return nil
