@@ -7,6 +7,11 @@ type Exchange struct {
 	Kind string
 }
 
+type Destination struct {
+	Exchange string
+	Key      string
+}
+
 type QueueBind struct {
 	Name     string
 	Key      string
@@ -14,13 +19,12 @@ type QueueBind struct {
 }
 
 type MessageBroker interface {
-	QueueDeclare(name string) (amqp.Queue, error)
-	QueuesDeclare(name ...string) ([]amqp.Queue, error)
-	ExchangeDeclare(name string, kind string) error
-	ExchangesDeclare(exchange ...Exchange) error
-	QueueBind(name string, key string, exchange string) error
-	QueuesBind(binds ...QueueBind) error
-	ExchangeBind(dst string, key string, src string) error
-	Publish(exchange string, key string, msgId uint8, msg []byte) error
+	QueueDeclare(name ...string) ([]amqp.Queue, error)
+	ExchangeDeclare(exchange ...Exchange) error
+	QueueBind(binds ...QueueBind) error
+	ExchangeBind(dst, key, src string) error
+	Publish(exchange, key string, msgId uint8, msg []byte) error
+	Consume(queue, consumer string, autoAck, exclusive bool) (<-chan amqp.Delivery, error)
+	HandleEofMessage(workerId uint8, peers uint8, msg []byte, input Destination, outputs ...Destination) error
 	Close()
 }

@@ -1,17 +1,22 @@
 [gateway]
-queue-name = "reviews"
+exchange = "gateway"
+queue = "reviews"
+key = "reviews"
 
 [exchange]
 name = "reviews"
 kind = "direct"
+peers = 2
 
 [positive-reviews]
 queue-name = "positive_reviews"
 
 [positive-reviews-sh]
-consumers = 1
+consumers = 2
 queue-name = "positive_reviews_%d"
+key = "p%d"
 
 [negative-reviews-sh]
-consumers = 1
+consumers = 2
 queue-name = "negative_reviews_%d"
+key = "n%d"

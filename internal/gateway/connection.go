@@ -46,7 +46,7 @@ func handleConnection(g *Gateway, conn net.Conn) {
 	for !receivedEof {
 		n, err := conn.Read(data[read:])
 		if err != nil {
-			return //TODO: handle error
+			return //TODO: handle errors
 		}
 
 		read += n
@@ -61,7 +61,7 @@ func handleConnection(g *Gateway, conn net.Conn) {
 		if hasReadCompletePayload(read, payloadSize) {
 			receivedEof, err = processPayload(g, msgId, data, payloadSize, chunkReviews, chunkGames, serverAddr, clientAddr, &reviewsCount, &gamesCount, chunkSize)
 			if err != nil {
-				return //TODO: handle error
+				return //TODO: handle errors
 			}
 			msgId, read = 0, len(data)
 		}

@@ -16,8 +16,21 @@ services:
   reviews-filter-1:
     container_name: reviews-filter-1
     image: reviews-filter:latest
+    environment:
+      - worker-id=1
     depends_on:
       - rabbitmq
+      - gateway
     links:
       - rabbitmq
 
+  reviews-filter-2:
+    container_name: reviews-filter-2
+    image: reviews-filter:latest
+    environment:
+      - worker-id=2
+    depends_on:
+      - rabbitmq
+      - gateway
+    links:
+      - rabbitmq
