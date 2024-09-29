@@ -23,8 +23,7 @@ func CreateQueues(err error, b broker.MessageBroker, cfg config.Config) (amqp091
 
 func CreateExchange(cfg config.Config, err error, b broker.MessageBroker) (string, error) {
 	exchangeName := cfg.String("rabbitmq.exchange_name", "e")
-	err = b.ExchangeDeclare(broker.Exchange{Name: exchangeName, Kind: cfg.String("rabbitmq.exchange_type", "direct")})
-	if err != nil {
+	if err := b.ExchangeDeclare(map[string]string{exchangeName: cfg.String("rabbitmq.exchange_type", "direct")}); err != nil {
 		b.Close()
 		return "", err
 	}

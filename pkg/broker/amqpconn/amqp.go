@@ -53,9 +53,9 @@ func (b *messageBroker) QueueDeclare(names ...string) ([]amqp.Queue, error) {
 }
 
 // ExchangeDeclare declares new exchanges.
-func (b *messageBroker) ExchangeDeclare(exchanges ...broker.Exchange) error {
-	for _, ex := range exchanges {
-		if err := b.ch.ExchangeDeclare(ex.Name, ex.Kind, true, false, false, false, nil); err != nil {
+func (b *messageBroker) ExchangeDeclare(exchanges map[string]string) error {
+	for name, kind := range exchanges {
+		if err := b.ch.ExchangeDeclare(name, kind, true, false, false, false, nil); err != nil {
 			return err
 		}
 	}
