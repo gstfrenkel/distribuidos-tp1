@@ -5,6 +5,7 @@ all:
 
 build:
 	docker build -f ./build/review.Dockerfile -t "reviews-filter:latest" .
+	docker build -f ./build/gateway.Dockerfile -t "gateway:latest" .
 .PHONY: build
 
 build-client:
