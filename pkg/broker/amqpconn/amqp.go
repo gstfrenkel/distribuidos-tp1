@@ -53,9 +53,9 @@ func (b *messageBroker) QueueDeclare(names ...string) ([]amqp.Queue, error) {
 }
 
 // ExchangeDeclare declares new exchanges.
-func (b *messageBroker) ExchangeDeclare(exchanges ...broker.Exchange) error {
-	for _, ex := range exchanges {
-		if err := b.ch.ExchangeDeclare(ex.Name, ex.Kind, true, false, false, false, nil); err != nil {
+func (b *messageBroker) ExchangeDeclare(exchanges map[string]string) error {
+	for name, kind := range exchanges {
+		if err := b.ch.ExchangeDeclare(name, kind, true, false, false, false, nil); err != nil {
 			return err
 		}
 	}
@@ -86,7 +86,7 @@ func (b *messageBroker) Consume(queue, consumer string, autoAck, exclusive bool)
 	return b.ch.Consume(queue, consumer, autoAck, exclusive, false, false, nil)
 }
 
-func (b *messageBroker) HandleEofMessage(workerId uint8, peers uint8, msg []byte, input broker.Destination, outputs ...broker.Destination) error {
+func (b *messageBroker) HandleEofMessage(workerId, peers uint8, msg []byte, input broker.Destination, outputs ...broker.Destination) error {
 	workersVisited, err := message.EofFromBytes(msg)
 	if err != nil {
 		return err
