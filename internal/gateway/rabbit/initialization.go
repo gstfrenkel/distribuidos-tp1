@@ -6,22 +6,17 @@ import (
 	"tp1/pkg/config"
 )
 
-func CreateQueues(b broker.MessageBroker, cfg config.Config) (amqp091.Queue, amqp091.Queue, error) {
-	reviewsQ, err := b.QueueDeclare(cfg.String("rabbitmq.reviews_q", "r"))
+func CreateGatewayQueues(b broker.MessageBroker, cfg config.Config) (amqp091.Queue, amqp091.Queue, error) {
+	reviewsAndGamesQ, err := b.QueueDeclare(cfg.String("rabbitmq.reviews_q", "r"), cfg.String("rabbitmq.games_q", "g"))
 	if err != nil {
 		b.Close()
 		return amqp091.Queue{}, amqp091.Queue{}, err
 	}
 
-	gamesQ, err := b.QueueDeclare(cfg.String("rabbitmq.games_q", "g"))
-	if err != nil {
-		b.Close()
-		return amqp091.Queue{}, amqp091.Queue{}, err
-	}
-	return reviewsQ[0], gamesQ[0], nil
+	return reviewsAndGamesQ[0], reviewsAndGamesQ[1], nil
 }
 
-func CreateExchange(cfg config.Config, b broker.MessageBroker) (string, error) {
+func CreateGatewayExchange(cfg config.Config, b broker.MessageBroker) (string, error) {
 	exchangeName := cfg.String("rabbitmq.exchange_name", "e")
 	err := b.ExchangeDeclare(broker.Exchange{Name: exchangeName, Kind: cfg.String("rabbitmq.exchange_type", "direct")})
 	if err != nil {
@@ -31,22 +26,17 @@ func CreateExchange(cfg config.Config, b broker.MessageBroker) (string, error) {
 	return exchangeName, nil
 }
 
-func BindQueuesToExchange(b broker.MessageBroker, reviewsQ string, gamesQ string, cfg config.Config, exchangeName string) error {
+func BindGatewayQueuesToExchange(b broker.MessageBroker, reviewsQ string, gamesQ string, cfg config.Config, exchangeName string) error {
 	err := b.QueueBind(broker.QueueBind{
 		Name:     reviewsQ,
-		Key:      cfg.String("rabbitmq.reviews_routing_key", "r"),
+		Key:      cfg.String("rabbitmq.reviews_routing_key", "1"),
 		Exchange: exchangeName,
-	})
-	if err != nil {
-		b.Close()
-		return err
-	}
-
-	err = b.QueueBind(broker.QueueBind{
+	}, broker.QueueBind{
 		Name:     gamesQ,
-		Key:      cfg.String("rabbitmq.games_routing_key", "g"),
+		Key:      cfg.String("rabbitmq.games_routing_key", "2"),
 		Exchange: exchangeName,
 	})
+
 	if err != nil {
 		b.Close()
 		return err

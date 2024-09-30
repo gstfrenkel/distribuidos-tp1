@@ -35,17 +35,17 @@ func New() (*Gateway, error) {
 		return nil, err
 	}
 
-	reviewsQ, gamesQ, err := rabbit.CreateQueues(b, cfg)
+	reviewsQ, gamesQ, err := rabbit.CreateGatewayQueues(b, cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	exchangeName, err := rabbit.CreateExchange(cfg, b)
+	exchangeName, err := rabbit.CreateGatewayExchange(cfg, b)
 	if err != nil {
 		return nil, err
 	}
 
-	err = rabbit.BindQueuesToExchange(b, reviewsQ.Name, gamesQ.Name, cfg, exchangeName)
+	err = rabbit.BindGatewayQueuesToExchange(b, reviewsQ.Name, gamesQ.Name, cfg, exchangeName)
 	if err != nil {
 		return nil, err
 	}

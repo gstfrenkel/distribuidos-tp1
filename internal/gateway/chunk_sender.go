@@ -30,7 +30,7 @@ func wrapReviewFromClientReview(data any) ([]byte, error) {
 func wrapGamesFromClientGames(data any) ([]byte, error) {
 	//return message.GameFromClientGames(data.([]message.DataCSVGames)) TODO: implement
 	return nil, nil
-}
+} //TODO: implement games
 
 func newChunkSender(channel <-chan ChunkItem, broker broker.MessageBroker, exchange string, chunkMaxSize uint8) *ChunkSender {
 	return &ChunkSender{
@@ -51,11 +51,17 @@ func startChunkSender(channel <-chan ChunkItem, broker broker.MessageBroker, exc
 		item := <-channel
 		switch item.MsgId {
 		case message.ReviewIdMsg:
-			chunkSender.updateReviewsChunk(item.Msg.(message.DataCSVReviews))
+			if item.Msg == nil {
+				chunkSender.updateReviewsChunk(message.DataCSVReviews{}, true) //TODO Handle NPE
+			} else {
+				chunkSender.updateReviewsChunk(item.Msg.(message.DataCSVReviews), false)
+			}
 		case message.GameIdMsg:
-			chunkSender.updateGamesChunk(item.Msg.(message.DataCSVGames))
-		case message.EofMsg: //TODO
-			//chunkSender.sendChunk(uint8(message.EofMsg))
+			if item.Msg == nil {
+				chunkSender.updateGamesChunk(message.DataCSVGames{}, true) //TODO Handle NPE
+			} else {
+				chunkSender.updateGamesChunk(item.Msg.(message.DataCSVGames), false)
+			}
 		default:
 			//TODO: handle error
 		}
@@ -63,20 +69,26 @@ func startChunkSender(channel <-chan ChunkItem, broker broker.MessageBroker, exc
 
 }
 
-func (s ChunkSender) updateReviewsChunk(reviews message.DataCSVReviews) {
-	s.reviewsChunk[s.reviewsCount] = reviews
-	s.reviewsCount++
-	s.sendChunk(uint8(message.ReviewIdMsg), &s.reviewsCount, s.reviewsChunk, wrapReviewFromClientReview)
+func (s ChunkSender) updateReviewsChunk(reviews message.DataCSVReviews, eof bool) {
+	if !eof {
+		s.reviewsChunk[s.reviewsCount] = reviews
+		s.reviewsCount++
+	}
+	s.sendChunk(uint8(message.ReviewIdMsg), &s.reviewsCount, s.reviewsChunk, wrapReviewFromClientReview, eof)
 }
 
-func (s ChunkSender) updateGamesChunk(games message.DataCSVGames) {
-	s.gamesChunk[s.gamesCount] = games
-	s.gamesCount++
-	s.sendChunk(uint8(message.GameIdMsg), &s.gamesCount, s.gamesChunk, wrapGamesFromClientGames)
+func (s ChunkSender) updateGamesChunk(games message.DataCSVGames, eof bool) {
+	if !eof {
+		s.gamesChunk[s.gamesCount] = games
+		s.gamesCount++
+	}
+	s.sendChunk(uint8(message.GameIdMsg), &s.gamesCount, s.gamesChunk, wrapGamesFromClientGames, eof)
 }
 
-func (s ChunkSender) sendChunk(key uint8, count *uint8, chunk any, mapper ToBytes) {
-	if *count == s.maxChunkSize || key == uint8(message.EofMsg) { //TODO: handle EOF
+// sendChunk sends a chunk of data to the broker if the chunk is full or the eof flag is true
+// In case eof is true, it sends an EOF message to the broker
+func (s ChunkSender) sendChunk(key uint8, count *uint8, chunk any, mapper ToBytes, eof bool) {
+	if (*count == s.maxChunkSize) || (eof && *count > 0) {
 		auxChunk := make([]byte, *count)
 		auxChunk = append(auxChunk, key)
 		auxChunk = append(auxChunk, *count)
@@ -87,8 +99,14 @@ func (s ChunkSender) sendChunk(key uint8, count *uint8, chunk any, mapper ToByte
 		auxChunk = append(auxChunk, bytes...)
 
 		err = s.broker.Publish(s.exchange, string(key), key, auxChunk)
+		if err != nil { //TODO: handle error
+			return
+		} //TODO: handle error
+
 		*count = 0
 		chunk = make([]any, s.maxChunkSize)
+	} else if eof {
+		err := s.broker.Publish(s.exchange, string(key), key, []byte(uint8(message.EofMsg)))
 		if err != nil { //TODO: handle error
 			return
 		}
