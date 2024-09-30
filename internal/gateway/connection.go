@@ -88,7 +88,7 @@ func hasReadId(read int, msgId uint8) bool {
 // Moves the buffer payloadLen positions
 func processPayload(g *Gateway, msgId message.ID, payload []byte, payloadLen uint64) (bool, error) {
 
-	if isEndOfFile(payload) {
+	if isEndOfFile(payloadLen) {
 		sendMsgToChunkSender(g, msgId, nil)
 		return true, nil
 	}
@@ -132,6 +132,6 @@ func sendMsgToChunkSender(g *Gateway, msgId message.ID, newMsg any) {
 	g.ChunkChan <- ChunkItem{msgId, newMsg}
 }
 
-func isEndOfFile(payload []byte) bool {
-	return len(payload) == 0
+func isEndOfFile(payloadLen uint64) bool {
+	return payloadLen == 0
 }
