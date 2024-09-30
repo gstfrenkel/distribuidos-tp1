@@ -70,7 +70,7 @@ func (g Gateway) Start() {
 
 	defer g.Listener.Close() //TODO handle
 
-	go startChunkSender(g.ChunkChan, g.broker, g.exchange, g.Config.Uint8("gateway.chunk_size", 100))
+	go startChunkSender(g.ChunkChan, g.broker, g.exchange, g.Config.Uint8("gateway.chunk_size", 100), g.Config.String("rabbitmq.reviews_routing_key", "review"), g.Config.String("rabbitmq.games_routing_key", "game"))
 
 	err = ListenForNewClients(&g)
 	if err != nil {

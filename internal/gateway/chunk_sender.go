@@ -6,14 +6,16 @@ import (
 )
 
 type ChunkSender struct {
-	channel      <-chan ChunkItem
-	broker       broker.MessageBroker
-	exchange     string
-	reviewsCount uint8
-	gamesCount   uint8
-	reviewsChunk []message.DataCSVReviews
-	gamesChunk   []message.DataCSVGames
-	maxChunkSize uint8
+	channel           <-chan ChunkItem
+	broker            broker.MessageBroker
+	exchange          string
+	reviewsCount      uint8
+	gamesCount        uint8
+	reviewsChunk      []message.DataCSVReviews
+	gamesChunk        []message.DataCSVGames
+	maxChunkSize      uint8
+	reviewsRoutingKey string
+	gamesRoutingKey   string
 }
 
 type ChunkItem struct {
@@ -32,21 +34,23 @@ func wrapGamesFromClientGames(data any) ([]byte, error) {
 	return nil, nil
 } //TODO: implement games
 
-func newChunkSender(channel <-chan ChunkItem, broker broker.MessageBroker, exchange string, chunkMaxSize uint8) *ChunkSender {
+func newChunkSender(channel <-chan ChunkItem, broker broker.MessageBroker, exchange string, chunkMaxSize uint8, rRoutingKey string, gRoutingKey string) *ChunkSender {
 	return &ChunkSender{
-		channel:      channel,
-		broker:       broker,
-		exchange:     exchange,
-		reviewsCount: 0,
-		gamesCount:   0,
-		reviewsChunk: make([]message.DataCSVReviews, chunkMaxSize),
-		gamesChunk:   make([]message.DataCSVGames, chunkMaxSize),
-		maxChunkSize: chunkMaxSize,
+		channel:           channel,
+		broker:            broker,
+		exchange:          exchange,
+		reviewsCount:      0,
+		gamesCount:        0,
+		reviewsChunk:      make([]message.DataCSVReviews, chunkMaxSize),
+		gamesChunk:        make([]message.DataCSVGames, chunkMaxSize),
+		maxChunkSize:      chunkMaxSize,
+		reviewsRoutingKey: rRoutingKey,
+		gamesRoutingKey:   gRoutingKey,
 	}
 }
 
-func startChunkSender(channel <-chan ChunkItem, broker broker.MessageBroker, exchange string, chunkMaxSize uint8) {
-	chunkSender := newChunkSender(channel, broker, exchange, chunkMaxSize)
+func startChunkSender(channel <-chan ChunkItem, broker broker.MessageBroker, exchange string, chunkMaxSize uint8, rRoutingKey string, gRoutingKey string) {
+	chunkSender := newChunkSender(channel, broker, exchange, chunkMaxSize, rRoutingKey, gRoutingKey)
 	for {
 		item := <-channel
 		switch item.MsgId {
