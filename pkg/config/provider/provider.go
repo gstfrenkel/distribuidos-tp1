@@ -88,10 +88,7 @@ func (cfg cfg) Uint(key string, def uint) uint {
 }
 
 func (cfg cfg) Uint8(key string, def uint8) uint8 {
-	if !cfg.Contains(key) {
-		return def
-	}
-	return uint8(cfg.v.GetUint16(key))
+	return uint8(cfg.Uint16(key, uint16(def)))
 }
 
 // Uint16 returns the value associated with the key as an unsigned integer. If the key is missing, def is returned.
