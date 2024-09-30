@@ -111,7 +111,7 @@ func (s ChunkSender) sendChunk(key uint8, routingKey string, count *uint8, chunk
 		*count = 0
 		chunk = make([]any, s.maxChunkSize)
 	} else if eof {
-		err := s.broker.Publish(s.exchange, routingKey, key, []byte(uint8(message.EofMsg)))
+		err := s.broker.Publish(s.exchange, routingKey, key, []byte{uint8(message.EofMsg)})
 		if err != nil { //TODO: handle error
 			return
 		}

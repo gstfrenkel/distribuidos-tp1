@@ -15,13 +15,12 @@ import (
 const configFilePath = "config.toml"
 
 type Gateway struct {
-	Config       config.Config
-	broker       broker.MessageBroker
-	reviewsQueue amqp091.Queue
-	gamesQueue   amqp091.Queue
-	exchange     string
-	Listener     net.Listener
-	ChunkChan    chan ChunkItem
+	Config    config.Config
+	broker    broker.MessageBroker
+	queues    []amqp091.Queue //order: reviews, games_platform, games_shooter, games_indie
+	exchange  string
+	Listener  net.Listener
+	ChunkChan chan ChunkItem
 }
 
 func New() (*Gateway, error) {
@@ -35,7 +34,7 @@ func New() (*Gateway, error) {
 		return nil, err
 	}
 
-	reviewsQ, gamesQ, err := rabbit.CreateGatewayQueues(b, cfg)
+	queues, err := rabbit.CreateGatewayQueues(b, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -45,18 +44,17 @@ func New() (*Gateway, error) {
 		return nil, err
 	}
 
-	err = rabbit.BindGatewayQueuesToExchange(b, reviewsQ.Name, gamesQ.Name, cfg, exchangeName)
+	err = rabbit.BindGatewayQueuesToExchange(b, queues, cfg, exchangeName)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Gateway{
-		Config:       cfg,
-		broker:       b,
-		reviewsQueue: reviewsQ,
-		gamesQueue:   gamesQ,
-		exchange:     exchangeName,
-		ChunkChan:    make(chan ChunkItem),
+		Config:    cfg,
+		broker:    b,
+		queues:    queues,
+		exchange:  exchangeName,
+		ChunkChan: make(chan ChunkItem),
 	}, nil
 }
 
