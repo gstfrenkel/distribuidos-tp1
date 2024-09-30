@@ -29,9 +29,8 @@ func wrapReviewFromClientReview(data any) ([]byte, error) {
 }
 
 func wrapGamesFromClientGames(data any) ([]byte, error) {
-	//return message.GameFromClientGames(data.([]message.DataCSVGames)) TODO: implement
-	return nil, nil
-} //TODO: implement games
+	return message.GameFromClientGame(data.([]message.DataCSVGames))
+}
 
 func newChunkSender(channel <-chan ChunkItem, broker broker.MessageBroker, exchange string, chunkMaxSize uint8, rRoutingKey string, gRoutingKey string) *ChunkSender {
 	return &ChunkSender{
