@@ -1,9 +1,7 @@
 package client
 
 import (
-	"bytes"
 	"encoding/csv"
-	"encoding/gob"
 	"fmt"
 	"io"
 	"net"
@@ -11,6 +9,7 @@ import (
 	"reflect"
 	"strconv"
 	"sync"
+	"tp1/pkg/message"
 )
 
 func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interface{}, wg *sync.WaitGroup) {
@@ -76,32 +75,36 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 		}
 
 		// Prepare data for sending
-		var dataBuf bytes.Buffer
-		encoder := gob.NewEncoder(&dataBuf)
-		if err := encoder.Encode(dataStruct); err != nil {
+		var dataBuf []byte
+		if id == uint8(message.ReviewIdMsg) {
+			dataBuf, err = message.DataCSVReviews.ToBytes(dataStruct.(message.DataCSVReviews))
+		} else {
+			dataBuf, err = message.DataCSVGames.ToBytes(dataStruct.(message.DataCSVGames))
+		}
+
+		if err != nil {
 			fmt.Println("Error encoding data:", err)
 			continue
 		}
 
-		msg := Message{
+		msg := message.ClientMessage{
 			ID:      id,
-			DataLen: uint64(dataBuf.Len()),
-			Data:    dataBuf.Bytes(),
+			DataLen: uint64(len(dataBuf)),
+			Data:    dataBuf,
 		}
 
-		if err := sendMessage(conn, msg); err != nil {
+		if err := message.SendMessage(conn, msg); err != nil {
 			fmt.Println("Error sending message:", err)
 		}
-
 	}
 
 	// Send EOF message
-	eofMsg := Message{
-		ID:      3,
+	eofMsg := message.ClientMessage{
+		ID:      uint8(message.EofMsg),
 		DataLen: 0,
 		Data:    nil,
 	}
-	if err := sendMessage(conn, eofMsg); err != nil {
+	if err := message.SendMessage(conn, eofMsg); err != nil {
 		fmt.Println("Error sending EOF message:", err)
 	}
 }

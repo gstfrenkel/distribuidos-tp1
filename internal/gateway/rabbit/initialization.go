@@ -6,7 +6,7 @@ import (
 	"tp1/pkg/config"
 )
 
-func CreateQueues(err error, b broker.MessageBroker, cfg config.Config) (amqp091.Queue, amqp091.Queue, error) {
+func CreateQueues(b broker.MessageBroker, cfg config.Config) (amqp091.Queue, amqp091.Queue, error) {
 	reviewsQ, err := b.QueueDeclare(cfg.String("rabbitmq.reviews_q", "r"))
 	if err != nil {
 		b.Close()
@@ -21,9 +21,9 @@ func CreateQueues(err error, b broker.MessageBroker, cfg config.Config) (amqp091
 	return reviewsQ[0], gamesQ[0], nil
 }
 
-func CreateExchange(cfg config.Config, err error, b broker.MessageBroker) (string, error) {
+func CreateExchange(cfg config.Config, b broker.MessageBroker) (string, error) {
 	exchangeName := cfg.String("rabbitmq.exchange_name", "e")
-	err = b.ExchangeDeclare(broker.Exchange{Name: exchangeName, Kind: cfg.String("rabbitmq.exchange_type", "direct")})
+	err := b.ExchangeDeclare(broker.Exchange{Name: exchangeName, Kind: cfg.String("rabbitmq.exchange_type", "direct")})
 	if err != nil {
 		b.Close()
 		return "", err
@@ -31,8 +31,8 @@ func CreateExchange(cfg config.Config, err error, b broker.MessageBroker) (strin
 	return exchangeName, nil
 }
 
-func BindQueuesToExchange(err error, b broker.MessageBroker, reviewsQ string, gamesQ string, cfg config.Config, exchangeName string) error {
-	err = b.QueueBind(broker.QueueBind{
+func BindQueuesToExchange(b broker.MessageBroker, reviewsQ string, gamesQ string, cfg config.Config, exchangeName string) error {
+	err := b.QueueBind(broker.QueueBind{
 		Name:     reviewsQ,
 		Key:      cfg.String("rabbitmq.reviews_routing_key", "r"),
 		Exchange: exchangeName,

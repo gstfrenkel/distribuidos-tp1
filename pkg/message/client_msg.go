@@ -1,4 +1,4 @@
-package client
+package message
 
 import (
 	"encoding/binary"
@@ -7,7 +7,7 @@ import (
 	"tp1/pkg/ioutils"
 )
 
-type Message struct {
+type ClientMessage struct {
 	ID      uint8
 	DataLen uint64
 	Data    []byte
@@ -64,8 +64,7 @@ type DataCSVReviews struct {
 	ReviewVotes int64
 }
 
-func sendMessage(conn net.Conn, msg Message) error {
-
+func SendMessage(conn net.Conn, msg ClientMessage) error {
 	// Create message
 	finalMessage := make([]byte, 0, 1+8+len(msg.Data))
 	// Append ID
@@ -80,4 +79,22 @@ func sendMessage(conn net.Conn, msg Message) error {
 		return fmt.Errorf("failed to send message: %v", err)
 	}
 	return nil
+}
+
+func DataCSVReviewsFromBytes(b []byte) (DataCSVReviews, error) {
+	var m DataCSVReviews
+	return m, fromBytes(b, &m)
+}
+
+func (m DataCSVReviews) ToBytes() ([]byte, error) {
+	return toBytes(m)
+}
+
+func DataCSVGamesFromBytes(b []byte) (DataCSVGames, error) {
+	var m DataCSVGames
+	return m, fromBytes(b, &m)
+}
+
+func (m DataCSVGames) ToBytes() ([]byte, error) {
+	return toBytes(m)
 }
