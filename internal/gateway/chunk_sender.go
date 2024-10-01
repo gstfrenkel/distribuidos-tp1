@@ -67,10 +67,8 @@ func startChunkSender(channel <-chan ChunkItem, broker broker.MessageBroker, exc
 				chunkSender.updateGamesChunk(item.Msg.(message.DataCSVGames), false)
 			}
 		default:
-			//TODO: handle error
 		}
 	}
-
 }
 
 func (s ChunkSender) updateReviewsChunk(reviews message.DataCSVReviews, eof bool) {
