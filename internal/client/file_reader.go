@@ -8,12 +8,10 @@ import (
 	"os"
 	"reflect"
 	"strconv"
-	"sync"
 	"tp1/pkg/message"
 )
 
-func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interface{}, wg *sync.WaitGroup) {
-	defer wg.Done()
+func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interface{}) {
 
 	file, err := os.Open(filename)
 	if err != nil {
@@ -110,8 +108,7 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 }
 
 // Debug function
-func readAndPrintCSV(filename string, dataStruct interface{}, wg *sync.WaitGroup) {
-	defer wg.Done()
+func readAndPrintCSV(filename string, dataStruct interface{}) {
 
 	file, err := os.Open(filename)
 	if err != nil {
