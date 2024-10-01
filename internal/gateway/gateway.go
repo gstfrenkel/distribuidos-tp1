@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"net"
+	"tp1/pkg/logs"
 
 	"tp1/internal/gateway/rabbit"
 	"tp1/pkg/broker"
@@ -13,6 +14,8 @@ import (
 )
 
 const configFilePath = "config.toml"
+
+var log, _ = logs.GetLogger("gateway")
 
 type Gateway struct {
 	Config    config.Config
