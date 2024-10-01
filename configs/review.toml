@@ -1,7 +1,7 @@
 [gateway]
 exchange = "gateway"
 queue = "reviews"
-key = "reviews"
+key = "review"
 
 [exchange]
 name = "reviews"

@@ -3,6 +3,7 @@ module tp1
 go 1.23.0
 
 require (
+	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.9.0
 )

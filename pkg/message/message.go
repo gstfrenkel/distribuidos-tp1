@@ -22,12 +22,6 @@ const (
 
 type ID uint8
 
-/*type Message interface {
-	ToBytes() ([]byte, error)
-	ToMessage(id ID) ([]Message, error)
-	GameId()
-}*/
-
 func fromBytes(b []byte, msg any) error {
 	decoder := gob.NewDecoder(bytes.NewBuffer(b))
 	return decoder.Decode(msg)
