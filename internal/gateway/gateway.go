@@ -12,17 +12,19 @@ import (
 	"github.com/rabbitmq/amqp091-go"
 )
 
+const configFilePath = "config.toml"
+
 type Gateway struct {
-	Config       config.Config
-	broker       broker.MessageBroker
-	reviewsQueue amqp091.Queue
-	gamesQueue   amqp091.Queue
-	exchange     string
-	Listener     net.Listener
+	Config    config.Config
+	broker    broker.MessageBroker
+	queues    []amqp091.Queue //order: reviews, games_platform, games_shooter, games_indie
+	exchange  string
+	Listener  net.Listener
+	ChunkChan chan ChunkItem
 }
 
 func New() (*Gateway, error) {
-	cfg, err := provider.LoadConfig("config.toml")
+	cfg, err := provider.LoadConfig(configFilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -32,27 +34,27 @@ func New() (*Gateway, error) {
 		return nil, err
 	}
 
-	reviewsQ, gamesQ, err := rabbit.CreateQueues(err, b, cfg)
+	queues, err := rabbit.CreateGatewayQueues(b, cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	exchangeName, err := rabbit.CreateExchange(cfg, err, b)
+	exchangeName, err := rabbit.CreateGatewayExchange(cfg, b)
 	if err != nil {
 		return nil, err
 	}
 
-	err = rabbit.BindQueuesToExchange(err, b, reviewsQ.Name, gamesQ.Name, cfg, exchangeName)
+	err = rabbit.BindGatewayQueuesToExchange(b, queues, cfg, exchangeName)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Gateway{
-		Config:       cfg,
-		broker:       b,
-		reviewsQueue: reviewsQ,
-		gamesQueue:   gamesQ,
-		exchange:     exchangeName,
+		Config:    cfg,
+		broker:    b,
+		queues:    queues,
+		exchange:  exchangeName,
+		ChunkChan: make(chan ChunkItem),
 	}, nil
 }
 
@@ -66,6 +68,8 @@ func (g Gateway) Start() {
 
 	defer g.Listener.Close() //TODO handle
 
+	go startChunkSender(g.ChunkChan, g.broker, g.exchange, g.Config.Uint8("gateway.chunk_size", 100), g.Config.String("rabbitmq.reviews_routing_key", "review"), g.Config.String("rabbitmq.games_routing_key", "game"))
+
 	err = ListenForNewClients(&g)
 	if err != nil {
 		return
@@ -74,4 +78,5 @@ func (g Gateway) Start() {
 
 func (g Gateway) End() {
 	g.broker.Close()
+	//TODO , cerrar chan
 }

@@ -9,7 +9,9 @@ const (
 	negativeReviewScore = -1
 )
 
-type Review []struct {
+type Review []review
+
+type review struct {
 	GameId   int64
 	GameName string
 	Text     string
@@ -19,6 +21,20 @@ type Review []struct {
 func ReviewFromBytes(b []byte) (Review, error) {
 	var m Review
 	return m, fromBytes(b, &m)
+}
+
+func ReviewFromClientReview(clientReview []DataCSVReviews) ([]byte, error) {
+	rs := make(Review, 0, len(clientReview))
+	for _, r := range clientReview {
+		rs = append(rs, review{
+			GameId:   r.AppID,
+			GameName: r.AppName,
+			Text:     r.ReviewText,
+			Score:    int8(r.ReviewScore),
+		})
+	}
+
+	return rs.ToBytes()
 }
 
 func (m Review) ToBytes() ([]byte, error) {
