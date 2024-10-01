@@ -56,13 +56,13 @@ func startChunkSender(channel <-chan ChunkItem, broker broker.MessageBroker, exc
 		switch item.MsgId {
 		case message.ReviewIdMsg:
 			if item.Msg == nil {
-				chunkSender.updateReviewsChunk(message.DataCSVReviews{}, true) //TODO Handle NPE
+				chunkSender.updateReviewsChunk(message.DataCSVReviews{}, true)
 			} else {
 				chunkSender.updateReviewsChunk(item.Msg.(message.DataCSVReviews), false)
 			}
 		case message.GameIdMsg:
 			if item.Msg == nil {
-				chunkSender.updateGamesChunk(message.DataCSVGames{}, true) //TODO Handle NPE
+				chunkSender.updateGamesChunk(message.DataCSVGames{}, true)
 			} else {
 				chunkSender.updateGamesChunk(item.Msg.(message.DataCSVGames), false)
 			}
