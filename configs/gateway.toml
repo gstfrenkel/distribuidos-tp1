@@ -2,6 +2,7 @@
 address = "127.0.0.1:5050"
 buffer_size = 1024
 chunk_size = 100
+log_level = "INFO"
 
 [rabbitmq]
 reviews_q = "reviews"
