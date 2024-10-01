@@ -66,6 +66,7 @@ func (g Gateway) Start() {
 
 	err := CreateGatewaySocket(&g)
 	if err != nil { //TODO handle
+		log.Errorf("Failed to create gateway socket: %s", err.Error())
 		return
 	}
 
@@ -75,6 +76,7 @@ func (g Gateway) Start() {
 
 	err = ListenForNewClients(&g)
 	if err != nil {
+		log.Errorf("Failed to listen for new clients: %s", err.Error())
 		return
 	}
 }

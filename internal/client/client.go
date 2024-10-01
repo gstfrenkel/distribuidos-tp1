@@ -49,8 +49,8 @@ func (c *Client) Start() {
 	// go readAndPrintCSV("data/games.csv", &DataCSVGames{}, &wg)
 	// go readAndPrintCSV("data/reviews.csv", &DataCSVReviews{}, &wg)
 
-	go readAndSendCSV("data/games.csv", uint8(message.GameIdMsg), conn, &message.DataCSVGames{}, &wg)
-	go readAndSendCSV("data/reviews.csv", uint8(message.ReviewIdMsg), conn, &message.DataCSVReviews{}, &wg)
+	go readAndSendCSV("data/games.csv", uint8(message.GameIdMsg), conn, message.DataCSVGames{}, &wg)
+	go readAndSendCSV("data/reviews.csv", uint8(message.ReviewIdMsg), conn, message.DataCSVReviews{}, &wg)
 
 	wg.Wait()
 

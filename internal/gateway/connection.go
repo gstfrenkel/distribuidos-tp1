@@ -3,6 +3,7 @@ package gateway
 import (
 	"net"
 	"tp1/pkg/ioutils"
+	"tp1/pkg/logs"
 	"tp1/pkg/message"
 )
 
@@ -10,8 +11,12 @@ const MsgIdSize = 1
 const LenFieldSize = 8
 const TransportProtocol = "tcp"
 
+var logger, _ = logs.GetLogger("gateway")
+
 func CreateGatewaySocket(g *Gateway) error {
-	conn, err := net.Listen(TransportProtocol, g.Config.String("gateway.address", ""))
+	addr := g.Config.String("gateway.address", "")
+	conn, err := net.Listen(TransportProtocol, addr)
+	logger.Infof("Gateway listening on %s", addr)
 	if err != nil {
 		return err
 	}
@@ -21,6 +26,7 @@ func CreateGatewaySocket(g *Gateway) error {
 
 func ListenForNewClients(g *Gateway) error {
 	for {
+		logger.Infof("Waiting for new client connection...")
 		c, err := g.Listener.Accept()
 		if err != nil {
 			return err
