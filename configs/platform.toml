@@ -1,0 +1,10 @@
+[gateway]
+exchange = "gateway"
+queue = "reviews"
+key = "reviews"
+
+[exchange]
+name = "reviews"
+kind = "direct"
+queue = "platforms_by_game"
+peers = 1

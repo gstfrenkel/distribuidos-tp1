@@ -3,7 +3,6 @@ package worker
 import (
 	"os"
 	"reflect"
-
 	"tp1/pkg/broker/amqpconn"
 )
 

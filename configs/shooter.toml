@@ -1,0 +1,14 @@
+[gateway]
+queue = "games_shooter"
+key = "input"
+
+[exchange]
+name = "shooters"
+kind = "direct"
+peers = 1
+
+[queue]
+name = "shooters_%d"
+key = "%d"
+consumers = 2
+
