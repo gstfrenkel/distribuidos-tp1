@@ -1,20 +1,23 @@
 package message
 
+import "strings"
+
 type Game []game
 
 type game struct {
 	GameId          int64
+	AveragePlaytime int64
 	Name            string
+	Genres          string
+	ReleaseDate     string
 	Windows         bool
 	Mac             bool
 	Linux           bool
-	Genres          string
-	AveragePlaytime int64
-	ReleaseDate     string
 }
 
-func (g Game) ToBytes() ([]byte, error) {
-	return toBytes(g)
+func GameFromBytes(b []byte) (Game, error) {
+	var m Game
+	return m, fromBytes(b, &m)
 }
 
 func GameFromClientGame(clientGame []DataCSVGames) ([]byte, error) {
@@ -33,4 +36,24 @@ func GameFromClientGame(clientGame []DataCSVGames) ([]byte, error) {
 	}
 
 	return gs.ToBytes()
+}
+
+func (g Game) ToBytes() ([]byte, error) {
+	return toBytes(g)
+}
+
+func (g Game) ToGameIdMessage(genreToFilter string) []GameId {
+	var result []GameId
+
+	for _, h := range g {
+		genres := strings.Split(h.Genres, ",")
+		for _, genre := range genres {
+			if genre == genreToFilter {
+				result = append(result, NewGameId(h.GameId))
+				break
+			}
+		}
+	}
+
+	return result
 }

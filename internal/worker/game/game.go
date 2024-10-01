@@ -16,6 +16,12 @@ import (
 	"tp1/pkg/config/provider"
 )
 
+var (
+	exchange = "shooters"
+	key      = "%d"
+	genre    = "action"
+)
+
 type filter struct {
 	config     config.Config
 	broker     broker.MessageBroker
@@ -52,8 +58,11 @@ func New() (worker.Worker, error) {
 }
 
 func (f filter) Init() error {
+	exchange = f.config.String("exchange.name", exchange)
+	key = f.config.String("queue.key", key)
+
 	if err := f.broker.ExchangeDeclare(map[string]string{
-		f.config.String("exchange.name", "shooters"): f.config.String("exchange.kind", "direct"),
+		exchange: f.config.String("exchange.kind", "direct"),
 	}); err != nil {
 		return err
 	} else if _, err = f.broker.QueueDeclare(f.queues()...); err != nil {
@@ -64,6 +73,7 @@ func (f filter) Init() error {
 		return err
 	}
 
+	genre = f.config.String("query.genre", genre)
 	f.outputs = outputs
 	f.input = input
 
@@ -89,8 +99,8 @@ func (f filter) process(reviewDelivery amqpconn.Delivery) {
 		if err := f.broker.HandleEofMessage(f.id, f.peers, reviewDelivery.Body, f.input, f.outputs...); err != nil {
 			fmt.Printf("\n%s\n", errors.FailedToPublish.Error())
 		}
-	} else if messageId == message.ReviewIdMsg {
-		msg, err := message.ReviewFromBytes(reviewDelivery.Body)
+	} else if messageId == message.GameIdMsg {
+		msg, err := message.GameFromBytes(reviewDelivery.Body)
 		if err != nil {
 			fmt.Printf("%s: %s", errors.FailedToParse.Error(), err.Error())
 			return
@@ -102,14 +112,18 @@ func (f filter) process(reviewDelivery amqpconn.Delivery) {
 	}
 }
 
-func (f filter) publish(msg message.Review) {
-	b, err := msg.ToPositiveReviewWithTextMessage().ToBytes()
-	if err != nil {
-		fmt.Printf("%s: %s", errors.FailedToParse.Error(), err.Error())
-	} else if err = f.broker.Publish(outputExchange, "", uint8(message.PositiveReviewWithTextID), b); err != nil {
-		fmt.Printf("%s: %s", errors.FailedToPublish.Error(), err.Error())
-	}
+func (f filter) publish(msg message.Game) {
+	games := msg.ToGameIdMessage(genre)
+	for _, game := range games {
+		b, err := game.ToBytes()
+		if err != nil {
+			fmt.Printf("%s: %s", errors.FailedToParse.Error(), err.Error())
+			continue
+		}
 
-	f.shardPublish(msg.ToPositiveReviewMessage(), positiveKey, positiveConsumers, uint8(message.PositiveReviewID))
-	f.shardPublish(msg.ToNegativeReviewMessage(), negativeKey, negativeConsumers, uint8(message.NegativeReviewID))
+		k := fmt.Sprintf(key, int64(game)%int64(len(f.outputs)))
+		if err = f.broker.Publish(exchange, k, uint8(message.GameIdID), b); err != nil {
+			fmt.Printf("%s: %s", errors.FailedToPublish.Error(), err.Error())
+		}
+	}
 }

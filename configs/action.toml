@@ -1,3 +1,6 @@
+[query]
+genre = "action"
+
 [gateway]
 queue = "games_shooter"
 key = "input"
@@ -11,4 +14,3 @@ peers = 1
 name = "shooters_%d"
 key = "%d"
 consumers = 2
-
