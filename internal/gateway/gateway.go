@@ -65,7 +65,7 @@ func (g Gateway) Start() {
 	defer g.broker.Close()
 
 	err := CreateGatewaySocket(&g)
-	if err != nil { //TODO handle
+	if err != nil {
 		log.Errorf("Failed to create gateway socket: %s", err.Error())
 		return
 	}

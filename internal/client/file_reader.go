@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"os"
 	"reflect"
@@ -94,6 +95,7 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 		if err := message.SendMessage(conn, msg); err != nil {
 			fmt.Println("Error sending message:", err)
 		}
+		log.Printf("Sent message ID: %d", id)
 	}
 
 	// Send EOF message

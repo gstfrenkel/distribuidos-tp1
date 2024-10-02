@@ -10,6 +10,7 @@ import (
 const MsgIdSize = 1
 const LenFieldSize = 8
 const TransportProtocol = "tcp"
+const maxEofs = 2
 
 var logger, _ = logs.GetLogger("gateway")
 
@@ -40,10 +41,10 @@ func ListenForNewClients(g *Gateway) error {
 func handleConnection(g *Gateway, conn net.Conn) {
 	logger.Infof("New client connected: %s", conn.RemoteAddr().String())
 	bufferSize := g.Config.Int("gateway.buffer_size", 1024)
-	read, msgId, payloadSize, receivedEof := 0, uint8(0), uint64(0), false
-	data := make([]byte, 0, bufferSize)
+	read, msgId, payloadSize, eofs := 0, uint8(0), uint64(0), uint8(0)
+	data := make([]byte, bufferSize)
 
-	for !receivedEof {
+	for eofs < maxEofs {
 		n, err := conn.Read(data[read:])
 		if err != nil {
 			return //TODO: handle errors
@@ -51,16 +52,18 @@ func handleConnection(g *Gateway, conn net.Conn) {
 
 		read += n
 		if hasReadId(read, msgId) {
-			readId(&msgId, data, &read)
+			data = readId(&msgId, data, &read)
 			logger.Infof("Received message ID: %d", msgId)
 		}
 
 		if hasReadMsgSize(read, payloadSize) {
-			readPayloadSize(&payloadSize, data, &read)
+			data = readPayloadSize(&payloadSize, data, &read)
+			logger.Infof("Read payload size: %d", payloadSize)
 		}
 
 		if hasReadCompletePayload(read, payloadSize) {
-			receivedEof, err = processPayload(g, message.ID(msgId), data, payloadSize)
+			logger.Infof("Received payload")
+			err, data = processPayload(g, message.ID(msgId), data, payloadSize, &eofs)
 			if err != nil {
 				return //TODO: handle errors
 			}
@@ -69,14 +72,18 @@ func handleConnection(g *Gateway, conn net.Conn) {
 	}
 }
 
-func readPayloadSize(payloadSize *uint64, data []byte, read *int) {
-	*payloadSize = ioutils.ReadU64FromSlice(data)
+func readPayloadSize(payloadSize *uint64, data []byte, read *int) []byte {
+	var buf []byte
+	*payloadSize, buf = ioutils.ReadU64FromSlice(data)
 	*read -= LenFieldSize
+	return buf
 }
 
-func readId(msgId *uint8, data []byte, read *int) {
-	*msgId = ioutils.ReadU8FromSlice(data)
+func readId(msgId *uint8, data []byte, read *int) []byte {
+	var buf []byte
+	*msgId, buf = ioutils.ReadU8FromSlice(data)
 	*read -= MsgIdSize
+	return buf
 }
 
 func hasReadCompletePayload(read int, payloadSize uint64) bool {
@@ -94,26 +101,27 @@ func hasReadId(read int, msgId uint8) bool {
 // processPayload parses the data received from the client and appends it to the corresponding chunk
 // Returns true if the end of the file was reached
 // Moves the buffer payloadLen positions
-func processPayload(g *Gateway, msgId message.ID, payload []byte, payloadLen uint64) (bool, error) {
+func processPayload(g *Gateway, msgId message.ID, payload []byte, payloadLen uint64, eofs *uint8) (error, []byte) {
 
 	if isEndOfFile(payloadLen) {
-		logger.Infof("End of file received")
+		logger.Infof("End of file received for message ID: %d", msgId)
 		sendMsgToChunkSender(g, msgId, nil)
-		return true, nil
+		*eofs++ //TODO podria validar q sea de diferente tipo de ID el eof... hashmap?
+		return nil, payload
 	}
 
-	newMsg, err := parseClientPayload(msgId, payload, payloadLen)
+	newMsg, err, payload := parseClientPayload(msgId, payload, payloadLen)
 	if err != nil {
-		return false, err
+		return err, payload
 	}
 
 	sendMsgToChunkSender(g, msgId, newMsg)
 
-	return false, nil
+	return nil, payload
 }
 
 // parseClientPayload parses the payload received from the client and returns a DataCsvReviews or DataCsvGames
-func parseClientPayload(msgId message.ID, payload []byte, payloadLen uint64) (any, error) {
+func parseClientPayload(msgId message.ID, payload []byte, payloadLen uint64) (any, error, []byte) {
 	payload = payload[:payloadLen]
 
 	var (
@@ -131,10 +139,10 @@ func parseClientPayload(msgId message.ID, payload []byte, payloadLen uint64) (an
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, err, payload
 	}
 
-	return data, nil
+	return data, nil, payload
 }
 
 func sendMsgToChunkSender(g *Gateway, msgId message.ID, newMsg any) {
