@@ -75,9 +75,9 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 		// Prepare data for sending
 		var dataBuf []byte
 		if id == uint8(message.ReviewIdMsg) {
-			dataBuf, err = message.DataCSVReviews.ToBytes(dataStruct.(message.DataCSVReviews))
+			dataBuf, err = message.DataCSVReviews.ToBytes(*dataStruct.(*message.DataCSVReviews))
 		} else {
-			dataBuf, err = message.DataCSVGames.ToBytes(dataStruct.(message.DataCSVGames))
+			dataBuf, err = message.DataCSVGames.ToBytes(*dataStruct.(*message.DataCSVGames))
 		}
 
 		if err != nil {

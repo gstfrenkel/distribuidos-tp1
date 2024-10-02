@@ -16,10 +16,10 @@ var logger, _ = logs.GetLogger("gateway")
 func CreateGatewaySocket(g *Gateway) error {
 	addr := g.Config.String("gateway.address", "")
 	conn, err := net.Listen(TransportProtocol, addr)
-	logger.Infof("Gateway listening on %s", addr)
 	if err != nil {
 		return err
 	}
+	logger.Infof("Gateway listening on %s", conn.Addr().String())
 	g.Listener = conn
 	return nil
 }
@@ -38,6 +38,7 @@ func ListenForNewClients(g *Gateway) error {
 // handleConnection reads the data from the client and sends it to the broker.
 // It reads considering that Read can return less than the desired buffer size
 func handleConnection(g *Gateway, conn net.Conn) {
+	logger.Infof("New client connected: %s", conn.RemoteAddr().String())
 	bufferSize := g.Config.Int("gateway.buffer_size", 1024)
 	read, msgId, payloadSize, receivedEof := 0, uint8(0), uint64(0), false
 	data := make([]byte, 0, bufferSize)
@@ -51,6 +52,7 @@ func handleConnection(g *Gateway, conn net.Conn) {
 		read += n
 		if hasReadId(read, msgId) {
 			readId(&msgId, data, &read)
+			logger.Infof("Received message ID: %d", msgId)
 		}
 
 		if hasReadMsgSize(read, payloadSize) {
@@ -95,6 +97,7 @@ func hasReadId(read int, msgId uint8) bool {
 func processPayload(g *Gateway, msgId message.ID, payload []byte, payloadLen uint64) (bool, error) {
 
 	if isEndOfFile(payloadLen) {
+		logger.Infof("End of file received")
 		sendMsgToChunkSender(g, msgId, nil)
 		return true, nil
 	}

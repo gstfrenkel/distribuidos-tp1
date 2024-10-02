@@ -1,5 +1,5 @@
 [gateway]
-address = "127.0.0.1"
+address = "172.25.125.10"
 port = 5050
 
 
