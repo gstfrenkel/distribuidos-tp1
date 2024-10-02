@@ -56,7 +56,7 @@ func handleConnection(g *Gateway, conn net.Conn) {
 			logger.Infof("Received message ID: %d", msgId)
 		}
 
-		if hasReadMsgSize(read, payloadSize) {
+		if hasReadPayloadSize(read, payloadSize) {
 			data = readPayloadSize(&payloadSize, data, &read)
 			logger.Infof("Read payload size: %d", payloadSize)
 		}
@@ -90,10 +90,12 @@ func hasReadCompletePayload(read int, payloadSize uint64) bool {
 	return read >= int(payloadSize)
 }
 
-func hasReadMsgSize(read int, payloadSize uint64) bool {
+// hasReadPayloadSize returns true if the payload size field has been read (8 bytes)
+func hasReadPayloadSize(read int, payloadSize uint64) bool {
 	return read >= LenFieldSize && payloadSize == 0
 }
 
+// hasReadId returns true if the message ID field has been read (1 byte)
 func hasReadId(read int, msgId uint8) bool {
 	return read >= MsgIdSize && msgId == 0
 }
