@@ -1,7 +1,7 @@
 [gateway]
 address = "172.25.125.10:5050"
 buffer_size = 1024
-chunk_size = 100
+chunk_size = 2
 log_level = "INFO"
 
 [rabbitmq]

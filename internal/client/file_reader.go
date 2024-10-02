@@ -95,7 +95,7 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 		if err := message.SendMessage(conn, msg); err != nil {
 			fmt.Println("Error sending message:", err)
 		}
-		log.Printf("Sent message ID: %d", id)
+		log.Printf("Sent message ID: %d with payload size: %d", id, msg.DataLen)
 	}
 
 	// Send EOF message

@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"bytes"
 	"encoding/binary"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -30,15 +31,15 @@ func TestReadId_ValidInput(t *testing.T) {
 }
 
 func TestHasReadCompletePayload_True(t *testing.T) {
-	read := 10
 	payloadSize := uint64(10)
-	assert.True(t, hasReadCompletePayload(read, payloadSize))
+	buf := bytes.Repeat([]byte{1}, 10)
+	assert.True(t, hasReadCompletePayload(buf, payloadSize))
 }
 
 func TestHasReadCompletePayload_False(t *testing.T) {
-	read := 5
 	payloadSize := uint64(10)
-	assert.False(t, hasReadCompletePayload(read, payloadSize))
+	buf := make([]byte, 1, 10)
+	assert.False(t, hasReadCompletePayload(buf, payloadSize))
 }
 
 func TestHasReadPayloadSize_True(t *testing.T) {
@@ -72,9 +73,8 @@ func TestProcessPayload_EndOfFile(t *testing.T) {
 	payloadLen := uint64(0)
 	eofs := uint8(0)
 
-	err, remaining := processPayload(g, msgId, payload, payloadLen, &eofs)
+	err := processPayload(g, msgId, payload, payloadLen, &eofs)
 	assert.Nil(t, err)
-	assert.Equal(t, payload, remaining)
 	assert.Equal(t, uint8(1), eofs)
 	assert.Equal(t, <-g.ChunkChan, ChunkItem{MsgId: msgId, Msg: nil})
 }
@@ -94,8 +94,7 @@ func TestProcessPayload_ValidPayload(t *testing.T) {
 	payloadLen := uint64(len(payload))
 	eofs := uint8(0)
 
-	err, remaining := processPayload(g, msgId, payload, payloadLen, &eofs)
+	err := processPayload(g, msgId, payload, payloadLen, &eofs)
 	assert.Nil(t, err)
-	assert.Equal(t, payload, remaining)
 	assert.Equal(t, <-g.ChunkChan, ChunkItem{MsgId: msgId, Msg: csvReviews})
 }

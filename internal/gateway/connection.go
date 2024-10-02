@@ -3,7 +3,6 @@ package gateway
 import (
 	"net"
 	"tp1/pkg/ioutils"
-	"tp1/pkg/logs"
 	"tp1/pkg/message"
 )
 
@@ -11,8 +10,6 @@ const MsgIdSize = 1
 const LenFieldSize = 8
 const TransportProtocol = "tcp"
 const maxEofs = 2
-
-var logger, _ = logs.GetLogger("gateway")
 
 func CreateGatewaySocket(g *Gateway) error {
 	addr := g.Config.String("gateway.address", "")
@@ -43,6 +40,7 @@ func handleConnection(g *Gateway, conn net.Conn) {
 	bufferSize := g.Config.Int("gateway.buffer_size", 1024)
 	read, msgId, payloadSize, eofs := 0, uint8(0), uint64(0), uint8(0)
 	data := make([]byte, bufferSize)
+	var auxBuffer []byte
 
 	for eofs < maxEofs {
 		n, err := conn.Read(data[read:])
@@ -58,18 +56,26 @@ func handleConnection(g *Gateway, conn net.Conn) {
 
 		if hasReadPayloadSize(read, payloadSize) {
 			data = readPayloadSize(&payloadSize, data, &read)
-			logger.Infof("Read payload size: %d", payloadSize)
+			logger.Infof("Payload size: %d", payloadSize)
 		}
 
-		if hasReadCompletePayload(read, payloadSize) {
-			logger.Infof("Received payload")
-			err, data = processPayload(g, message.ID(msgId), data, payloadSize, &eofs)
+		auxBuffer = append(auxBuffer, data[:read]...)
+		read = 0
+		if hasReadCompletePayload(auxBuffer, payloadSize) {
+			err = processPayload(g, message.ID(msgId), auxBuffer[:payloadSize], payloadSize, &eofs)
 			if err != nil {
-				return //TODO: handle errors
+				logger.Errorf("Error processing payload: %s", err.Error())
+				return
 			}
-			msgId, read = 0, len(data)
+			auxBuffer = auxBuffer[payloadSize:]
+			copy(data, auxBuffer)
+			resetValues(&msgId, &read, len(auxBuffer), &payloadSize)
 		}
 	}
+}
+
+func resetValues(msgId *uint8, read *int, remaining int, payloadSize *uint64) {
+	*msgId, *read, *payloadSize = 0, remaining, 0
 }
 
 func readPayloadSize(payloadSize *uint64, data []byte, read *int) []byte {
@@ -86,8 +92,8 @@ func readId(msgId *uint8, data []byte, read *int) []byte {
 	return buf
 }
 
-func hasReadCompletePayload(read int, payloadSize uint64) bool {
-	return read >= int(payloadSize)
+func hasReadCompletePayload(buf []byte, payloadSize uint64) bool {
+	return len(buf) >= int(payloadSize)
 }
 
 // hasReadPayloadSize returns true if the payload size field has been read (8 bytes)
@@ -103,52 +109,52 @@ func hasReadId(read int, msgId uint8) bool {
 // processPayload parses the data received from the client and appends it to the corresponding chunk
 // Returns true if the end of the file was reached
 // Moves the buffer payloadLen positions
-func processPayload(g *Gateway, msgId message.ID, payload []byte, payloadLen uint64, eofs *uint8) (error, []byte) {
-
+func processPayload(g *Gateway, msgId message.ID, payload []byte, payloadLen uint64, eofs *uint8) error {
 	if isEndOfFile(payloadLen) {
 		logger.Infof("End of file received for message ID: %d", msgId)
 		sendMsgToChunkSender(g, msgId, nil)
 		*eofs++ //TODO podria validar q sea de diferente tipo de ID el eof... hashmap?
-		return nil, payload
+		return nil
 	}
 
-	newMsg, err, payload := parseClientPayload(msgId, payload, payloadLen)
+	newMsg, err := parseClientPayload(msgId, payload)
 	if err != nil {
-		return err, payload
+		return err
 	}
+	logger.Infof("Parsed message ID: %d", msgId)
 
 	sendMsgToChunkSender(g, msgId, newMsg)
 
-	return nil, payload
+	return nil
 }
 
 // parseClientPayload parses the payload received from the client and returns a DataCsvReviews or DataCsvGames
-func parseClientPayload(msgId message.ID, payload []byte, payloadLen uint64) (any, error, []byte) {
-	payload = payload[:payloadLen]
-
+func parseClientPayload(msgId message.ID, payload []byte) (any, error) {
 	var (
 		data any
 		err  error
 	)
+
+	logger.Debugf("PAYLOAD: %v", payload)
 
 	switch msgId {
 	case message.ReviewIdMsg:
 		data, err = message.DataCSVReviewsFromBytes(payload)
 	case message.GameIdMsg:
 		data, err = message.DataCSVGamesFromBytes(payload)
-	default:
-		//TODO: handle error
 	}
 
 	if err != nil {
-		return nil, err, payload
+		return nil, err
 	}
 
-	return data, nil, payload
+	return data, nil
 }
 
 func sendMsgToChunkSender(g *Gateway, msgId message.ID, newMsg any) {
+	logger.Infof("....................Sending message: %d to chunk sender", msgId)
 	g.ChunkChan <- ChunkItem{msgId, newMsg}
+	logger.Infof("Sent message: %d to chunk sender", msgId)
 }
 
 func isEndOfFile(payloadLen uint64) bool {
