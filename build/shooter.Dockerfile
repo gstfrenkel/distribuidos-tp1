@@ -9,7 +9,7 @@ RUN go mod download
 COPY configs/shooter.toml config.toml
 
 # Update path to desired entrypoint
-COPY cmd/worker/review/review.go ./main.go
+COPY cmd/worker/shooter/shooter.go ./main.go
 COPY pkg/ ./pkg/
 COPY internal/ ./internal/
 

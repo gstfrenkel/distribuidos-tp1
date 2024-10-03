@@ -16,10 +16,10 @@ type Destination struct {
 }
 
 type Aaaa struct {
-	Exchange  string // "reviews"
-	Key       string // "" o "%d"
-	Name      string // "reviews_q" o "reviews_q_%d"
-	Consumers uint8  // x
+	Exchange  string // Exchange name.
+	Key       string // Routing key format. MUST contain "%d" at the end if Consumers > 0.
+	Name      string // Queue name format. MUST contain "%d" at the end if Consumers > 0.
+	Consumers uint8  // May be 0 if the number of queues does not scale up with the number of consumer workers.
 }
 
 type MessageBroker interface {

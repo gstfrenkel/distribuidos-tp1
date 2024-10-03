@@ -53,7 +53,7 @@ func initQueue(b broker.MessageBroker, dst broker.Aaaa) ([]broker.Queue, []broke
 		if err != nil {
 			return nil, nil, err
 		}
-		if err = b.QueueBind(broker.QueueBind{Exchange: dst.Exchange, Name: dst.Exchange, Key: dst.Key}); err != nil {
+		if err = b.QueueBind(broker.QueueBind{Exchange: dst.Exchange, Name: dst.Name, Key: dst.Key}); err != nil {
 			return nil, nil, err
 		}
 		return q, []broker.Destination{{Exchange: dst.Exchange, Key: dst.Key}}, nil
@@ -67,7 +67,7 @@ func initQueue(b broker.MessageBroker, dst broker.Aaaa) ([]broker.Queue, []broke
 		if err != nil {
 			return nil, nil, err
 		}
-		key := fmt.Sprintf(dst.Name, i)
+		key := fmt.Sprintf(dst.Key, i)
 		if err = b.QueueBind(broker.QueueBind{Exchange: dst.Exchange, Name: name, Key: key}); err != nil {
 			return nil, nil, err
 		}

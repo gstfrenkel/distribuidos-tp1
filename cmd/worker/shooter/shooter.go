@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 
 	"tp1/internal/worker/shooter"
 )
@@ -14,6 +15,7 @@ func main() {
 	}
 
 	if err = filter.Init(); err != nil {
+		log.Printf("\n\n\nFailed to initialize games filter: %s\n\n\n", err.Error())
 		fmt.Printf("\n\n\nFailed to initialize games filter: %s\n\n\n", err.Error())
 		return
 	}
