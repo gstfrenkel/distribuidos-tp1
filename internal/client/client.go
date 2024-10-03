@@ -47,18 +47,14 @@ func (c *Client) Start() {
 
 	wg.Add(2)
 
-	/*	go func() {
+	go func() {
 		defer wg.Done()
 		readAndSendCSV("data/games.csv", uint8(message.GameIdMsg), conn, &message.DataCSVGames{})
-		// Debug print
-		//readAndPrintCSV("data/games.csv", &message.DataCSVGames{})
-	}()*/
+	}()
 
 	go func() {
 		defer wg.Done()
-		readAndSendCSV("data/reviews2.csv", uint8(message.ReviewIdMsg), conn, &message.DataCSVReviews{})
-		// Debug print
-		//readAndPrintCSV("data/reviews.csv", &message.DataCSVReviews{})
+		readAndSendCSV("data/reviews.csv", uint8(message.ReviewIdMsg), conn, &message.DataCSVReviews{})
 	}()
 
 	wg.Wait()
