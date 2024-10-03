@@ -3,18 +3,18 @@ package main
 import (
 	"fmt"
 
-	"tp1/internal/worker/game"
+	"tp1/internal/worker/shooter"
 )
 
 func main() {
-	filter, err := game.New()
+	filter, err := shooter.New()
 	if err != nil {
 		fmt.Printf("Failed to create new games filter: %s", err.Error())
 		return
 	}
 
 	if err = filter.Init(); err != nil {
-		fmt.Printf("Failed to initialize games filter: %s", err.Error())
+		fmt.Printf("\n\n\nFailed to initialize games filter: %s\n\n\n", err.Error())
 		return
 	}
 

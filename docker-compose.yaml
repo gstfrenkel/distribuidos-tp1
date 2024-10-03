@@ -24,11 +24,11 @@ services:
     links:
       - rabbitmq
 
-  reviews-filter-2:
-    container_name: reviews-filter-2
-    image: reviews-filter:latest
+  shooters-filter-1:
+    container_name: shooters-filter-1
+    image: shooters-filter:latest
     environment:
-      - worker-id=2
+      - worker-id=1
     depends_on:
       - rabbitmq
       - gateway

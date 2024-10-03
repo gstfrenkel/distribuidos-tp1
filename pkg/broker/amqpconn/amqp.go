@@ -37,15 +37,15 @@ func NewBroker() (broker.MessageBroker, error) {
 }
 
 // QueueDeclare declares new queues
-func (b *messageBroker) QueueDeclare(names ...string) ([]amqp.Queue, error) {
-	var queues []amqp.Queue
+func (b *messageBroker) QueueDeclare(names ...string) ([]broker.Queue, error) {
+	var queues []broker.Queue
 
 	for _, n := range names {
 		q, err := b.ch.QueueDeclare(n, true, false, false, false, nil)
 		if err != nil {
 			return nil, err
 		} else {
-			queues = append(queues, q)
+			queues = append(queues, broker.Queue(q))
 		}
 	}
 

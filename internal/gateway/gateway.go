@@ -8,8 +8,6 @@ import (
 	"tp1/pkg/broker/amqpconn"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
-
-	"github.com/rabbitmq/amqp091-go"
 )
 
 const configFilePath = "config.toml"
@@ -17,7 +15,7 @@ const configFilePath = "config.toml"
 type Gateway struct {
 	Config    config.Config
 	broker    broker.MessageBroker
-	queues    []amqp091.Queue //order: reviews, games_platform, games_shooter, games_indie
+	queues    []broker.Queue //order: reviews, games_platform, games_shooter, games_indie
 	exchange  string
 	Listener  net.Listener
 	ChunkChan chan ChunkItem
@@ -68,7 +66,7 @@ func (g Gateway) Start() {
 
 	defer g.Listener.Close() //TODO handle
 
-	go startChunkSender(g.ChunkChan, g.broker, g.exchange, g.Config.Uint8("gateway.chunk_size", 100), g.Config.String("rabbitmq.reviews_routing_key", "review"), g.Config.String("rabbitmq.games_routing_key", "game"))
+	go startChunkSender(g.ChunkChan, g.broker, g.exchange, g.Config.Uint8("gateway.chunk_size", 100), g.Config.String("rabbitmq.reviews_routing_key", "review"), g.Config.String("rabbitmq.games_routing_key", "shooter"))
 
 	err = ListenForNewClients(&g)
 	if err != nil {

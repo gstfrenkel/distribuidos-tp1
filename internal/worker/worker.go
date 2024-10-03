@@ -1,8 +1,11 @@
 package worker
 
 import (
+	"fmt"
 	"os"
 	"reflect"
+
+	"tp1/pkg/broker"
 	"tp1/pkg/broker/amqpconn"
 )
 
@@ -26,4 +29,51 @@ func Consume(proc func(delivery amqpconn.Delivery), signalChan chan os.Signal, d
 		}
 		proc(recv.Interface().(amqpconn.Delivery))
 	}
+}
+
+func InitQueues(b broker.MessageBroker, dsts ...broker.Aaaa) ([]broker.Queue, []broker.Destination, error) {
+	var queues []broker.Queue
+	var destinations []broker.Destination
+
+	for _, dst := range dsts {
+		queue, destination, err := initQueue(b, dst)
+		if err != nil {
+			return nil, nil, err
+		}
+		queues = append(queues, queue...)
+		destinations = append(destinations, destination...)
+	}
+
+	return queues, destinations, nil
+}
+
+func initQueue(b broker.MessageBroker, dst broker.Aaaa) ([]broker.Queue, []broker.Destination, error) {
+	if dst.Consumers == 0 {
+		q, err := b.QueueDeclare(dst.Name)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err = b.QueueBind(broker.QueueBind{Exchange: dst.Exchange, Name: dst.Exchange, Key: dst.Key}); err != nil {
+			return nil, nil, err
+		}
+		return q, []broker.Destination{{Exchange: dst.Exchange, Key: dst.Key}}, nil
+	}
+
+	queues := make([]broker.Queue, 0, dst.Consumers)
+	destinations := make([]broker.Destination, 0, dst.Consumers)
+	for i := uint8(0); i < dst.Consumers; i++ {
+		name := fmt.Sprintf(dst.Name, i+1)
+		q, err := b.QueueDeclare(name)
+		if err != nil {
+			return nil, nil, err
+		}
+		key := fmt.Sprintf(dst.Name, i)
+		if err = b.QueueBind(broker.QueueBind{Exchange: dst.Exchange, Name: name, Key: key}); err != nil {
+			return nil, nil, err
+		}
+		queues = append(queues, q...)
+		destinations = append(destinations, broker.Destination{Exchange: dst.Exchange, Key: key})
+	}
+
+	return queues, destinations, nil
 }

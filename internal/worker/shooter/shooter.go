@@ -1,4 +1,4 @@
-package game
+package shooter
 
 import (
 	"fmt"
@@ -57,30 +57,43 @@ func New() (worker.Worker, error) {
 	}, nil
 }
 
-func (f filter) Init() error {
+func (f *filter) Init() error {
 	exchange = f.config.String("exchange.name", exchange)
-	key = f.config.String("queue.key", key)
 
-	if err := f.broker.ExchangeDeclare(map[string]string{
-		exchange: f.config.String("exchange.kind", "direct"),
+	if err := f.broker.ExchangeDeclare(map[string]string{exchange: f.config.String("exchange.kind", "direct")}); err != nil {
+		return err
+	}
+
+	if err := f.broker.QueueBind(broker.QueueBind{
+		Exchange: exchange,
+		Name:     f.config.String("gateway.queue", "games_shooter"),
+		Key:      f.config.String("gateway.key", "input"),
 	}); err != nil {
 		return err
-	} else if _, err = f.broker.QueueDeclare(f.queues()...); err != nil {
-		return err
 	}
-	binds, input, outputs := f.binds()
-	if err := f.broker.QueueBind(binds...); err != nil {
+
+	_, outputs, err := worker.InitQueues(f.broker, []broker.Aaaa{{
+		Exchange:  exchange,
+		Key:       f.config.String("count-queue.key", "q4%d"),
+		Name:      f.config.String("count-queue.name", "games_query4_%d"),
+		Consumers: f.config.Uint8("count-queue.consumers", 0),
+	}, {
+		Exchange:  exchange,
+		Key:       f.config.String("percentile-queue.key", "q5%d"),
+		Name:      f.config.String("percentile-queue.name", "games_query5_%d"),
+		Consumers: f.config.Uint8("percentile-queue.consumers", 0),
+	}}...)
+
+	if err != nil {
 		return err
 	}
 
-	genre = f.config.String("query.genre", genre)
 	f.outputs = outputs
-	f.input = input
-
+	f.input = broker.Destination{Exchange: exchange, Key: f.config.String("gateway.key", "input")}
 	return nil
 }
 
-func (f filter) Start() {
+func (f *filter) Start() {
 	defer f.broker.Close()
 
 	ch, err := f.broker.Consume(f.config.String("gateway.queue", "games_shooter"), "", true, false)
@@ -92,7 +105,7 @@ func (f filter) Start() {
 	worker.Consume(f.process, f.signalChan, ch)
 }
 
-func (f filter) process(reviewDelivery amqpconn.Delivery) {
+func (f *filter) process(reviewDelivery amqpconn.Delivery) {
 	messageId := message.ID(reviewDelivery.Headers[amqpconn.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
@@ -112,7 +125,7 @@ func (f filter) process(reviewDelivery amqpconn.Delivery) {
 	}
 }
 
-func (f filter) publish(msg message.Game) {
+func (f *filter) publish(msg message.Game) {
 	games := msg.ToGameIdMessage(genre)
 	for _, game := range games {
 		b, err := game.ToBytes()
