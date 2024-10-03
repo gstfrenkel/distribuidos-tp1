@@ -38,31 +38,30 @@ func ListenForNewClients(g *Gateway) error {
 func handleConnection(g *Gateway, conn net.Conn) {
 	logger.Infof("New client connected: %s", conn.RemoteAddr().String())
 	bufferSize := g.Config.Int("gateway.buffer_size", 1024)
-	read, msgId, payloadSize, eofs, remaining := 0, uint8(0), uint64(0), uint8(0), 0
+	msgId, payloadSize, eofs, remaining := uint8(0), uint64(0), uint8(0), 0
 	data := make([]byte, bufferSize)
 	var auxBuffer []byte
 
 	for eofs < maxEofs {
-		n, err := conn.Read(data[read:])
+		n, err := conn.Read(data[remaining:])
 		if err != nil {
 			return //TODO: handle errors
 		}
 
-		read += n
-		if hasReadId(read, msgId) {
-			data = readId(&msgId, data, &read)
+		if hasReadId(n+remaining, msgId) {
+			data = readId(&msgId, data, &n)
 			auxBuffer = moveBuffer(auxBuffer, ioutils.U8Size)
 			logger.Infof("Received message ID: %d", msgId)
 		}
 
-		if hasReadPayloadSize(read, payloadSize) {
-			data = readPayloadSize(&payloadSize, data, &read)
+		if hasReadPayloadSize(n+remaining, payloadSize) {
+			data = readPayloadSize(&payloadSize, data, &n)
 			auxBuffer = moveBuffer(auxBuffer, ioutils.U64Size)
 			logger.Infof("Payload size: %d", payloadSize)
 		}
 
-		auxBuffer = append(auxBuffer, data[remaining:read]...)
-		read = 0
+		auxBuffer = append(auxBuffer, data[remaining:n+remaining]...)
+		remaining = 0
 		if hasReadCompletePayload(auxBuffer, payloadSize) {
 			err = processPayload(g, message.ID(msgId), auxBuffer[:payloadSize], payloadSize, &eofs)
 			if err != nil {
@@ -71,7 +70,7 @@ func handleConnection(g *Gateway, conn net.Conn) {
 			}
 			auxBuffer = auxBuffer[payloadSize:]
 			copy(data, auxBuffer)
-			resetValues(&msgId, &read, len(auxBuffer), &payloadSize, &remaining)
+			resetValues(&msgId, min(len(auxBuffer), bufferSize), &payloadSize, &remaining)
 		}
 	}
 }
@@ -83,8 +82,8 @@ func moveBuffer(buffer []byte, size int) []byte {
 	return buffer
 }
 
-func resetValues(msgId *uint8, read *int, remaining int, payloadSize *uint64, rem *int) {
-	*msgId, *read, *payloadSize, *rem = 0, remaining, 0, remaining
+func resetValues(msgId *uint8, remaining int, payloadSize *uint64, rem *int) {
+	*msgId, *payloadSize, *rem = 0, 0, remaining
 }
 
 func readPayloadSize(payloadSize *uint64, data []byte, read *int) []byte {
@@ -144,6 +143,7 @@ func parseClientPayload(msgId message.ID, payload []byte) (any, error) {
 		err  error
 	)
 
+	logger.Infof("PAYLOAD: %v", payload)
 	switch msgId {
 	case message.ReviewIdMsg:
 		data, err = message.DataCSVReviewsFromBytes(payload)
