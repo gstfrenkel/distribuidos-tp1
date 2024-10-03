@@ -25,8 +25,8 @@ var (
 type filter struct {
 	config     config.Config
 	broker     broker.MessageBroker
-	input      broker.Destination
-	outputs    []broker.Destination
+	input      broker.EofDestination
+	outputs    []broker.EofDestination
 	signalChan chan os.Signal
 	id         uint8
 	peers      uint8
@@ -72,7 +72,7 @@ func (f *filter) Init() error {
 		return err
 	}
 
-	_, outputs, err := worker.InitQueues(f.broker, []broker.Aaaa{{
+	_, outputs, err := worker.InitQueues(f.broker, []broker.Destination{{
 		Exchange:  exchange,
 		Key:       f.config.String("count-queue.key", "q4%d"),
 		Name:      f.config.String("count-queue.name", "games_query4_%d"),
@@ -89,7 +89,7 @@ func (f *filter) Init() error {
 	}
 
 	f.outputs = outputs
-	f.input = broker.Destination{Exchange: exchange, Key: f.config.String("gateway.key", "input")}
+	f.input = broker.EofDestination{Exchange: exchange, Key: f.config.String("gateway.key", "input")}
 	return nil
 }
 
