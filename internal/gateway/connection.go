@@ -38,76 +38,77 @@ func ListenForNewClients(g *Gateway) error {
 func handleConnection(g *Gateway, conn net.Conn) {
 	logger.Infof("New client connected: %s", conn.RemoteAddr().String())
 	bufferSize := g.Config.Int("gateway.buffer_size", 1024)
-	msgId, payloadSize, eofs, remaining := uint8(0), uint64(0), uint8(0), 0
-	data := make([]byte, bufferSize)
+	read, msgId, payloadSize, eofs := 0, uint8(0), uint64(0), uint8(0)
+	buffer := make([]byte, bufferSize)
 	var auxBuffer []byte
 
 	for eofs < maxEofs {
-		n, err := conn.Read(data[remaining:])
+		n, err := conn.Read(buffer[read:])
 		if err != nil {
-			return //TODO: handle errors
+			logger.Errorf("Error reading from client: %s", err.Error())
+			return
 		}
 
-		if hasReadId(n+remaining, msgId) {
-			data = readId(&msgId, data, &n)
-			if remaining >= MsgIdSize {
-				remaining -= MsgIdSize
-			}
-			auxBuffer = moveBuffer(auxBuffer, ioutils.U8Size)
+		read += n
+		if hasReadId(read, msgId) {
+			buffer = readId(&msgId, buffer, &read)
 			logger.Infof("Received message ID: %d", msgId)
 		}
 
-		if hasReadPayloadSize(n+remaining, payloadSize) {
-			data = readPayloadSize(&payloadSize, data, &n)
-			if remaining >= LenFieldSize {
-				remaining -= LenFieldSize
-			}
-			auxBuffer = moveBuffer(auxBuffer, ioutils.U64Size)
+		if hasReadPayloadSize(read, payloadSize) {
+			buffer = readPayloadSize(&payloadSize, buffer, &read)
 			logger.Infof("Payload size: %d", payloadSize)
 		}
 
-		auxBuffer = append(auxBuffer, data[remaining:n+remaining]...)
-		remaining = 0
+		auxBuffer = append(auxBuffer, buffer[:read]...)
+		read = 0
 		if hasReadCompletePayload(auxBuffer, payloadSize) {
 			err = processPayload(g, message.ID(msgId), auxBuffer[:payloadSize], payloadSize, &eofs)
 			if err != nil {
 				logger.Errorf("Error processing payload: %s", err.Error())
 				return
 			}
-			auxBuffer = auxBuffer[payloadSize:]
-			copy(data, auxBuffer)
-			resetValues(&msgId, min(len(auxBuffer), bufferSize), &payloadSize, &remaining)
+
+			auxBuffer = processRemaining(auxBuffer[payloadSize:], &msgId, &payloadSize)
 		}
 	}
 }
 
-func moveBuffer(buffer []byte, size int) []byte {
-	if buffer != nil && len(buffer) >= size {
-		return buffer[size:]
+func processRemaining(rem []byte, msgId *uint8, payloadSize *uint64) []byte {
+	*msgId, *payloadSize = 0, 0
+	if hasReadId(len(rem), *msgId) { //todo como se mueve el buf aca?
+		rem = readId(msgId, rem, nil)
 	}
-	return buffer
-}
 
-func resetValues(msgId *uint8, remaining int, payloadSize *uint64, rem *int) {
-	*msgId, *payloadSize, *rem = 0, 0, remaining
+	if hasReadPayloadSize(len(rem), *payloadSize) {
+		rem = readPayloadSize(payloadSize, rem, nil)
+	}
+
+	return rem
 }
 
 func readPayloadSize(payloadSize *uint64, data []byte, read *int) []byte {
-	var buf []byte
-	*payloadSize, buf = ioutils.ReadU64FromSlice(data)
-	if *read >= LenFieldSize {
+	*payloadSize = ioutils.ReadU64FromSlice(data)
+	if read != nil && *read >= LenFieldSize {
 		*read -= LenFieldSize
 	}
-	return buf
+
+	return moveBuff(data, LenFieldSize)
+}
+
+// moveBuff moves the buffer n positions to the left keeping the original capacity
+func moveBuff(data []byte, n int) []byte {
+	copy(data, data[n:])
+	return data[:len(data)-n]
 }
 
 func readId(msgId *uint8, data []byte, read *int) []byte {
-	var buf []byte
-	*msgId, buf = ioutils.ReadU8FromSlice(data)
-	if *read >= MsgIdSize {
+	*msgId = ioutils.ReadU8FromSlice(data)
+	if read != nil && *read >= MsgIdSize {
 		*read -= MsgIdSize
 	}
-	return buf
+
+	return moveBuff(data, MsgIdSize)
 }
 
 func hasReadCompletePayload(buf []byte, payloadSize uint64) bool {
@@ -153,7 +154,6 @@ func parseClientPayload(msgId message.ID, payload []byte) (any, error) {
 		err  error
 	)
 
-	logger.Infof("PAYLOAD: %v", payload)
 	switch msgId {
 	case message.ReviewIdMsg:
 		data, err = message.DataCSVReviewsFromBytes(payload)

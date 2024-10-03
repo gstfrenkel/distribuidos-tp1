@@ -6,6 +6,8 @@ services:
       - "15672:15672"
     networks:
       - tp1_net
+    logging:
+      driver: none
 
   gateway:
     container_name: gateway

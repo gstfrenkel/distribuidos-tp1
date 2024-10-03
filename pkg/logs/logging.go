@@ -11,7 +11,7 @@ import (
 func InitLogger(logLevel string) error {
 	baseBackend := logging.NewLogBackend(os.Stdout, "", 0)
 	format := logging.MustStringFormatter(
-		"%{color}%{time:15:04:05.000} %{shortfunc} ▶ %{level:.5s} %{color:reset} %{message}",
+		"%{color}%{time:2006-01-02 15:04:05.000000-07:00} %{shortfunc} ▶ %{level:.5s} %{color:reset} %{message}",
 	)
 	backendFormatter := logging.NewBackendFormatter(baseBackend, format)
 
