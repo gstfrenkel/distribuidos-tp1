@@ -42,14 +42,14 @@ func (g Game) ToBytes() ([]byte, error) {
 	return toBytes(g)
 }
 
-func (g Game) ToGameIdMessage(genreToFilter string) []GameId {
-	var result []GameId
+func (g Game) ToGameNamesMessage(genreToFilter string) GameNames {
+	var result GameNames
 
 	for _, h := range g {
 		genres := strings.Split(h.Genres, ",")
 		for _, genre := range genres {
 			if genre == genreToFilter {
-				result = append(result, NewGameId(h.GameId))
+				result = append(result, GameName{GameId: h.GameId, GameName: h.Name})
 				break
 			}
 		}

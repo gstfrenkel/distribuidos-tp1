@@ -10,7 +10,7 @@ type QueueBind struct {
 	Key      string
 }
 
-type EofDestination struct {
+type Route struct {
 	Exchange string // Exchange name.
 	Key      string // Routing key. Must be the processed value and not the format eg "shooters_1" and not "shooters_%d"
 }
@@ -29,6 +29,6 @@ type MessageBroker interface {
 	ExchangeBind(dst, key, src string) error
 	Publish(exchange, key string, msgId uint8, msg []byte) error
 	Consume(queue, consumer string, autoAck, exclusive bool) (<-chan amqp.Delivery, error)
-	HandleEofMessage(workerId, peers uint8, msg []byte, input EofDestination, outputs ...EofDestination) error
+	HandleEofMessage(workerId, peers uint8, msg []byte, input Route, outputs ...Route) error
 	Close()
 }

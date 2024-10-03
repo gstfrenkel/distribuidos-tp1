@@ -17,16 +17,15 @@ import (
 )
 
 var (
-	exchange = "shooters"
-	key      = "%d"
-	genre    = "action"
+	routes = [2]broker.Destination{}
+	genre  = "action"
 )
 
 type filter struct {
 	config     config.Config
 	broker     broker.MessageBroker
-	input      broker.EofDestination
-	outputs    []broker.EofDestination
+	input      broker.Route
+	outputs    []broker.Route
 	signalChan chan os.Signal
 	id         uint8
 	peers      uint8
@@ -58,7 +57,7 @@ func New() (worker.Worker, error) {
 }
 
 func (f *filter) Init() error {
-	exchange = f.config.String("exchange.name", exchange)
+	exchange := f.config.String("exchange.name", "shooters")
 
 	if err := f.broker.ExchangeDeclare(map[string]string{exchange: f.config.String("exchange.kind", "direct")}); err != nil {
 		return err
@@ -76,12 +75,12 @@ func (f *filter) Init() error {
 		Exchange:  exchange,
 		Key:       f.config.String("count-queue.key", "q4%d"),
 		Name:      f.config.String("count-queue.name", "games_query4_%d"),
-		Consumers: f.config.Uint8("count-queue.consumers", 0),
+		Consumers: f.config.Uint8("count-queue.consumers", 1),
 	}, {
 		Exchange:  exchange,
 		Key:       f.config.String("percentile-queue.key", "q5%d"),
 		Name:      f.config.String("percentile-queue.name", "games_query5_%d"),
-		Consumers: f.config.Uint8("percentile-queue.consumers", 0),
+		Consumers: f.config.Uint8("percentile-queue.consumers", 1),
 	}}...)
 
 	if err != nil {
@@ -89,7 +88,17 @@ func (f *filter) Init() error {
 	}
 
 	f.outputs = outputs
-	f.input = broker.EofDestination{Exchange: exchange, Key: f.config.String("gateway.key", "input")}
+	f.input = broker.Route{Exchange: exchange, Key: f.config.String("gateway.key", "input")}
+	routes[0] = broker.Destination{
+		Exchange:  exchange,
+		Consumers: f.config.Uint8("count-queue.consumers", 1),
+		Key:       f.config.String("count-queue.key", "q4%d"),
+	}
+	routes[1] = broker.Destination{
+		Exchange:  exchange,
+		Consumers: f.config.Uint8("percentile-queue.consumers", 1),
+		Key:       f.config.String("percentile-queue.key", "q5%d"),
+	}
 	return nil
 }
 
@@ -126,7 +135,7 @@ func (f *filter) process(reviewDelivery amqpconn.Delivery) {
 }
 
 func (f *filter) publish(msg message.Game) {
-	games := msg.ToGameIdMessage(genre)
+	games := msg.ToGameNamesMessage(genre)
 	for _, game := range games {
 		b, err := game.ToBytes()
 		if err != nil {
@@ -134,9 +143,12 @@ func (f *filter) publish(msg message.Game) {
 			continue
 		}
 
-		k := fmt.Sprintf(key, int64(game)%int64(len(f.outputs)))
-		if err = f.broker.Publish(exchange, k, uint8(message.GameIdID), b); err != nil {
-			fmt.Printf("%s: %s", errors.FailedToPublish.Error(), err.Error())
+		for _, route := range routes {
+			k := fmt.Sprintf(route.Key, game.GameId%int64(route.Consumers))
+
+			if err = f.broker.Publish(route.Exchange, k, uint8(message.GameNameID), b); err != nil {
+				fmt.Printf("%s: %s", errors.FailedToPublish.Error(), err.Error())
+			}
 		}
 	}
 }

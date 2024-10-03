@@ -25,8 +25,8 @@ var (
 	positiveKey = "p%d"
 	negativeKey = "n%d"
 
-	input   broker.EofDestination
-	outputs []broker.EofDestination
+	input   broker.Route
+	outputs []broker.Route
 )
 
 type Filter struct {
@@ -77,13 +77,13 @@ func (f Filter) Init() error {
 		return err
 	}
 
-	input = broker.EofDestination{Exchange: f.config.String("gateway.exchange", "reviews"), Key: f.config.String("gateway.key", "reviews")}
-	outputs = append(outputs, broker.EofDestination{Exchange: outputExchange, Key: ""})
+	input = broker.Route{Exchange: f.config.String("gateway.exchange", "reviews"), Key: f.config.String("gateway.key", "reviews")}
+	outputs = append(outputs, broker.Route{Exchange: outputExchange, Key: ""})
 	for i := 0; i < positiveConsumers; i++ {
-		outputs = append(outputs, broker.EofDestination{Exchange: outputExchange, Key: fmt.Sprintf(positiveKey, i)})
+		outputs = append(outputs, broker.Route{Exchange: outputExchange, Key: fmt.Sprintf(positiveKey, i)})
 	}
 	for i := 0; i < negativeConsumers; i++ {
-		outputs = append(outputs, broker.EofDestination{Exchange: outputExchange, Key: fmt.Sprintf(negativeKey, i)})
+		outputs = append(outputs, broker.Route{Exchange: outputExchange, Key: fmt.Sprintf(negativeKey, i)})
 	}
 
 	return nil
