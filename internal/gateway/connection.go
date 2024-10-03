@@ -50,12 +50,18 @@ func handleConnection(g *Gateway, conn net.Conn) {
 
 		if hasReadId(n+remaining, msgId) {
 			data = readId(&msgId, data, &n)
+			if remaining >= MsgIdSize {
+				remaining -= MsgIdSize
+			}
 			auxBuffer = moveBuffer(auxBuffer, ioutils.U8Size)
 			logger.Infof("Received message ID: %d", msgId)
 		}
 
 		if hasReadPayloadSize(n+remaining, payloadSize) {
 			data = readPayloadSize(&payloadSize, data, &n)
+			if remaining >= LenFieldSize {
+				remaining -= LenFieldSize
+			}
 			auxBuffer = moveBuffer(auxBuffer, ioutils.U64Size)
 			logger.Infof("Payload size: %d", payloadSize)
 		}
@@ -89,14 +95,18 @@ func resetValues(msgId *uint8, remaining int, payloadSize *uint64, rem *int) {
 func readPayloadSize(payloadSize *uint64, data []byte, read *int) []byte {
 	var buf []byte
 	*payloadSize, buf = ioutils.ReadU64FromSlice(data)
-	*read -= LenFieldSize
+	if *read >= LenFieldSize {
+		*read -= LenFieldSize
+	}
 	return buf
 }
 
 func readId(msgId *uint8, data []byte, read *int) []byte {
 	var buf []byte
 	*msgId, buf = ioutils.ReadU8FromSlice(data)
-	*read -= MsgIdSize
+	if *read >= MsgIdSize {
+		*read -= MsgIdSize
+	}
 	return buf
 }
 
