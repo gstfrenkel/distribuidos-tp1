@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"os"
 	"reflect"
@@ -75,9 +76,9 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 		// Prepare data for sending
 		var dataBuf []byte
 		if id == uint8(message.ReviewIdMsg) {
-			dataBuf, err = message.DataCSVReviews.ToBytes(dataStruct.(message.DataCSVReviews))
+			dataBuf, err = message.DataCSVReviews.ToBytes(*dataStruct.(*message.DataCSVReviews))
 		} else {
-			dataBuf, err = message.DataCSVGames.ToBytes(dataStruct.(message.DataCSVGames))
+			dataBuf, err = message.DataCSVGames.ToBytes(*dataStruct.(*message.DataCSVGames))
 		}
 
 		if err != nil {
@@ -94,6 +95,7 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 		if err := message.SendMessage(conn, msg); err != nil {
 			fmt.Println("Error sending message:", err)
 		}
+		log.Printf("Sent message ID: %d with payload size: %d", id, msg.DataLen)
 	}
 
 	// Send EOF message

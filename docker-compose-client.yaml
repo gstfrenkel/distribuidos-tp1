@@ -4,3 +4,11 @@ services:
     image: client:latest
     volumes:
       - ./data:/app/data
+    networks:
+      - tp1_net
+networks:
+  tp1_net:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.25.125.0/24

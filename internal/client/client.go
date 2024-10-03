@@ -39,6 +39,8 @@ func (c *Client) Start() {
 		return
 	}
 
+	log.Printf("test: %s", fullAddress)
+
 	log.Printf("Connected to: %s", fullAddress)
 
 	defer conn.Close()
@@ -49,16 +51,16 @@ func (c *Client) Start() {
 
 	go func() {
 		defer wg.Done()
-		readAndSendCSV("data/games.csv", uint8(message.GameIdMsg), conn, &message.DataCSVGames{})
+		readAndSendCSV(c.cfg.String("client.games_path", "data/games.csv"), uint8(message.GameIdMsg), conn, &message.DataCSVGames{})
 		// Debug print
-		//readAndPrintCSV("data/games.csv", &message.DataCSVGames{})
+		// readAndPrintCSV(c.cfg.String("client.games_path", "data/games.csv"), &message.DataCSVGames{})
 	}()
 
 	go func() {
 		defer wg.Done()
-		readAndSendCSV("data/reviews.csv", uint8(message.ReviewIdMsg), conn, &message.DataCSVReviews{})
+		readAndSendCSV(c.cfg.String("client.reviews_path", "data/reviews.csv"), uint8(message.ReviewIdMsg), conn, &message.DataCSVReviews{})
 		// Debug print
-		//readAndPrintCSV("data/reviews.csv", &message.DataCSVReviews{})
+		//readAndPrintCSV(c.cfg.String("client.games_path", "data/games.csv"), &message.DataCSVReviews{})
 	}()
 
 	wg.Wait()

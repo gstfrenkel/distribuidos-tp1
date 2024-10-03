@@ -66,12 +66,11 @@ func startChunkSender(channel <-chan ChunkItem, broker broker.MessageBroker, exc
 			} else {
 				chunkSender.updateGamesChunk(item.Msg.(message.DataCSVGames), false)
 			}
-		default:
 		}
 	}
 }
 
-func (s ChunkSender) updateReviewsChunk(reviews message.DataCSVReviews, eof bool) {
+func (s *ChunkSender) updateReviewsChunk(reviews message.DataCSVReviews, eof bool) {
 	if !eof {
 		s.reviewsChunk[s.reviewsCount] = reviews
 		s.reviewsCount++
@@ -79,7 +78,7 @@ func (s ChunkSender) updateReviewsChunk(reviews message.DataCSVReviews, eof bool
 	s.sendChunk(uint8(message.ReviewIdMsg), s.routingKeys[message.ReviewIdMsg], &s.reviewsCount, s.reviewsChunk, wrapReviewFromClientReview, eof)
 }
 
-func (s ChunkSender) updateGamesChunk(games message.DataCSVGames, eof bool) {
+func (s *ChunkSender) updateGamesChunk(games message.DataCSVGames, eof bool) {
 	if !eof {
 		s.gamesChunk[s.gamesCount] = games
 		s.gamesCount++
@@ -89,28 +88,32 @@ func (s ChunkSender) updateGamesChunk(games message.DataCSVGames, eof bool) {
 
 // sendChunk sends a chunk of data to the broker if the chunk is full or the eof flag is true
 // In case eof is true, it sends an EOF message to the broker
-func (s ChunkSender) sendChunk(key uint8, routingKey string, count *uint8, chunk any, mapper ToBytes, eof bool) {
+func (s *ChunkSender) sendChunk(msgId uint8, routingKey string, count *uint8, chunk any, mapper ToBytes, eof bool) {
 	if (*count == s.maxChunkSize) || (eof && *count > 0) {
 		auxChunk := make([]byte, *count)
-		auxChunk = append(auxChunk, key)
+		auxChunk = append(auxChunk, msgId)
 		auxChunk = append(auxChunk, *count)
 		bytes, err := mapper(chunk)
-		if err != nil { //TODO: handle error with a log
+		if err != nil { //TODO: handle error with a logger
 			return
 		}
 		auxChunk = append(auxChunk, bytes...)
 
-		err = s.broker.Publish(s.exchange, string(key), key, auxChunk)
-		if err != nil { //TODO: handle error
+		err = s.broker.Publish(s.exchange, routingKey, msgId, auxChunk)
+		if err != nil {
+			logger.Errorf("Error publishing chunk: %s", err.Error())
 			return
-		} //TODO: handle error
+		}
 
 		*count = 0
 		chunk = make([]any, s.maxChunkSize)
+		logger.Infof("Sent chunk with key %v", routingKey)
 	} else if eof {
-		err := s.broker.Publish(s.exchange, routingKey, key, []byte{uint8(message.EofMsg)})
-		if err != nil { //TODO: handle error
+		err := s.broker.Publish(s.exchange, routingKey, msgId, []byte{uint8(message.EofMsg)})
+		if err != nil {
+			logger.Errorf("Error publishing EOF: %s", err.Error())
 			return
 		}
+		logger.Infof("Sent eof with key %v", routingKey)
 	}
 }
