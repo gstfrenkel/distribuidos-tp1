@@ -43,25 +43,26 @@ func handleConnection(g *Gateway, conn net.Conn) {
 	var auxBuffer []byte
 
 	for eofs < maxEofs {
-		n, err := conn.Read(buffer[read:])
+		n, err := conn.Read(buffer)
 		if err != nil {
+			if err.Error() == "EOF" {
+				logger.Infof("Client disconnected: %s", conn.RemoteAddr().String())
+			}
 			logger.Errorf("Error reading from client: %s", err.Error())
-			return
 		}
 
+		auxBuffer = append(auxBuffer, buffer[:n]...)
 		read += n
-		if hasReadId(read, msgId) {
-			buffer = readId(&msgId, buffer, &read)
+		if hasNotReadId(read, msgId) {
+			auxBuffer = readId(&msgId, auxBuffer, &read)
 			logger.Infof("Received message ID: %d", msgId)
 		}
 
-		if hasReadPayloadSize(read, payloadSize) {
-			buffer = readPayloadSize(&payloadSize, buffer, &read)
+		if hasNotReadPayloadSize(read, payloadSize) {
+			auxBuffer = readPayloadSize(&payloadSize, auxBuffer, &read)
 			logger.Infof("Payload size: %d", payloadSize)
 		}
 
-		auxBuffer = append(auxBuffer, buffer[:read]...)
-		read = 0
 		if hasReadCompletePayload(auxBuffer, payloadSize) {
 			err = processPayload(g, message.ID(msgId), auxBuffer[:payloadSize], payloadSize, &eofs)
 			if err != nil {
@@ -70,18 +71,21 @@ func handleConnection(g *Gateway, conn net.Conn) {
 			}
 
 			auxBuffer = processRemaining(auxBuffer[payloadSize:], &msgId, &payloadSize)
+			read = 0
 		}
 	}
 }
 
 func processRemaining(rem []byte, msgId *uint8, payloadSize *uint64) []byte {
 	*msgId, *payloadSize = 0, 0
-	if hasReadId(len(rem), *msgId) { //todo como se mueve el buf aca?
+	if hasNotReadId(len(rem), *msgId) {
 		rem = readId(msgId, rem, nil)
+		logger.Infof("Received message ID: %d", *msgId)
 	}
 
-	if hasReadPayloadSize(len(rem), *payloadSize) {
+	if hasNotReadPayloadSize(len(rem), *payloadSize) {
 		rem = readPayloadSize(payloadSize, rem, nil)
+		logger.Infof("Payload size: %d", *payloadSize)
 	}
 
 	return rem
@@ -115,13 +119,13 @@ func hasReadCompletePayload(buf []byte, payloadSize uint64) bool {
 	return len(buf) >= int(payloadSize)
 }
 
-// hasReadPayloadSize returns true if the payload size field has been read (8 bytes)
-func hasReadPayloadSize(read int, payloadSize uint64) bool {
+// hasNotReadPayloadSize returns true if the payload size field has been read (8 bytes)
+func hasNotReadPayloadSize(read int, payloadSize uint64) bool {
 	return read >= LenFieldSize && payloadSize == 0
 }
 
-// hasReadId returns true if the message ID field has been read (1 byte)
-func hasReadId(read int, msgId uint8) bool {
+// hasNotReadId returns true if the message ID field has been read (1 byte)
+func hasNotReadId(read int, msgId uint8) bool {
 	return read >= MsgIdSize && msgId == 0
 }
 
@@ -140,7 +144,6 @@ func processPayload(g *Gateway, msgId message.ID, payload []byte, payloadLen uin
 	if err != nil {
 		return err
 	}
-	logger.Infof("Parsed message ID: %d", msgId)
 
 	sendMsgToChunkSender(g, msgId, newMsg)
 
@@ -159,6 +162,8 @@ func parseClientPayload(msgId message.ID, payload []byte) (any, error) {
 		data, err = message.DataCSVReviewsFromBytes(payload)
 	case message.GameIdMsg:
 		data, err = message.DataCSVGamesFromBytes(payload)
+	default:
+		logger.Errorf("Unsupported message ID: %d", msgId)
 	}
 
 	if err != nil {
