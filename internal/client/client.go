@@ -51,7 +51,7 @@ func (c *Client) Start() {
 
 	go func() {
 		defer wg.Done()
-		readAndSendCSV("data/games.csv", uint8(message.GameIdMsg), conn, &message.DataCSVGames{})
+		readAndSendCSV(c.cfg.String("client.games_path", "data/games.csv"), uint8(message.GameIdMsg), conn, &message.DataCSVGames{})
 	}()
 
 	go func() {
