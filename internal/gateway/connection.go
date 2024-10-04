@@ -49,6 +49,7 @@ func handleConnection(g *Gateway, conn net.Conn) {
 				logger.Infof("Client disconnected: %s", conn.RemoteAddr().String())
 			}
 			logger.Errorf("Error reading from client: %s", err.Error())
+			return
 		}
 
 		auxBuffer = append(auxBuffer, buffer[:n]...)
