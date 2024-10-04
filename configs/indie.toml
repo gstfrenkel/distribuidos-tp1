@@ -1,10 +1,20 @@
+[query]
+genre = "indie"
+
 [gateway]
-exchange = "gateway"
-queue = "reviews"
-key = "reviews"
+queue = "games_indie"
+key = "input"
 
 [exchange]
-name = "reviews"
+name = "indies"
 kind = "direct"
-queue = "platforms_by_game"
 peers = 1
+
+[playtime-queue]
+name = "indie_games"
+key = ""
+
+[positive-queue]
+name = "query3_games_%d"
+key = "%d"
+consumers = 2

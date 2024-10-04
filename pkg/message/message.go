@@ -19,6 +19,8 @@ const (
 	NegativeReviewID // ScoredReview message ID. Score is implicitly equal to -1.
 	PositiveReviewWithTextID
 	GameNameID // GameName message ID.
+	GameReleaseID
+	PlatformID
 )
 
 type ID uint8

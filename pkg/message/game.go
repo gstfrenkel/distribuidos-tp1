@@ -57,3 +57,35 @@ func (g Game) ToGameNamesMessage(genreToFilter string) GameNames {
 
 	return result
 }
+
+func (g Game) ToGameReleasesMessage(genreToFilter string) Releases {
+	var result Releases
+
+	for _, h := range g {
+		genres := strings.Split(h.Genres, ",")
+		for _, genre := range genres {
+			if genre == genreToFilter {
+				result = append(result, Release{GameId: h.GameId, GameName: h.Name, ReleaseDate: h.ReleaseDate, AvgPlaytime: h.AveragePlaytime})
+				break
+			}
+		}
+	}
+
+	return result
+}
+
+func (g Game) ToPlatformMessage() Platform {
+	var result Platform
+
+	for _, h := range g {
+		if h.Windows {
+			result.Windows += 1
+		} else if h.Mac {
+			result.Mac += 1
+		} else if h.Linux {
+			result.Linux += 1
+		}
+	}
+
+	return result
+}

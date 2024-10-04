@@ -7,6 +7,8 @@ import (
 
 	"tp1/pkg/broker"
 	"tp1/pkg/broker/amqpconn"
+
+	"github.com/pierrec/xxHash/xxHash32"
 )
 
 type Worker interface {
@@ -76,4 +78,8 @@ func initQueue(b broker.MessageBroker, dst broker.Destination) ([]broker.Queue, 
 	}
 
 	return queues, destinations, nil
+}
+
+func ShardGameId(id int64, key string, consumers uint8) string {
+	return fmt.Sprintf(key, xxHash32.Checksum([]byte{byte(id)}, 0)%uint32(consumers))
 }

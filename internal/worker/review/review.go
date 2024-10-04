@@ -111,7 +111,7 @@ func (f Filter) process(reviewDelivery amqpconn.Delivery) {
 	} else if messageId == message.ReviewIdMsg {
 		msg, err := message.ReviewFromBytes(reviewDelivery.Body)
 		if err != nil {
-			fmt.Printf("%s: %s", errors.FailedToParse.Error(), err.Error())
+			fmt.Printf("%s: %s\n", errors.FailedToParse.Error(), err.Error())
 			return
 		}
 
@@ -125,9 +125,9 @@ func (f Filter) publish(msg message.Review) {
 
 	b, err := msg.ToPositiveReviewWithTextMessage().ToBytes()
 	if err != nil {
-		fmt.Printf("%s: %s", errors.FailedToParse.Error(), err.Error())
+		fmt.Printf("%s: %s\n", errors.FailedToParse.Error(), err.Error())
 	} else if err = f.broker.Publish(outputExchange, "", uint8(message.PositiveReviewWithTextID), b); err != nil {
-		fmt.Printf("%s: %s", errors.FailedToPublish.Error(), err.Error())
+		fmt.Printf("%s: %s\n", errors.FailedToPublish.Error(), err.Error())
 	}
 
 	f.shardPublish(msg.ToPositiveReviewMessage(), positiveKey, positiveConsumers, uint8(message.PositiveReviewID))
@@ -138,13 +138,13 @@ func (f Filter) shardPublish(reviews message.ScoredReviews, k string, consumers 
 	for _, rv := range reviews {
 		b, err := rv.ToBytes()
 		if err != nil {
-			fmt.Printf("%s: %s", errors.FailedToParse.Error(), err.Error())
+			fmt.Printf("%s: %s\n", errors.FailedToParse.Error(), err.Error())
 			continue
 		}
 
 		key := fmt.Sprintf(k, rv.GameId%int64(consumers))
 		if err = f.broker.Publish(outputExchange, key, id, b); err != nil {
-			fmt.Printf("%s: %s", errors.FailedToPublish.Error(), err.Error())
+			fmt.Printf("%s: %s\n", errors.FailedToPublish.Error(), err.Error())
 		}
 	}
 }

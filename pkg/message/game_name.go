@@ -12,6 +12,10 @@ func FromBytes(b []byte) (GameName, error) {
 	return m, fromBytes(b, &m)
 }
 
+func (g GameNames) ToBytes() ([]byte, error) {
+	return toBytes(g)
+}
+
 func (g GameName) ToBytes() ([]byte, error) {
 	return toBytes(g)
 }
