@@ -16,6 +16,11 @@ import (
 	"tp1/pkg/message"
 )
 
+const (
+	playtimeQueue = iota
+	positiveQueue
+)
+
 var (
 	routes = [2]broker.Destination{}
 	genre  = "indie"
@@ -88,11 +93,11 @@ func (f *filter) Init() error {
 
 	f.outputs = outputs
 	f.input = broker.Route{Exchange: exchange, Key: f.config.String("gateway.key", "input")}
-	routes[0] = broker.Destination{
+	routes[playtimeQueue] = broker.Destination{
 		Exchange: exchange,
 		Key:      f.config.String("playtime-queue.key", ""),
 	}
-	routes[1] = broker.Destination{
+	routes[positiveQueue] = broker.Destination{
 		Exchange:  exchange,
 		Consumers: f.config.Uint8("positive-queue.consumers", 0),
 		Key:       f.config.String("positive-queue.key", "%d"),
@@ -139,7 +144,7 @@ func (f *filter) publish(msg message.Game) {
 
 	}
 
-	if err = f.broker.Publish(routes[0].Exchange, routes[0].Key, uint8(message.GameReleaseID), b); err != nil {
+	if err = f.broker.Publish(routes[playtimeQueue].Exchange, routes[playtimeQueue].Key, uint8(message.GameReleaseID), b); err != nil {
 		fmt.Printf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 
@@ -151,11 +156,11 @@ func (f *filter) publish(msg message.Game) {
 			continue
 		}
 
-		k := routes[1].Key
-		if routes[1].Consumers > 0 {
-			k = worker.ShardGameId(game.GameId, k, routes[1].Consumers)
+		k := routes[positiveQueue].Key
+		if routes[positiveQueue].Consumers > 0 {
+			k = worker.ShardGameId(game.GameId, k, routes[positiveQueue].Consumers)
 		}
-		if err = f.broker.Publish(routes[1].Exchange, k, uint8(message.GameNameID), b); err != nil {
+		if err = f.broker.Publish(routes[positiveQueue].Exchange, k, uint8(message.GameNameID), b); err != nil {
 			fmt.Printf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	}

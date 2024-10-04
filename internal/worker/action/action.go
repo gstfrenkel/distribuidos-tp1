@@ -16,6 +16,11 @@ import (
 	"tp1/pkg/message"
 )
 
+const (
+	countQueue = iota
+	percentileQueue
+)
+
 var (
 	routes = [2]broker.Destination{}
 	genre  = "action"
@@ -89,12 +94,12 @@ func (f *filter) Init() error {
 
 	f.outputs = outputs
 	f.input = broker.Route{Exchange: exchange, Key: f.config.String("gateway.key", "input")}
-	routes[0] = broker.Destination{
+	routes[countQueue] = broker.Destination{
 		Exchange:  exchange,
 		Consumers: f.config.Uint8("count-queue.consumers", 0),
 		Key:       f.config.String("count-queue.key", "q4%d"),
 	}
-	routes[1] = broker.Destination{
+	routes[percentileQueue] = broker.Destination{
 		Exchange:  exchange,
 		Consumers: f.config.Uint8("percentile-queue.consumers", 0),
 		Key:       f.config.String("percentile-queue.key", "q5%d"),
