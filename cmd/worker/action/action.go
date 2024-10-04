@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"log"
 
-	"tp1/internal/worker/shooter"
+	"tp1/internal/worker/action"
 )
 
 func main() {
-	filter, err := shooter.New()
+	filter, err := action.New()
 	if err != nil {
 		fmt.Printf("Failed to create new games filter: %s", err.Error())
 		return

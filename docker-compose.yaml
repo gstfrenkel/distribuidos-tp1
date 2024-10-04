@@ -33,9 +33,9 @@ services:
     networks:
       - tp1_net
 
-  shooters-filter-1:
-    container_name: shooters-filter-1
-    image: shooters-filter:latest
+  action-filter-1:
+    container_name: action-filter-1
+    image: action-filter:latest
     environment:
       - worker-id=1
     depends_on:

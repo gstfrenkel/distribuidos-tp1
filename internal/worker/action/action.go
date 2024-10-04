@@ -1,4 +1,4 @@
-package shooter
+package action
 
 import (
 	"fmt"

@@ -6,10 +6,10 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Replace with volume
-COPY configs/shooter.toml config.toml
+COPY configs/action.toml config.toml
 
 # Update path to desired entrypoint
-COPY cmd/worker/shooter/shooter.go ./main.go
+COPY cmd/worker/action/action.go ./main.go
 COPY pkg/ ./pkg/
 COPY internal/ ./internal/
 
