@@ -64,12 +64,7 @@ func handleConnection(g *Gateway, conn net.Conn) {
 		}
 
 		if hasReadCompletePayload(auxBuffer, payloadSize) {
-			err = processPayload(g, message.ID(msgId), auxBuffer[:payloadSize], payloadSize, &eofs)
-			if err != nil {
-				logger.Errorf("Error processing payload: %s", err.Error())
-				return
-			}
-
+			processPayload(g, message.ID(msgId), auxBuffer[:payloadSize], payloadSize, &eofs)
 			auxBuffer = processRemaining(auxBuffer[payloadSize:], &msgId, &payloadSize)
 			read = 0
 		}
@@ -132,49 +127,18 @@ func hasNotReadId(read int, msgId uint8) bool {
 // processPayload parses the data received from the client and appends it to the corresponding chunk
 // Returns true if the end of the file was reached
 // Moves the buffer payloadLen positions
-func processPayload(g *Gateway, msgId message.ID, payload []byte, payloadLen uint64, eofs *uint8) error {
+func processPayload(g *Gateway, msgId message.ID, payload []byte, payloadLen uint64, eofs *uint8) {
 	if isEndOfFile(payloadLen) {
 		logger.Infof("End of file received for message ID: %d", msgId)
 		sendMsgToChunkSender(g, msgId, nil)
-		*eofs++ //TODO podria validar q sea de diferente tipo de ID el eof... hashmap?
-		return nil
+		*eofs++
 	}
 
-	newMsg, err := parseClientPayload(msgId, payload)
-	if err != nil {
-		return err
-	}
-
-	sendMsgToChunkSender(g, msgId, newMsg)
-
-	return nil
+	sendMsgToChunkSender(g, msgId, payload)
 }
 
-// parseClientPayload parses the payload received from the client and returns a DataCsvReviews or DataCsvGames
-func parseClientPayload(msgId message.ID, payload []byte) (any, error) {
-	var (
-		data any
-		err  error
-	)
-
-	switch msgId {
-	case message.ReviewIdMsg:
-		data, err = message.DataCSVReviewsFromBytes(payload)
-	case message.GameIdMsg:
-		data, err = message.DataCSVGamesFromBytes(payload)
-	default:
-		logger.Errorf("Unsupported message ID: %d", msgId)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
-}
-
-func sendMsgToChunkSender(g *Gateway, msgId message.ID, newMsg any) {
-	g.ChunkChan <- ChunkItem{msgId, newMsg}
+func sendMsgToChunkSender(g *Gateway, msgId message.ID, payload []byte) {
+	g.ChunkChan <- ChunkItem{msgId, payload}
 	logger.Infof("Sent message: %d to chunk sender", msgId)
 }
 

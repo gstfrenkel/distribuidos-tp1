@@ -19,7 +19,7 @@ type ChunkSender struct {
 
 type ChunkItem struct {
 	MsgId message.ID
-	Msg   any //DataCSVGames or DataCSVReviews
+	Msg   []byte //DataCSVGames or DataCSVReviews bytes
 }
 
 type ToBytes func(any) ([]byte, error)
@@ -55,19 +55,37 @@ func startChunkSender(channel <-chan ChunkItem, broker broker.MessageBroker, exc
 		item := <-channel
 		switch item.MsgId {
 		case message.ReviewIdMsg:
-			if item.Msg == nil {
+			if item.Msg == nil { //eof
 				chunkSender.updateReviewsChunk(message.DataCSVReviews{}, true)
 			} else {
-				chunkSender.updateReviewsChunk(item.Msg.(message.DataCSVReviews), false)
+				chunkSender.updateReviewsChunk(parseClientPayload(message.ReviewIdMsg, item.Msg).(message.DataCSVReviews), false)
 			}
 		case message.GameIdMsg:
-			if item.Msg == nil {
+			if item.Msg == nil { //eof
 				chunkSender.updateGamesChunk(message.DataCSVGames{}, true)
 			} else {
-				chunkSender.updateGamesChunk(item.Msg.(message.DataCSVGames), false)
+				chunkSender.updateGamesChunk(parseClientPayload(message.GameIdMsg, item.Msg).(message.DataCSVGames), false)
 			}
+		default:
+			logger.Errorf("Unsupported message ID: %d", item.MsgId)
 		}
 	}
+}
+
+// parseClientPayload parses the payload received from the client and returns a DataCsvReviews or DataCsvGames
+func parseClientPayload(msgId message.ID, payload []byte) any {
+	var data any
+
+	switch msgId {
+	case message.ReviewIdMsg:
+		data, _ = message.DataCSVReviewsFromBytes(payload)
+	case message.GameIdMsg:
+		data, _ = message.DataCSVGamesFromBytes(payload)
+	default:
+		logger.Errorf("Unsupported message ID: %d", msgId)
+	}
+
+	return data
 }
 
 func (s *ChunkSender) updateReviewsChunk(reviews message.DataCSVReviews, eof bool) {
