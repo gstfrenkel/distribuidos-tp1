@@ -1,4 +1,9 @@
-gateway_addr = "127.0.0.1:5050"
+[gateway]
+address = "172.25.125.10"
+port = 5050
 
+[client]
+games_path = "data/games.csv"
+reviews_path = "data/reviews.csv"
 
 

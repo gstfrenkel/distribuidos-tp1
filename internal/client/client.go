@@ -28,16 +28,20 @@ func New() (*Client, error) {
 
 func (c *Client) Start() {
 	log.Println("Client running...")
+	address := c.cfg.String("gateway.address", "127.0.0.1")
+	port := c.cfg.String("gateway.port", "5050")
+	fullAddress := address + ":" + port
 
-	address := c.cfg.String("gateway_addr", "")
+	conn, err := net.Dial("tcp", fullAddress)
 
-	conn, err := net.Dial("tcp", address)
 	if err != nil {
 		fmt.Println("Error connecting to gateway:", err)
 		return
 	}
 
-	log.Printf("Connected to: %s", address)
+	log.Printf("test: %s", fullAddress)
+
+	log.Printf("Connected to: %s", fullAddress)
 
 	defer conn.Close()
 
@@ -45,12 +49,15 @@ func (c *Client) Start() {
 
 	wg.Add(2)
 
-	// Debug read files
-	// go readAndPrintCSV("data/games.csv", &DataCSVGames{}, &wg)
-	// go readAndPrintCSV("data/reviews.csv", &DataCSVReviews{}, &wg)
+	go func() {
+		defer wg.Done()
+		readAndSendCSV(c.cfg.String("client.games_path", "data/games.csv"), uint8(message.GameIdMsg), conn, &message.DataCSVGames{})
+	}()
 
-	go readAndSendCSV("data/games.csv", uint8(message.GameIdMsg), conn, &message.DataCSVGames{}, &wg)
-	go readAndSendCSV("data/reviews.csv", uint8(message.ReviewIdMsg), conn, &message.DataCSVReviews{}, &wg)
+	go func() {
+		defer wg.Done()
+		readAndSendCSV(c.cfg.String("client.reviews_path", "data/reviews.csv"), uint8(message.ReviewIdMsg), conn, &message.DataCSVReviews{})
+	}()
 
 	wg.Wait()
 

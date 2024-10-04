@@ -3,6 +3,9 @@ exchange = "gateway"
 queue = "reviews"
 key = "review"
 
+[log]
+level = "INFO"
+
 [exchange]
 name = "reviews"
 kind = "direct"
@@ -12,11 +15,11 @@ peers = 2
 queue-name = "positive_reviews"
 
 [positive-reviews-sh]
-consumers = 2
+consumers = 3
 queue-name = "positive_reviews_%d"
 key = "p%d"
 
 [negative-reviews-sh]
-consumers = 2
+consumers = 3
 queue-name = "negative_reviews_%d"
 key = "n%d"

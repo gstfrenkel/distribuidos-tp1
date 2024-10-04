@@ -64,12 +64,15 @@ type DataCSVReviews struct {
 	ReviewVotes int64
 }
 
+const msgIdSize = 1
+const payloadSize = 8
+
 func SendMessage(conn net.Conn, msg ClientMessage) error {
 	// Create message
-	finalMessage := make([]byte, 0, 1+8+len(msg.Data))
+	finalMessage := make([]byte, 0, msgIdSize+payloadSize+len(msg.Data))
 	// Append ID
 	finalMessage = append(finalMessage, msg.ID)
-	lenBytes := make([]byte, 8)
+	lenBytes := make([]byte, payloadSize)
 	binary.BigEndian.PutUint64(lenBytes, msg.DataLen)
 	// Append length of the payload
 	finalMessage = append(finalMessage, lenBytes...)

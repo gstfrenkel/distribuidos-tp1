@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"net"
+	"tp1/pkg/logs"
 
 	"tp1/internal/gateway/rabbit"
 	"tp1/pkg/broker"
@@ -11,6 +12,8 @@ import (
 )
 
 const configFilePath = "config.toml"
+
+var logger, _ = logs.GetLogger("gateway")
 
 type Gateway struct {
 	Config    config.Config
@@ -60,7 +63,8 @@ func (g Gateway) Start() {
 	defer g.broker.Close()
 
 	err := CreateGatewaySocket(&g)
-	if err != nil { //TODO handle
+	if err != nil {
+		logger.Errorf("Failed to create gateway socket: %s", err.Error())
 		return
 	}
 
@@ -70,6 +74,7 @@ func (g Gateway) Start() {
 
 	err = ListenForNewClients(&g)
 	if err != nil {
+		logger.Errorf("Failed to listen for new clients: %s", err.Error())
 		return
 	}
 }

@@ -4,6 +4,10 @@ services:
     image: rabbitmq:management
     ports:
       - "15672:15672"
+    networks:
+      - tp1_net
+    logging:
+      driver: none
 
   gateway:
     container_name: gateway
@@ -12,6 +16,9 @@ services:
       - rabbitmq
     links:
       - rabbitmq
+    networks:
+      tp1_net:
+        ipv4_address: 172.25.125.10
 
   reviews-filter-1:
     container_name: reviews-filter-1
@@ -23,6 +30,8 @@ services:
       - gateway
     links:
       - rabbitmq
+    networks:
+      - tp1_net
 
   shooters-filter-1:
     container_name: shooters-filter-1
@@ -34,3 +43,12 @@ services:
       - gateway
     links:
       - rabbitmq
+    networks:
+      - tp1_net
+
+networks:
+  tp1_net:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.25.125.0/24
