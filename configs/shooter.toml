@@ -17,4 +17,4 @@ key = "q4"
 [percentile-queue]
 name = "games_query5_%d"
 key = "q5%d"
-consumers = 1
+consumers = 2

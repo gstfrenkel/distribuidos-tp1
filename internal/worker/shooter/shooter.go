@@ -6,14 +6,14 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
-	"tp1/internal/errors"
-	"tp1/pkg/message"
 
+	"tp1/internal/errors"
 	"tp1/internal/worker"
 	"tp1/pkg/broker"
 	"tp1/pkg/broker/amqpconn"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
+	"tp1/pkg/message"
 )
 
 var (
@@ -75,12 +75,12 @@ func (f *filter) Init() error {
 		Exchange:  exchange,
 		Key:       f.config.String("count-queue.key", "q4%d"),
 		Name:      f.config.String("count-queue.name", "games_query4_%d"),
-		Consumers: f.config.Uint8("count-queue.consumers", 1),
+		Consumers: f.config.Uint8("count-queue.consumers", 0),
 	}, {
 		Exchange:  exchange,
 		Key:       f.config.String("percentile-queue.key", "q5%d"),
 		Name:      f.config.String("percentile-queue.name", "games_query5_%d"),
-		Consumers: f.config.Uint8("percentile-queue.consumers", 1),
+		Consumers: f.config.Uint8("percentile-queue.consumers", 0),
 	}}...)
 
 	if err != nil {
@@ -91,12 +91,12 @@ func (f *filter) Init() error {
 	f.input = broker.Route{Exchange: exchange, Key: f.config.String("gateway.key", "input")}
 	routes[0] = broker.Destination{
 		Exchange:  exchange,
-		Consumers: f.config.Uint8("count-queue.consumers", 1),
+		Consumers: f.config.Uint8("count-queue.consumers", 0),
 		Key:       f.config.String("count-queue.key", "q4%d"),
 	}
 	routes[1] = broker.Destination{
 		Exchange:  exchange,
-		Consumers: f.config.Uint8("percentile-queue.consumers", 1),
+		Consumers: f.config.Uint8("percentile-queue.consumers", 0),
 		Key:       f.config.String("percentile-queue.key", "q5%d"),
 	}
 	return nil
@@ -144,8 +144,10 @@ func (f *filter) publish(msg message.Game) {
 		}
 
 		for _, route := range routes {
-			k := fmt.Sprintf(route.Key, game.GameId%int64(route.Consumers))
-
+			k := route.Key
+			if route.Consumers > 0 {
+				k = fmt.Sprintf(k, game.GameId%int64(route.Consumers))
+			}
 			if err = f.broker.Publish(route.Exchange, k, uint8(message.GameNameID), b); err != nil {
 				fmt.Printf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 			}
