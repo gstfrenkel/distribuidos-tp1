@@ -47,9 +47,10 @@ func handleConnection(g *Gateway, conn net.Conn) {
 		if err != nil {
 			if err.Error() == "EOF" {
 				logger.Infof("Client disconnected: %s", conn.RemoteAddr().String())
+			} else {
+				logger.Errorf("Error reading from client: %s", err.Error())
+				return
 			}
-			logger.Errorf("Error reading from client: %s", err.Error())
-			return
 		}
 
 		auxBuffer = append(auxBuffer, buffer[:n]...)
