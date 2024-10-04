@@ -2,13 +2,13 @@ package gateway
 
 import (
 	"net"
-	"tp1/pkg/logs"
 
 	"tp1/internal/gateway/rabbit"
 	"tp1/pkg/broker"
 	"tp1/pkg/broker/amqpconn"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
+	"tp1/pkg/logs"
 )
 
 const configFilePath = "config.toml"
