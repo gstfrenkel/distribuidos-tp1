@@ -92,32 +92,35 @@ func (s *ChunkSender) updateReviewsChunk(reviews message.DataCSVReviews, eof boo
 	if !eof {
 		s.reviewsChunk[s.reviewsCount] = reviews
 		s.reviewsCount++
+		s.sendChunk(uint8(message.ReviewIdMsg), s.routingKeys[message.ReviewIdMsg], &s.reviewsCount, s.reviewsChunk, wrapReviewFromClientReview, eof)
+	} else {
+		s.reviewsCount = 0
+		s.sendChunk(uint8(message.EofMsg), s.routingKeys[message.ReviewIdMsg], &s.reviewsCount, nil, wrapReviewFromClientReview, eof)
 	}
-	s.sendChunk(uint8(message.ReviewIdMsg), s.routingKeys[message.ReviewIdMsg], &s.reviewsCount, s.reviewsChunk, wrapReviewFromClientReview, eof)
 }
 
 func (s *ChunkSender) updateGamesChunk(games message.DataCSVGames, eof bool) {
 	if !eof {
 		s.gamesChunk[s.gamesCount] = games
 		s.gamesCount++
+		s.sendChunk(uint8(message.GameIdMsg), s.routingKeys[message.GameIdMsg], &s.gamesCount, s.gamesChunk, wrapGamesFromClientGames, eof)
+	} else {
+		s.gamesCount = 0
+		s.sendChunk(uint8(message.EofMsg), s.routingKeys[message.GameIdMsg], &s.gamesCount, nil, wrapGamesFromClientGames, eof)
 	}
-	s.sendChunk(uint8(message.GameIdMsg), s.routingKeys[message.GameIdMsg], &s.gamesCount, s.gamesChunk, wrapGamesFromClientGames, eof)
 }
 
 // sendChunk sends a chunk of data to the broker if the chunk is full or the eof flag is true
 // In case eof is true, it sends an EOF message to the broker
 func (s *ChunkSender) sendChunk(msgId uint8, routingKey string, count *uint8, chunk any, mapper ToBytes, eof bool) {
 	if (*count == s.maxChunkSize) || (eof && *count > 0) {
-		auxChunk := make([]byte, *count)
-		auxChunk = append(auxChunk, msgId)
-		auxChunk = append(auxChunk, *count)
 		bytes, err := mapper(chunk)
-		if err != nil { //TODO: handle error with a logger
+		if err != nil {
+			logger.Errorf("Error converting chunk to bytes: %s", err.Error())
 			return
 		}
-		auxChunk = append(auxChunk, bytes...)
 
-		err = s.broker.Publish(s.exchange, routingKey, msgId, auxChunk)
+		err = s.broker.Publish(s.exchange, routingKey, msgId, bytes)
 		if err != nil {
 			logger.Errorf("Error publishing chunk: %s", err.Error())
 			return
@@ -127,7 +130,7 @@ func (s *ChunkSender) sendChunk(msgId uint8, routingKey string, count *uint8, ch
 		chunk = make([]any, s.maxChunkSize)
 		logger.Infof("Sent chunk with key %v", routingKey)
 	} else if eof {
-		err := s.broker.Publish(s.exchange, routingKey, msgId, []byte{uint8(message.EofMsg)})
+		err := s.broker.Publish(s.exchange, routingKey, msgId, nil)
 		if err != nil {
 			logger.Errorf("Error publishing EOF: %s", err.Error())
 			return
