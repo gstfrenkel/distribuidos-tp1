@@ -45,25 +45,25 @@ func TestHasReadCompletePayload_False(t *testing.T) {
 func TestHasReadPayloadSize_True(t *testing.T) {
 	read := 8
 	payloadSize := uint64(0)
-	assert.True(t, hasReadPayloadSize(read, payloadSize))
+	assert.True(t, hasNotReadPayloadSize(read, payloadSize))
 }
 
 func TestHasReadPayloadSize_False(t *testing.T) {
 	read := 5
 	payloadSize := uint64(0)
-	assert.False(t, hasReadPayloadSize(read, payloadSize))
+	assert.False(t, hasNotReadPayloadSize(read, payloadSize))
 }
 
 func TestHasReadId_True(t *testing.T) {
 	read := 1
 	msgId := uint8(0)
-	assert.True(t, hasReadId(read, msgId))
+	assert.True(t, hasNotReadId(read, msgId))
 }
 
 func TestHasReadId_False(t *testing.T) {
 	read := 0
 	msgId := uint8(0)
-	assert.False(t, hasReadId(read, msgId))
+	assert.False(t, hasNotReadId(read, msgId))
 }
 
 func TestProcessPayload_EndOfFile(t *testing.T) {

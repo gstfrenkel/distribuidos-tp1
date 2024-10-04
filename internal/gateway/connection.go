@@ -39,121 +39,108 @@ func handleConnection(g *Gateway, conn net.Conn) {
 	logger.Infof("New client connected: %s", conn.RemoteAddr().String())
 	bufferSize := g.Config.Int("gateway.buffer_size", 1024)
 	read, msgId, payloadSize, eofs := 0, uint8(0), uint64(0), uint8(0)
-	data := make([]byte, bufferSize)
+	buffer := make([]byte, bufferSize)
 	var auxBuffer []byte
 
 	for eofs < maxEofs {
-		n, err := conn.Read(data[read:])
+		n, err := conn.Read(buffer)
 		if err != nil {
-			return //TODO: handle errors
+			if err.Error() == "EOF" {
+				logger.Infof("Client disconnected: %s", conn.RemoteAddr().String())
+			} else {
+				logger.Errorf("Error reading from client: %s", err.Error())
+				return
+			}
 		}
 
+		auxBuffer = append(auxBuffer, buffer[:n]...)
 		read += n
-		if hasReadId(read, msgId) {
-			data = readId(&msgId, data, &read)
+		if hasNotReadId(read, msgId) {
+			auxBuffer = readId(&msgId, auxBuffer, &read)
 			logger.Infof("Received message ID: %d", msgId)
 		}
 
-		if hasReadPayloadSize(read, payloadSize) {
-			data = readPayloadSize(&payloadSize, data, &read)
+		if hasNotReadPayloadSize(read, payloadSize) {
+			auxBuffer = readPayloadSize(&payloadSize, auxBuffer, &read)
 			logger.Infof("Payload size: %d", payloadSize)
 		}
 
-		auxBuffer = append(auxBuffer, data[:read]...)
-		read = 0
 		if hasReadCompletePayload(auxBuffer, payloadSize) {
-			err = processPayload(g, message.ID(msgId), auxBuffer[:payloadSize], payloadSize, &eofs)
-			if err != nil {
-				logger.Errorf("Error processing payload: %s", err.Error())
-				return
-			}
-			auxBuffer = auxBuffer[payloadSize:]
-			copy(data, auxBuffer)
-			resetValues(&msgId, &read, len(auxBuffer), &payloadSize)
+			processPayload(g, message.ID(msgId), auxBuffer[:payloadSize], payloadSize, &eofs)
+			auxBuffer = processRemaining(auxBuffer[payloadSize:], &msgId, &payloadSize)
+			read = 0
 		}
 	}
 }
 
-func resetValues(msgId *uint8, read *int, remaining int, payloadSize *uint64) {
-	*msgId, *read, *payloadSize = 0, remaining, 0
+func processRemaining(rem []byte, msgId *uint8, payloadSize *uint64) []byte {
+	*msgId, *payloadSize = 0, 0
+	if hasNotReadId(len(rem), *msgId) {
+		rem = readId(msgId, rem, nil)
+		logger.Infof("Received message ID: %d", *msgId)
+	}
+
+	if hasNotReadPayloadSize(len(rem), *payloadSize) {
+		rem = readPayloadSize(payloadSize, rem, nil)
+		logger.Infof("Payload size: %d", *payloadSize)
+	}
+
+	return rem
 }
 
 func readPayloadSize(payloadSize *uint64, data []byte, read *int) []byte {
-	var buf []byte
-	*payloadSize, buf = ioutils.ReadU64FromSlice(data)
-	*read -= LenFieldSize
-	return buf
+	*payloadSize = ioutils.ReadU64FromSlice(data)
+	if read != nil && *read >= LenFieldSize {
+		*read -= LenFieldSize
+	}
+
+	return moveBuff(data, LenFieldSize)
+}
+
+// moveBuff moves the buffer n positions to the left keeping the original capacity
+func moveBuff(data []byte, n int) []byte {
+	copy(data, data[n:])
+	return data[:len(data)-n]
 }
 
 func readId(msgId *uint8, data []byte, read *int) []byte {
-	var buf []byte
-	*msgId, buf = ioutils.ReadU8FromSlice(data)
-	*read -= MsgIdSize
-	return buf
+	*msgId = ioutils.ReadU8FromSlice(data)
+	if read != nil && *read >= MsgIdSize {
+		*read -= MsgIdSize
+	}
+
+	return moveBuff(data, MsgIdSize)
 }
 
 func hasReadCompletePayload(buf []byte, payloadSize uint64) bool {
 	return len(buf) >= int(payloadSize)
 }
 
-// hasReadPayloadSize returns true if the payload size field has been read (8 bytes)
-func hasReadPayloadSize(read int, payloadSize uint64) bool {
+// hasNotReadPayloadSize returns true if the payload size field has been read (8 bytes)
+func hasNotReadPayloadSize(read int, payloadSize uint64) bool {
 	return read >= LenFieldSize && payloadSize == 0
 }
 
-// hasReadId returns true if the message ID field has been read (1 byte)
-func hasReadId(read int, msgId uint8) bool {
+// hasNotReadId returns true if the message ID field has been read (1 byte)
+func hasNotReadId(read int, msgId uint8) bool {
 	return read >= MsgIdSize && msgId == 0
 }
 
 // processPayload parses the data received from the client and appends it to the corresponding chunk
 // Returns true if the end of the file was reached
 // Moves the buffer payloadLen positions
-func processPayload(g *Gateway, msgId message.ID, payload []byte, payloadLen uint64, eofs *uint8) error {
+func processPayload(g *Gateway, msgId message.ID, payload []byte, payloadLen uint64, eofs *uint8) {
 	if isEndOfFile(payloadLen) {
 		logger.Infof("End of file received for message ID: %d", msgId)
 		sendMsgToChunkSender(g, msgId, nil)
-		*eofs++ //TODO podria validar q sea de diferente tipo de ID el eof... hashmap?
-		return nil
+		*eofs++
 	}
 
-	newMsg, err := parseClientPayload(msgId, payload)
-	if err != nil {
-		return err
-	}
-	logger.Infof("Parsed message ID: %d", msgId)
-
-	sendMsgToChunkSender(g, msgId, newMsg)
-
-	return nil
+	sendMsgToChunkSender(g, msgId, payload)
 }
 
-// parseClientPayload parses the payload received from the client and returns a DataCsvReviews or DataCsvGames
-func parseClientPayload(msgId message.ID, payload []byte) (any, error) {
-	var (
-		data any
-		err  error
-	)
-
-	logger.Debugf("PAYLOAD: %v", payload)
-
-	switch msgId {
-	case message.ReviewIdMsg:
-		data, err = message.DataCSVReviewsFromBytes(payload)
-	case message.GameIdMsg:
-		data, err = message.DataCSVGamesFromBytes(payload)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
-}
-
-func sendMsgToChunkSender(g *Gateway, msgId message.ID, newMsg any) {
-	logger.Infof("....................Sending message: %d to chunk sender", msgId)
-	g.ChunkChan <- ChunkItem{msgId, newMsg}
+func sendMsgToChunkSender(g *Gateway, msgId message.ID, payload []byte) {
+	g.ChunkChan <- ChunkItem{msgId, payload}
 	logger.Infof("Sent message: %d to chunk sender", msgId)
 }
 

@@ -1,7 +1,6 @@
 package ioutils
 
 import (
-	"bytes"
 	"encoding/binary"
 	"net"
 )
@@ -23,36 +22,10 @@ func SendAll(conn net.Conn, data []byte) error {
 	return nil
 }
 
-func ReadU8FromSlice(buf []byte) (uint8, []byte) {
-	return buf[0], buf[U8Size:]
+func ReadU8FromSlice(buf []byte) uint8 {
+	return buf[0]
 }
 
-func ReadU64FromSlice(buf []byte) (uint64, []byte) {
-	return binary.BigEndian.Uint64(buf), buf[U64Size:]
-}
-
-func ReadI64(buf *bytes.Buffer) (int64, error) {
-	var i int64
-	err := binary.Read(buf, binary.BigEndian, &i)
-	return i, err
-}
-
-func ReadU8(buf *bytes.Buffer) (uint8, error) {
-	var i uint8
-	err := binary.Read(buf, binary.BigEndian, &i)
-	return i, err
-}
-
-func ReadU64(buf *bytes.Buffer) (uint64, error) {
-	var i uint64
-	err := binary.Read(buf, binary.BigEndian, &i)
-	return i, err
-}
-
-func ReadString(buf *bytes.Buffer, length uint64) (string, error) {
-	b := make([]byte, length)
-	if err := binary.Read(buf, binary.BigEndian, b); err != nil {
-		return "", err
-	}
-	return string(b), nil
+func ReadU64FromSlice(buf []byte) uint64 {
+	return binary.BigEndian.Uint64(buf)
 }

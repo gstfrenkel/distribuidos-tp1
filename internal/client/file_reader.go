@@ -69,6 +69,8 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 					if value, err := strconv.ParseBool(record[i]); err == nil {
 						field.SetBool(value)
 					}
+				default:
+					log.Printf("Unsupported type: %s", field.Kind())
 				}
 			}
 		}
@@ -107,82 +109,5 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 	if err := message.SendMessage(conn, eofMsg); err != nil {
 		fmt.Println("Error sending EOF message:", err)
 	}
-}
-
-// Debug function
-func readAndPrintCSV(filename string, dataStruct interface{}) {
-
-	file, err := os.Open(filename)
-	if err != nil {
-		fmt.Println("Error opening CSV file:", err)
-		return
-	}
-	defer file.Close()
-
-	reader := csv.NewReader(file)
-
-	// Read and ignore the first line (headers)
-	if _, err := reader.Read(); err != nil {
-		if err == io.EOF {
-			fmt.Println("CSV file is empty.")
-			return
-		}
-		fmt.Println("Error reading CSV file:", err)
-		return
-	}
-
-	// Counter for the number of records printed
-	printCount := 0
-	const maxPrintCount = 10
-
-	for {
-		if printCount >= maxPrintCount {
-			break
-		}
-
-		record, err := reader.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			fmt.Println("Error reading CSV file:", err)
-			return
-		}
-
-		// Populate the dataStruct with appropriate type conversion
-		v := reflect.ValueOf(dataStruct).Elem()
-		for i := 0; i < v.NumField(); i++ {
-			if i < len(record) {
-				field := v.Field(i)
-
-				// Convert the string from the CSV to the correct type
-				switch field.Kind() {
-				case reflect.String:
-					field.SetString(record[i])
-				case reflect.Int64:
-					if value, err := strconv.ParseInt(record[i], 10, 64); err == nil {
-						field.SetInt(value)
-					}
-				case reflect.Int:
-					if value, err := strconv.Atoi(record[i]); err == nil {
-						field.SetInt(int64(value))
-					}
-				case reflect.Float64:
-					if value, err := strconv.ParseFloat(record[i], 64); err == nil {
-						field.SetFloat(value)
-					}
-				case reflect.Bool:
-					if value, err := strconv.ParseBool(record[i]); err == nil {
-						field.SetBool(value)
-					}
-				}
-			}
-		}
-
-		// Print the populated struct
-		fmt.Printf("Record %d: %+v\n", printCount+1, dataStruct)
-
-		// Increment print count
-		printCount++
-	}
+	log.Printf("Sent EOF for: %v", eofMsg.ID)
 }
