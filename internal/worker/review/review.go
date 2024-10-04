@@ -108,7 +108,7 @@ func (f Filter) process(reviewDelivery amqpconn.Delivery) {
 		if err := f.broker.HandleEofMessage(f.id, f.peers, reviewDelivery.Body, input, outputs...); err != nil {
 			fmt.Printf("\n%s\n", errors.FailedToPublish.Error())
 		}
-	} else if messageId == message.GameIdMsg {
+	} else if messageId == message.ReviewIdMsg {
 		msg, err := message.ReviewFromBytes(reviewDelivery.Body)
 		if err != nil {
 			fmt.Printf("%s: %s", errors.FailedToParse.Error(), err.Error())
