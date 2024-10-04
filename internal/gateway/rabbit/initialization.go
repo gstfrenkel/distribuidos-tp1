@@ -29,7 +29,7 @@ func CreateGatewayExchange(cfg config.Config, b broker.MessageBroker) (string, e
 }
 
 func BindGatewayQueuesToExchange(b broker.MessageBroker, queues []broker.Queue, cfg config.Config, exchangeName string) error {
-	gamesKey := cfg.String("rabbitmq.games_routing_key", "shooter")
+	gamesKey := cfg.String("rabbitmq.games_routing_key", "game")
 	err := b.QueueBind(broker.QueueBind{
 		Name:     queues[0].Name,
 		Key:      cfg.String("rabbitmq.reviews_routing_key", "review"),
