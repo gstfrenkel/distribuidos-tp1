@@ -1,0 +1,20 @@
+[query]
+genre = "action"
+
+[gateway]
+queue = "games_shooter"
+key = "input"
+
+[exchange]
+name = "shooters"
+kind = "direct"
+peers = 1
+
+[count-queue]
+name = "games_query4"
+key = "q4"
+
+[percentile-queue]
+name = "games_query5_%d"
+key = "q5%d"
+consumers = 2

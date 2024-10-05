@@ -3,17 +3,14 @@ package review
 import (
 	"fmt"
 	"os"
-	"os/signal"
 	"strconv"
-	"syscall"
-	"tp1/pkg/logs"
-
 	"tp1/internal/errors"
 	"tp1/internal/worker"
 	"tp1/pkg/broker"
 	"tp1/pkg/broker/amqpconn"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
+	"tp1/pkg/logs"
 	"tp1/pkg/message"
 )
 
@@ -26,8 +23,8 @@ var (
 	positiveKey = "p%d"
 	negativeKey = "n%d"
 
-	input     broker.Destination
-	outputs   []broker.Destination
+	input     broker.Route
+	outputs   []broker.Route
 	logger, _ = logs.GetLogger("review_filter")
 )
 
@@ -50,9 +47,6 @@ func New() (worker.Worker, error) {
 		return nil, err
 	}
 
-	signalChan := make(chan os.Signal, 2)
-	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
-
 	id, _ := strconv.Atoi(os.Getenv("worker-id"))
 
 	return &Filter{
@@ -60,7 +54,7 @@ func New() (worker.Worker, error) {
 		peers:      uint8(cfg.Int("exchange.peers", 1)),
 		config:     cfg,
 		broker:     b,
-		signalChan: signalChan,
+		signalChan: worker.SignalChannel(),
 	}, nil
 }
 
@@ -79,13 +73,13 @@ func (f Filter) Init() error {
 		return err
 	}
 
-	input = broker.Destination{Exchange: f.config.String("gateway.exchange", "reviews"), Key: f.config.String("gateway.key", "review")}
-	outputs = append(outputs, broker.Destination{Exchange: outputExchange, Key: ""})
+	input = broker.Route{Exchange: f.config.String("gateway.exchange", "reviews"), Key: f.config.String("gateway.key", "review")}
+	outputs = append(outputs, broker.Route{Exchange: outputExchange, Key: ""})
 	for i := 0; i < positiveConsumers; i++ {
-		outputs = append(outputs, broker.Destination{Exchange: outputExchange, Key: fmt.Sprintf(positiveKey, i)})
+		outputs = append(outputs, broker.Route{Exchange: outputExchange, Key: fmt.Sprintf(positiveKey, i)})
 	}
 	for i := 0; i < negativeConsumers; i++ {
-		outputs = append(outputs, broker.Destination{Exchange: outputExchange, Key: fmt.Sprintf(negativeKey, i)})
+		outputs = append(outputs, broker.Route{Exchange: outputExchange, Key: fmt.Sprintf(negativeKey, i)})
 	}
 
 	return nil

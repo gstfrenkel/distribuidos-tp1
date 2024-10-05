@@ -37,15 +37,15 @@ func NewBroker() (broker.MessageBroker, error) {
 }
 
 // QueueDeclare declares new queues
-func (b *messageBroker) QueueDeclare(names ...string) ([]amqp.Queue, error) {
-	var queues []amqp.Queue
+func (b *messageBroker) QueueDeclare(names ...string) ([]broker.Queue, error) {
+	var queues []broker.Queue
 
 	for _, n := range names {
 		q, err := b.ch.QueueDeclare(n, true, false, false, false, nil)
 		if err != nil {
 			return nil, err
 		} else {
-			queues = append(queues, q)
+			queues = append(queues, broker.Queue(q))
 		}
 	}
 
@@ -86,7 +86,7 @@ func (b *messageBroker) Consume(queue, consumer string, autoAck, exclusive bool)
 	return b.ch.Consume(queue, consumer, autoAck, exclusive, false, false, nil)
 }
 
-func (b *messageBroker) HandleEofMessage(workerId, peers uint8, msg []byte, input broker.Destination, outputs ...broker.Destination) error {
+func (b *messageBroker) HandleEofMessage(workerId, peers uint8, msg []byte, input broker.Route, outputs ...broker.Route) error {
 	workersVisited, err := message.EofFromBytes(msg)
 	if err != nil {
 		return err

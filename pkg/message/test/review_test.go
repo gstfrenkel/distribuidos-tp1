@@ -10,9 +10,9 @@ import (
 
 func TestReviewMessageToBytes(t *testing.T) {
 	original := message.Review{
-		{GameId: 1, GameName: "Game1", Text: "Great game", Score: 1},
-		{GameId: 1, GameName: "Game1", Text: "Bad game", Score: -1},
-		{GameId: 2, GameName: "Game2", Text: "Bad game", Score: -1},
+		{GameId: 1, GameName: "Game1", Text: "Great action", Score: 1},
+		{GameId: 1, GameName: "Game1", Text: "Bad action", Score: -1},
+		{GameId: 2, GameName: "Game2", Text: "Bad action", Score: -1},
 	}
 
 	serialized, err := original.ToBytes()
@@ -23,9 +23,9 @@ func TestReviewMessageToBytes(t *testing.T) {
 
 func TestReviewMessageFromBytes(t *testing.T) {
 	original := message.Review{
-		{GameId: 1, GameName: "Game1", Text: "Great game", Score: 1},
-		{GameId: 1, GameName: "Game1", Text: "Bad game", Score: -1},
-		{GameId: 2, GameName: "Game2", Text: "Bad game", Score: -1},
+		{GameId: 1, GameName: "Game1", Text: "Great action", Score: 1},
+		{GameId: 1, GameName: "Game1", Text: "Bad action", Score: -1},
+		{GameId: 2, GameName: "Game2", Text: "Bad action", Score: -1},
 	}
 
 	serialized, err := original.ToBytes()

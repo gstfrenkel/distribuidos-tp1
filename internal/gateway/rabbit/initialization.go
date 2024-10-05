@@ -1,19 +1,18 @@
 package rabbit
 
 import (
-	"github.com/rabbitmq/amqp091-go"
 	"tp1/pkg/broker"
 	"tp1/pkg/config"
 )
 
-func CreateGatewayQueues(b broker.MessageBroker, cfg config.Config) ([]amqp091.Queue, error) {
+func CreateGatewayQueues(b broker.MessageBroker, cfg config.Config) ([]broker.Queue, error) {
 	reviewsAndGamesQ, err := b.QueueDeclare(cfg.String("rabbitmq.reviews_q", "reviews"),
 		cfg.String("rabbitmq.games_platform_q", "games_platform"),
 		cfg.String("rabbitmq.games_shooter_q", "games_shooter"),
 		cfg.String("rabbitmq.games_indie_q", "games_indie"))
 	if err != nil {
 		b.Close()
-		return []amqp091.Queue{}, err
+		return []broker.Queue{}, err
 	}
 
 	return reviewsAndGamesQ, nil
@@ -29,7 +28,7 @@ func CreateGatewayExchange(cfg config.Config, b broker.MessageBroker) (string, e
 	return exchangeName, nil
 }
 
-func BindGatewayQueuesToExchange(b broker.MessageBroker, queues []amqp091.Queue, cfg config.Config, exchangeName string) error {
+func BindGatewayQueuesToExchange(b broker.MessageBroker, queues []broker.Queue, cfg config.Config, exchangeName string) error {
 	gamesKey := cfg.String("rabbitmq.games_routing_key", "game")
 	err := b.QueueBind(broker.QueueBind{
 		Name:     queues[0].Name,

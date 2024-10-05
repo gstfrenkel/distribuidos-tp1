@@ -2,15 +2,13 @@ package gateway
 
 import (
 	"net"
-	"tp1/pkg/logs"
 
 	"tp1/internal/gateway/rabbit"
 	"tp1/pkg/broker"
 	"tp1/pkg/broker/amqpconn"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
-
-	"github.com/rabbitmq/amqp091-go"
+	"tp1/pkg/logs"
 )
 
 const configFilePath = "config.toml"
@@ -20,7 +18,7 @@ var logger, _ = logs.GetLogger("gateway")
 type Gateway struct {
 	Config    config.Config
 	broker    broker.MessageBroker
-	queues    []amqp091.Queue //order: reviews, games_platform, games_shooter, games_indie
+	queues    []broker.Queue //order: reviews, games_platform, games_shooter, games_indie
 	exchange  string
 	Listener  net.Listener
 	ChunkChan chan ChunkItem

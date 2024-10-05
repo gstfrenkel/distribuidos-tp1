@@ -10,7 +10,7 @@ games_platform_q = "games_platform"
 games_shooter_q = "games_shooter"
 games_indie_q = "games_indie"
 exchange_name = "gateway"
-exchange_type = "direct"
+exchange_kind = "direct"
 reviews_routing_key = "review"
 games_routing_key = "game"
 

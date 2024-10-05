@@ -33,11 +33,11 @@ services:
     networks:
       - tp1_net
 
-  reviews-filter-2:
-    container_name: reviews-filter-2
-    image: reviews-filter:latest
+  action-filter-1:
+    container_name: action-filter-1
+    image: action-filter:latest
     environment:
-      - worker-id=2
+      - worker-id=1
     depends_on:
       - rabbitmq
       - gateway

@@ -1,20 +1,23 @@
 package message
 
+import "strings"
+
 type Game []game
 
 type game struct {
 	GameId          int64
+	AveragePlaytime int64
 	Name            string
+	Genres          string
+	ReleaseDate     string
 	Windows         bool
 	Mac             bool
 	Linux           bool
-	Genres          string
-	AveragePlaytime int64
-	ReleaseDate     string
 }
 
-func (g Game) ToBytes() ([]byte, error) {
-	return toBytes(g)
+func GameFromBytes(b []byte) (Game, error) {
+	var m Game
+	return m, fromBytes(b, &m)
 }
 
 func GameFromClientGame(clientGame []DataCSVGames) ([]byte, error) {
@@ -33,4 +36,56 @@ func GameFromClientGame(clientGame []DataCSVGames) ([]byte, error) {
 	}
 
 	return gs.ToBytes()
+}
+
+func (g Game) ToBytes() ([]byte, error) {
+	return toBytes(g)
+}
+
+func (g Game) ToGameNamesMessage(genreToFilter string) GameNames {
+	var result GameNames
+
+	for _, h := range g {
+		genres := strings.Split(h.Genres, ",")
+		for _, genre := range genres {
+			if genre == genreToFilter {
+				result = append(result, GameName{GameId: h.GameId, GameName: h.Name})
+				break
+			}
+		}
+	}
+
+	return result
+}
+
+func (g Game) ToGameReleasesMessage(genreToFilter string) Releases {
+	var result Releases
+
+	for _, h := range g {
+		genres := strings.Split(h.Genres, ",")
+		for _, genre := range genres {
+			if genre == genreToFilter {
+				result = append(result, Release{GameId: h.GameId, GameName: h.Name, ReleaseDate: h.ReleaseDate, AvgPlaytime: h.AveragePlaytime})
+				break
+			}
+		}
+	}
+
+	return result
+}
+
+func (g Game) ToPlatformMessage() Platform {
+	var result Platform
+
+	for _, h := range g {
+		if h.Windows {
+			result.Windows += 1
+		} else if h.Mac {
+			result.Mac += 1
+		} else if h.Linux {
+			result.Linux += 1
+		}
+	}
+
+	return result
 }
