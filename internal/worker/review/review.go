@@ -8,7 +8,6 @@ import (
 	"tp1/internal/worker"
 	"tp1/pkg/broker"
 	"tp1/pkg/broker/amqpconn"
-	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
@@ -28,12 +27,7 @@ var (
 	logger, _ = logs.GetLogger("review_filter")
 )
 
-type Filter struct {
-	config     config.Config
-	broker     broker.MessageBroker
-	signalChan chan os.Signal
-	id         uint8
-	peers      uint8
+type filter struct {
 }
 
 func New() (worker.Worker, error) {
@@ -49,7 +43,7 @@ func New() (worker.Worker, error) {
 
 	id, _ := strconv.Atoi(os.Getenv("worker-id"))
 
-	return &Filter{
+	return &filter{
 		id:         uint8(id),
 		peers:      uint8(cfg.Int("exchange.peers", 1)),
 		config:     cfg,
@@ -58,7 +52,7 @@ func New() (worker.Worker, error) {
 	}, nil
 }
 
-func (f Filter) Init() error {
+func (f filter) Init() error {
 	outputExchange = f.config.String("exchange.name", "reviews")
 	positiveKey = f.config.String("positive-reviews-sh.key", "p%d")
 	negativeKey = f.config.String("negative-reviews-sh.key", "n%d")
@@ -85,7 +79,7 @@ func (f Filter) Init() error {
 	return nil
 }
 
-func (f Filter) Start() {
+func (f filter) Start() {
 	defer f.broker.Close()
 
 	reviewChan, err := f.broker.Consume(f.config.String("gateway.queue-name", "reviews"), "", true, false)
@@ -97,7 +91,7 @@ func (f Filter) Start() {
 	worker.Consume(f.process, f.signalChan, reviewChan)
 }
 
-func (f Filter) process(reviewDelivery amqpconn.Delivery) {
+func (f filter) process(reviewDelivery amqpconn.Delivery) {
 	messageId := message.ID(reviewDelivery.Headers[amqpconn.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
@@ -117,7 +111,7 @@ func (f Filter) process(reviewDelivery amqpconn.Delivery) {
 	}
 }
 
-func (f Filter) publish(msg message.Review) {
+func (f filter) publish(msg message.Review) {
 	b, err := msg.ToPositiveReviewWithTextMessage().ToBytes()
 	if err != nil {
 		logger.Errorf("%s: %s\n", errors.FailedToParse.Error(), err.Error())
@@ -129,7 +123,7 @@ func (f Filter) publish(msg message.Review) {
 	f.shardPublish(msg.ToNegativeReviewMessage(), negativeKey, negativeConsumers, uint8(message.NegativeReviewID))
 }
 
-func (f Filter) shardPublish(reviews message.ScoredReviews, k string, consumers int, id uint8) {
+func (f filter) shardPublish(reviews message.ScoredReviews, k string, consumers int, id uint8) {
 	for _, rv := range reviews {
 		b, err := rv.ToBytes()
 		if err != nil {

@@ -1,0 +1,28 @@
+{
+  "value": "",
+  "peers": 1,
+  "query": {
+    "genre": "indie"
+  },
+  "input-queues": [
+    {
+      "name": "games_indie",
+      "key": "input"
+    }
+  ],
+  "output-queues": [
+    {
+      "name": "indie_games",
+      "key": ""
+    },
+    {
+      "name": "query3_games_%d",
+      "key": "%d",
+      "consumers": 2
+    }
+  ],
+  "exchanges": [
+    {"indies": "direct"}
+  ],
+  "log-level": "INFO"
+}

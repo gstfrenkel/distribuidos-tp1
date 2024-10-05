@@ -1,21 +1,22 @@
-package top_n
+package main
 
 import (
 	"fmt"
+	"tp1/internal/worker"
 	"tp1/internal/worker/top_n"
 )
 
 func main() {
-	topNworker, err := top_n.New()
+	topNworker, err := worker.New()
 	if err != nil {
-		fmt.Printf("Failed to create new top 5 positive reviews worker: %s", err.Error())
+		fmt.Printf("Failed to create new top N worker: %s", err.Error())
 		return
 	}
 
 	if err = topNworker.Init(); err != nil {
-		fmt.Printf("Failed to initialize top 5 positive reviews worker: %s", err.Error())
+		fmt.Printf("Failed to initialize top N worker: %s", err.Error())
 		return
 	}
 
-	topNworker.Start()
+	topNworker.Start(top_n.Process)
 }

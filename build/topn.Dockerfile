@@ -6,7 +6,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Replace with volume
-COPY configs/topn.toml config.toml
+COPY configs/topn.json config.json
 
 # Update path to desired entrypoint
 COPY cmd/worker/top_n/top_n.go ./main.go

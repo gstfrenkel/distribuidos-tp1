@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"tp1/internal/worker/action"
@@ -10,7 +9,7 @@ import (
 func main() {
 	filter, err := action.New()
 	if err != nil {
-		fmt.Printf("Failed to create new games filter: %s", err.Error())
+		log.Println("Failed to create new games filter")
 		return
 	}
 

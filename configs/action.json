@@ -1,0 +1,29 @@
+{
+  "query": "action",
+  "input-queues": [
+    {
+      "name": "games_action",
+      "key": "input"
+    }
+  ],
+  "output-queues": [
+    {
+      "name": "games_query4",
+      "key": "q4"
+    },
+    {
+      "name": "games_query5",
+      "key": "q5%d",
+      "consumers": 2
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "actions",
+      "kind": "direct",
+      "queue": "games_action",
+      "peers": 1
+    }
+  ],
+  "log-level": "INFO"
+}

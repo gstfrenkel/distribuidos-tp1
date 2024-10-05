@@ -10,3 +10,33 @@ peers = 1
 [count-queue]
 name = "indie_games"
 key = ""
+
+{
+  "input-queues": [
+    {
+      "name": "games_platform",
+      "key": "input"
+    }
+  ],
+  "output-queues": [
+    {
+      "name": "games_query",
+      "key": ""
+    },
+    {
+      "name": "query3_games_%d",
+      "key": "%d",
+      "consumers": 2
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "indies",
+      "kind": "direct",
+      "peers": 1
+    }
+  ],
+  "log-level": "INFO"
+}
+
+//TODO q gaston arregle esto

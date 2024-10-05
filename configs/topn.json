@@ -1,0 +1,26 @@
+{
+  "query": {
+    "key": "n",
+    "value": "5"
+  },
+  "input-queues": [
+    {
+      "name": "count_queue_%d"
+    }
+  ],
+  "output-queues": [
+    {
+      "name": "top_queue",
+      "key": "",
+      "consumers": 1
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "",
+      "kind": "direct",
+      "queue": "top_queue"
+    }
+  ],
+  "log-level": "INFO"
+}

@@ -6,7 +6,7 @@ import (
 	"tp1/pkg/broker"
 )
 
-func (f Filter) queues() []string {
+func (f filter) queues() []string {
 	q := []string{f.config.String("positive-reviews.queue-name", "positive_reviews")}
 
 	consumers := f.config.Int("positive-reviews-sh.consumers", 1)
@@ -24,7 +24,7 @@ func (f Filter) queues() []string {
 	return q
 }
 
-func (f Filter) binds() []broker.QueueBind {
+func (f filter) binds() []broker.QueueBind {
 	ex := f.config.String("outputExchange.publishing-name", "reviews")
 
 	b := []broker.QueueBind{{

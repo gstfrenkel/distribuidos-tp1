@@ -1,37 +1,37 @@
 package top_n
 
 import (
-	"os"
-	"os/signal"
-	"strconv"
-	"syscall"
 	"tp1/internal/worker"
 	"tp1/pkg/broker/amqpconn"
-	"tp1/pkg/config/provider"
-	"tp1/pkg/logs"
+	"tp1/pkg/message"
 )
 
-func New() (worker.Worker, error) {
-	cfg, err := provider.LoadConfig("config.toml")
+type filter struct {
+	w *worker.Worker
+}
+
+func New() (worker.Filter, error) {
+	w, err := worker.New()
 	if err != nil {
 		return nil, err
 	}
-	_ = logs.InitLogger(cfg.String("log.level", "INFO"))
-	b, err := amqpconn.NewBroker()
-	if err != nil {
-		return nil, err
-	}
 
-	signalChan := make(chan os.Signal, 2)
-	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+	return &filter{w: w}, nil
+}
 
-	id, _ := strconv.Atoi(os.Getenv("worker-id"))
+func (f *filter) Init() error {
+	return f.w.Init()
+}
 
-	return &Filter{
-		id:         uint8(id),
-		peers:      uint8(cfg.Int("exchange.peers", 1)),
-		config:     cfg,
-		broker:     b,
-		signalChan: signalChan,
-	}, nil
+func (f *filter) Start() {
+	f.w.Start(f)
+}
+
+func (f *filter) Process(reviewDelivery amqpconn.Delivery) {
+	messageId := message.ID(reviewDelivery.Headers[amqpconn.MessageIdHeader].(uint8))
+	// TODO
+}
+
+func (f *filter) publish(msg message.Game) {
+	//TODO
 }

@@ -2,120 +2,39 @@ package indie
 
 import (
 	"fmt"
-	"os"
-	"strconv"
 	"tp1/internal/errors"
 	"tp1/internal/worker"
-	"tp1/pkg/broker"
 	"tp1/pkg/broker/amqpconn"
-	"tp1/pkg/config"
-	"tp1/pkg/config/provider"
+	"tp1/pkg/logs"
 	"tp1/pkg/message"
 )
 
-const (
-	playtimeQueue = iota
-	positiveQueue
-)
-
-var (
-	routes = [2]broker.Destination{}
-	genre  = "indie"
-)
-
 type filter struct {
-	config     config.Config
-	broker     broker.MessageBroker
-	input      broker.Route
-	outputs    []broker.Route
-	signalChan chan os.Signal
-	id         uint8
-	peers      uint8
+	w *worker.Worker
 }
 
-func New() (worker.Worker, error) {
-	cfg, err := provider.LoadConfig("config.toml")
+func New() (worker.Filter, error) {
+	w, err := worker.New()
 	if err != nil {
 		return nil, err
 	}
 
-	b, err := amqpconn.NewBroker()
-	if err != nil {
-		return nil, err
-	}
-
-	id, _ := strconv.Atoi(os.Getenv("worker-id"))
-
-	return &filter{
-		id:         uint8(id),
-		peers:      uint8(cfg.Int("exchange.peers", 1)),
-		config:     cfg,
-		broker:     b,
-		signalChan: worker.SignalChannel(),
-	}, nil
+	return &filter{w: w}, nil
 }
 
 func (f *filter) Init() error {
-	exchange := f.config.String("exchange.name", "indies")
-
-	if err := f.broker.ExchangeDeclare(map[string]string{exchange: f.config.String("exchange.kind", "direct")}); err != nil {
-		return err
-	}
-
-	if err := f.broker.QueueBind(broker.QueueBind{
-		Exchange: exchange,
-		Name:     f.config.String("gateway.queue", "games_indie"),
-		Key:      f.config.String("gateway.key", "input"),
-	}); err != nil {
-		return err
-	}
-
-	_, outputs, err := worker.InitQueues(f.broker, []broker.Destination{{
-		Exchange: exchange,
-		Key:      f.config.String("playtime-queue.key", ""),
-		Name:     f.config.String("playtime-queue.name", "indie_games"),
-	}, {
-		Exchange:  exchange,
-		Key:       f.config.String("positive-queue.key", "%d"),
-		Name:      f.config.String("positive-queue.name", "query3_games_%d"),
-		Consumers: f.config.Uint8("positive-queue.consumers", 0),
-	}}...)
-
-	if err != nil {
-		return err
-	}
-
-	f.outputs = outputs
-	f.input = broker.Route{Exchange: exchange, Key: f.config.String("gateway.key", "input")}
-	routes[playtimeQueue] = broker.Destination{
-		Exchange: exchange,
-		Key:      f.config.String("playtime-queue.key", ""),
-	}
-	routes[positiveQueue] = broker.Destination{
-		Exchange:  exchange,
-		Consumers: f.config.Uint8("positive-queue.consumers", 0),
-		Key:       f.config.String("positive-queue.key", "%d"),
-	}
-	return nil
+	return f.w.Init()
 }
 
 func (f *filter) Start() {
-	defer f.broker.Close()
-
-	ch, err := f.broker.Consume(f.config.String("gateway.queue", "games_indie"), "", true, false)
-	if err != nil {
-		println(err.Error())
-		return
-	}
-
-	worker.Consume(f.process, f.signalChan, ch)
+	f.w.Start(f)
 }
 
-func (f *filter) process(reviewDelivery amqpconn.Delivery) {
+func (f *filter) Process(reviewDelivery amqpconn.Delivery) {
 	messageId := message.ID(reviewDelivery.Headers[amqpconn.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
-		if err := f.broker.HandleEofMessage(f.id, f.peers, reviewDelivery.Body, f.input, f.outputs...); err != nil {
+		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, reviewDelivery.Body, f.w.InputEof, f.w.OutputsEof...); err != nil {
 			fmt.Printf("\n%s\n", errors.FailedToPublish.Error())
 		}
 	} else if messageId == message.GameIdMsg {
@@ -132,13 +51,15 @@ func (f *filter) process(reviewDelivery amqpconn.Delivery) {
 }
 
 func (f *filter) publish(msg message.Game) {
+	genre := getGenre(f)
 	gameReleases := msg.ToGameReleasesMessage(genre)
 	b, err := gameReleases.ToBytes()
 	if err != nil {
-
+		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+		return
 	}
 
-	if err = f.broker.Publish(routes[playtimeQueue].Exchange, routes[playtimeQueue].Key, uint8(message.GameReleaseID), b); err != nil {
+	if err = f.w.Broker.Publish(routes[playtimeQueue].Exchange, routes[playtimeQueue].Key, uint8(message.GameReleaseID), b); err != nil {
 		fmt.Printf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 
@@ -158,5 +79,8 @@ func (f *filter) publish(msg message.Game) {
 			fmt.Printf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	}
+}
 
+func getGenre(f *filter) string {
+	return f.w.Query.(string)
 }
