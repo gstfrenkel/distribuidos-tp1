@@ -8,3 +8,6 @@ name = "count_queue_%d"
 name = "top_queue"
 key = ""
 consumers = 1
+
+[exchange]
+name = ""
