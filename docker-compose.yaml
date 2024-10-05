@@ -30,6 +30,34 @@ services:
       - gateway
     links:
       - rabbitmq
+    networks:
+      - tp1_net
+
+  action-filter-1:
+    container_name: action-filter-1
+    image: action-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - rabbitmq
+      - gateway
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+
+  indie-filter-1:
+    container_name: indie-filter-1
+    image: indie-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - rabbitmq
+      - gateway
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
 
   platform-filter-1:
     container_name: platform-filter-1
@@ -41,6 +69,8 @@ services:
       - gateway
     links:
       - rabbitmq
+    networks:
+      - tp1_net
 
 networks:
   tp1_net:

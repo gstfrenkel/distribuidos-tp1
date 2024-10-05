@@ -17,7 +17,7 @@ const (
 
 type filter struct {
 	w      *worker.Worker
-	scores []int8
+	scores [3]int8
 }
 
 func New() (worker.Filter, error) {
@@ -26,7 +26,7 @@ func New() (worker.Filter, error) {
 		return nil, err
 	}
 
-	return &filter{w: w}, nil
+	return &filter{w: w, scores: [3]int8{}}, nil
 }
 
 func (f *filter) Init() error {
@@ -34,7 +34,10 @@ func (f *filter) Init() error {
 }
 
 func (f *filter) Start() {
-	f.scores = f.w.Query.([]int8)
+	slice := f.w.Query.([]any)
+	f.scores[query3] = int8(slice[query3].(float64))
+	f.scores[query4] = int8(slice[query4].(float64))
+	f.scores[query5] = int8(slice[query5].(float64))
 
 	f.w.Start(f)
 }
