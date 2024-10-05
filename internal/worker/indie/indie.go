@@ -3,10 +3,7 @@ package indie
 import (
 	"fmt"
 	"os"
-	"os/signal"
 	"strconv"
-	"syscall"
-
 	"tp1/internal/errors"
 	"tp1/internal/worker"
 	"tp1/pkg/broker"
@@ -47,9 +44,6 @@ func New() (worker.Worker, error) {
 		return nil, err
 	}
 
-	signalChan := make(chan os.Signal, 2)
-	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
-
 	id, _ := strconv.Atoi(os.Getenv("worker-id"))
 
 	return &filter{
@@ -57,7 +51,7 @@ func New() (worker.Worker, error) {
 		peers:      uint8(cfg.Int("exchange.peers", 1)),
 		config:     cfg,
 		broker:     b,
-		signalChan: signalChan,
+		signalChan: worker.SignalChannel(),
 	}, nil
 }
 

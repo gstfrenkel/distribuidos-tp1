@@ -3,10 +3,7 @@ package review
 import (
 	"fmt"
 	"os"
-	"os/signal"
 	"strconv"
-	"syscall"
-
 	"tp1/internal/errors"
 	"tp1/internal/worker"
 	"tp1/pkg/broker"
@@ -26,8 +23,8 @@ var (
 	positiveKey = "p%d"
 	negativeKey = "n%d"
 
-	input   broker.Route
-	outputs []broker.Route
+	input     broker.Route
+	outputs   []broker.Route
 	logger, _ = logs.GetLogger("review_filter")
 )
 
@@ -50,9 +47,6 @@ func New() (worker.Worker, error) {
 		return nil, err
 	}
 
-	signalChan := make(chan os.Signal, 2)
-	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
-
 	id, _ := strconv.Atoi(os.Getenv("worker-id"))
 
 	return &Filter{
@@ -60,7 +54,7 @@ func New() (worker.Worker, error) {
 		peers:      uint8(cfg.Int("exchange.peers", 1)),
 		config:     cfg,
 		broker:     b,
-		signalChan: signalChan,
+		signalChan: worker.SignalChannel(),
 	}, nil
 }
 

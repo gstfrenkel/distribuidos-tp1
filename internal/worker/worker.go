@@ -3,7 +3,9 @@ package worker
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"reflect"
+	"syscall"
 
 	"tp1/pkg/broker"
 	"tp1/pkg/broker/amqpconn"
@@ -78,6 +80,12 @@ func initQueue(b broker.MessageBroker, dst broker.Destination) ([]broker.Queue, 
 	}
 
 	return queues, destinations, nil
+}
+
+func SignalChannel() chan os.Signal {
+	signalChan := make(chan os.Signal, 2)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+	return signalChan
 }
 
 func ShardGameId(id int64, key string, consumers uint8) string {
