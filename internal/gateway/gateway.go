@@ -13,8 +13,6 @@ import (
 
 const configFilePath = "config.toml"
 
-var logger, _ = logs.GetLogger("gateway")
-
 type Gateway struct {
 	Config    config.Config
 	broker    broker.MessageBroker
@@ -64,7 +62,7 @@ func (g Gateway) Start() {
 
 	err := CreateGatewaySocket(&g)
 	if err != nil {
-		logger.Errorf("Failed to create gateway socket: %s", err.Error())
+		logs.Logger.Errorf("Failed to create gateway socket: %s", err.Error())
 		return
 	}
 
@@ -74,7 +72,7 @@ func (g Gateway) Start() {
 
 	err = ListenForNewClients(&g)
 	if err != nil {
-		logger.Errorf("Failed to listen for new clients: %s", err.Error())
+		logs.Logger.Errorf("Failed to listen for new clients: %s", err.Error())
 		return
 	}
 }
