@@ -46,6 +46,19 @@ services:
     networks:
       - tp1_net
 
+  top-5-filter:
+    container_name: top-5-filter
+    image: top-5-filter:latest
+    environment:
+      - worker-id=1 #????
+    depends_on: #TODO
+      - rabbitmq
+      - gateway
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+
 networks:
   tp1_net:
     ipam:
