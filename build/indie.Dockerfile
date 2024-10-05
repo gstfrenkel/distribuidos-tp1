@@ -11,6 +11,9 @@ COPY configs/indie.json config.json
 # Update path to desired entrypoint
 COPY cmd/worker/indie/indie.go ./main.go
 COPY pkg/ ./pkg/
-COPY internal/ ./internal/
+COPY internal/errors/ ./internal/errors/
+COPY internal/worker/worker.go ./internal/worker/
+# Update path to desired entrypoint
+COPY internal/worker/indie/indie.go ./internal/worker/indie/
 
 ENTRYPOINT ["go", "run", "main.go"]

@@ -12,5 +12,4 @@ COPY cmd/client/client.go ./main.go
 COPY pkg/ ./pkg/
 COPY internal/ ./internal/
 
-
 ENTRYPOINT ["go", "run", "main.go"]

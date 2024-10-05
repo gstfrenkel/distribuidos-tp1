@@ -11,6 +11,9 @@ COPY configs/review.json config.json
 # Update path to desired entrypoint
 COPY cmd/worker/review/review.go ./main.go
 COPY pkg/ ./pkg/
-COPY internal/ ./internal/
+COPY internal/errors/ ./internal/errors/
+COPY internal/worker/worker.go ./internal/worker/
+# Update path to desired entrypoint
+COPY internal/worker/review/review.go ./internal/worker/review/
 
 ENTRYPOINT ["go", "run", "main.go"]
