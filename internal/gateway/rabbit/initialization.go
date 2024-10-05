@@ -20,7 +20,7 @@ func CreateGatewayQueues(b broker.MessageBroker, cfg config.Config) ([]broker.Qu
 
 func CreateGatewayExchange(cfg config.Config, b broker.MessageBroker) (string, error) {
 	exchangeName := cfg.String("rabbitmq.exchange_name", "gateway")
-	err := b.ExchangeDeclare(map[string]string{exchangeName: cfg.String("rabbitmq.exchange_kind", "direct")})
+	err := b.ExchangeDeclare(broker.Exchange{Name: exchangeName, Kind: cfg.String("rabbitmq.exchange_kind", "direct")})
 	if err != nil {
 		b.Close()
 		return "", err

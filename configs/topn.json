@@ -1,13 +1,8 @@
 {
-  "query": {
-    "key": "n",
-    "value": "5"
+  "query": 5,
+  "input-queues": {
+    "name": "count_queue_%d"
   },
-  "input-queues": [
-    {
-      "name": "count_queue_%d"
-    }
-  ],
   "output-queues": [
     {
       "name": "top_queue",

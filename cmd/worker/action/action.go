@@ -1,20 +1,19 @@
 package main
 
 import (
-	"log"
-
 	"tp1/internal/worker/action"
+	"tp1/pkg/logs"
 )
 
 func main() {
 	filter, err := action.New()
 	if err != nil {
-		log.Println("Failed to create new games filter")
+		logs.Logger.Errorf("Failed to create new games filter: %s", err.Error())
 		return
 	}
 
 	if err = filter.Init(); err != nil {
-		log.Printf("\n\n\nFailed to initialize games filter: %s\n\n\n", err.Error())
+		logs.Logger.Errorf("Failed to initialize new games filter: %s", err.Error())
 		return
 	}
 

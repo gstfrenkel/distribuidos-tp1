@@ -20,17 +20,27 @@ services:
       tp1_net:
         ipv4_address: 172.25.125.10
 
-  top-5-filter:
-    container_name: top-5-filter
-    image: topn:latest
+  reviews-filter-1:
+    container_name: reviews-filter-1
+    image: reviews-filter:latest
     environment:
-      - worker-id=1 #????
-    depends_on: #TODO
+      - worker-id=0
+    depends_on:
       - rabbitmq
+      - gateway
     links:
       - rabbitmq
-    networks:
-      - tp1_net
+
+  platform-filter-1:
+    container_name: platform-filter-1
+    image: platform-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - rabbitmq
+      - gateway
+    links:
+      - rabbitmq
 
 networks:
   tp1_net:

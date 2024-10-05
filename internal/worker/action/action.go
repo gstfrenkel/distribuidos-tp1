@@ -57,10 +57,7 @@ func (f *filter) publish(msg message.Game) {
 		}
 
 		for _, output := range f.w.Outputs {
-			k := output.Key
-			if output.Consumers > 0 {
-				k = worker.ShardGameId(game.GameId, k, output.Consumers)
-			}
+			k := worker.ShardGameId(game.GameId, output.Key, output.Consumers)
 			if err = f.w.Broker.Publish(output.Exchange, k, uint8(message.GameNameID), b); err != nil {
 				logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 			}

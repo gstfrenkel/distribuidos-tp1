@@ -6,10 +6,10 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Replace with volume
-COPY configs/review.json config.json
+COPY configs/indie.json config.json
 
 # Update path to desired entrypoint
-COPY cmd/worker/review/review.go ./main.go
+COPY cmd/worker/indie/indie.go ./main.go
 COPY pkg/ ./pkg/
 COPY internal/ ./internal/
 

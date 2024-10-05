@@ -50,7 +50,7 @@ func New() (*Worker, error) {
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 	id, _ := strconv.Atoi(os.Getenv("worker-id"))
 	var query any
-	if err := cfg.Unmarshal("query", &query); err != nil {
+	if err = cfg.Unmarshal("query", &query); err != nil {
 		return nil, err
 	}
 
@@ -178,5 +178,8 @@ func (f *Worker) initQueue(dst broker.Destination) ([]broker.Queue, []broker.Des
 }
 
 func ShardGameId(id int64, key string, consumers uint8) string {
+	if consumers == 0 {
+		return key
+	}
 	return fmt.Sprintf(key, xxHash32.Checksum([]byte{byte(id)}, 0)%uint32(consumers))
 }

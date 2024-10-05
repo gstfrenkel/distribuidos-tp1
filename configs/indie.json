@@ -1,28 +1,29 @@
 {
-  "value": "",
+  "query": "indie",
   "peers": 1,
-  "query": {
-    "genre": "indie"
+  "input-queues": {
+    "exchange": "indie",
+    "name": "games_indie",
+    "key": "input"
   },
-  "input-queues": [
-    {
-      "name": "games_indie",
-      "key": "input"
-    }
-  ],
   "output-queues": [
     {
-      "name": "indie_games",
+      "exchange": "indie",
+      "name": "indie_q2",
       "key": ""
     },
     {
-      "name": "query3_games_%d",
+      "exchange": "indie",
+      "name": "indie_q3_%d",
       "key": "%d",
       "consumers": 2
     }
   ],
   "exchanges": [
-    {"indies": "direct"}
+    {
+      "name": "indie",
+      "kind": "direct"
+    }
   ],
   "log-level": "INFO"
 }

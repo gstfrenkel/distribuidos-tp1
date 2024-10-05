@@ -4,11 +4,6 @@ import (
 	"tp1/pkg/message/utils"
 )
 
-const (
-	positiveReviewScore = 1
-	negativeReviewScore = -1
-)
-
 type Review []review
 
 type review struct {
@@ -41,15 +36,7 @@ func (m Review) ToBytes() ([]byte, error) {
 	return toBytes(m)
 }
 
-func (m Review) ToPositiveReviewMessage() ScoredReviews {
-	return m.toScoredReviewMessage(positiveReviewScore)
-}
-
-func (m Review) ToNegativeReviewMessage() ScoredReviews {
-	return m.toScoredReviewMessage(negativeReviewScore)
-}
-
-func (m Review) toScoredReviewMessage(targetScore int8) ScoredReviews {
+func (m Review) ToScoredReviewMessage(targetScore int8) ScoredReviews {
 	scoredReviewMsg := ScoredReviews{}
 	gameVotesMap := map[int64]int64{}
 	gameNamesMap := map[int64]string{}
@@ -74,10 +61,14 @@ func (m Review) toScoredReviewMessage(targetScore int8) ScoredReviews {
 	return scoredReviewMsg
 }
 
-func (m Review) ToPositiveReviewWithTextMessage() TextReview {
+func (m Review) ToReviewWithTextMessage(targetScore int8) TextReview {
 	textReviewMessage := TextReview{}
 
 	for _, reviewMsg := range m {
+		if reviewMsg.Score != targetScore {
+			continue
+		}
+
 		key := utils.Key{GameId: reviewMsg.GameId, GameName: reviewMsg.GameName}
 
 		if _, exists := textReviewMessage[key]; exists {

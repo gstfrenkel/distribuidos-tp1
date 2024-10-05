@@ -1,20 +1,19 @@
 package main
 
 import (
-	"fmt"
-
 	"tp1/internal/worker/review"
+	"tp1/pkg/logs"
 )
 
 func main() {
 	filter, err := review.New()
 	if err != nil {
-		fmt.Printf("Failed to create new reviews filter: %s", err.Error())
+		logs.Logger.Errorf("Failed to create new reviews filter: %s", err.Error())
 		return
 	}
 
 	if err = filter.Init(); err != nil {
-		fmt.Printf("Failed to initialize reviews filter: %s", err.Error())
+		logs.Logger.Errorf("Failed to initialize new reviews filter: %s", err.Error())
 		return
 	}
 
