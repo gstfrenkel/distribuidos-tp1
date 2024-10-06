@@ -1,0 +1,17 @@
+{
+  "query": 50000,
+  "output-queues": [
+    {
+      "exchange": "joiner_counter",
+      "name": "joined_counted",
+      "key": ""
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "indie",
+      "kind": "direct"
+    }
+  ],
+  "log-level": "INFO"
+}

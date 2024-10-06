@@ -1,6 +1,7 @@
 package joiner
 
 import (
+	"fmt"
 	"tp1/internal/errors"
 	"tp1/internal/worker"
 	"tp1/pkg/amqp"
@@ -22,13 +23,13 @@ type counter struct {
 	gameInfoById  map[int64]gameInfo
 }
 
-func New() (worker.Filter, error) {
+func NewCounter() (worker.Filter, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err
 	}
 
-	return &counter{w: w}, nil
+	return &counter{w: w, gameInfoById: map[int64]gameInfo{}}, nil
 }
 
 func (c *counter) Init() error {
@@ -41,13 +42,13 @@ func (c *counter) Start() {
 	c.w.Start(c)
 }
 
-func (c *counter) Process(reviewDelivery amqp.Delivery) {
-	messageId := message.ID(reviewDelivery.Headers[amqp.MessageIdHeader].(uint8))
+func (c *counter) Process(delivery amqp.Delivery) {
+	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
-
+		c.processEof(delivery.Headers[amqp.OriginIdHeader].(uint8))
 	} else if messageId == message.ScoredReviewID {
-		msg, err := message.ScoredReviewFromBytes(reviewDelivery.Body)
+		msg, err := message.ScoredReviewFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 			return
@@ -55,15 +56,37 @@ func (c *counter) Process(reviewDelivery amqp.Delivery) {
 
 		c.processReview(msg)
 	} else if messageId == message.GameNameID {
-		msg, err := message.GameNameFromBytes(reviewDelivery.Body)
+		msg, err := message.GameNameFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 			return
 		}
 
-		c.processGame(msg, b)
+		c.processGame(msg, delivery.Body)
 	} else {
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
+	}
+}
+
+func (c *counter) processEof(origin uint8) {
+	if origin == amqp.GameOriginId {
+		c.recvReviewEof = true
+	} else if origin == amqp.ReviewOriginId {
+		c.recvReviewEof = true
+	} else {
+		logs.Logger.Errorf(fmt.Sprintf("Unknown message origin ID received: %d", origin))
+	}
+
+	if c.recvReviewEof && c.recvGameEof {
+		headers := map[string]any{amqp.OriginIdHeader: amqp.GameOriginId}
+
+		if err := c.w.Broker.HandleEofMessage(c.w.Id, c.w.Peers, message.Eof{}, headers, c.w.InputEof, c.w.OutputsEof...); err != nil {
+			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
+		}
+
+		c.recvReviewEof = false
+		c.recvGameEof = false
+		c.gameInfoById = map[int64]gameInfo{}
 	}
 }
 
@@ -72,9 +95,7 @@ func (c *counter) processReview(msg message.ScoredReview) {
 	if !ok {
 		c.gameInfoById[msg.GameId] = gameInfo{votes: msg.Votes}
 		return
-	}
-
-	if info.sent {
+	} else if info.sent {
 		return
 	}
 
@@ -90,8 +111,8 @@ func (c *counter) processReview(msg message.ScoredReview) {
 		} else {
 			c.gameInfoById[msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes, sent: true}
 		}
-	} else if info.gameName == "" && info.votes < c.target {
-
+	} else if info.votes < c.target {
+		c.gameInfoById[msg.GameId] = gameInfo{votes: info.votes + msg.Votes}
 	}
 }
 
@@ -99,6 +120,7 @@ func (c *counter) processGame(msg message.GameName, b []byte) {
 	info, ok := c.gameInfoById[msg.GameId]
 	if !ok { // No reviews have been received for this game.
 		c.gameInfoById[msg.GameId] = gameInfo{gameName: msg.GameName}
+		return
 	}
 
 	if info.votes >= c.target { // Reviews have been received, and they exceed the target vote count.
