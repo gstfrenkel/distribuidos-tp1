@@ -2,7 +2,7 @@ package top_n
 
 import (
 	"tp1/internal/worker"
-	"tp1/pkg/amqp/broker"
+	"tp1/pkg/amqp"
 	"tp1/pkg/message"
 )
 
@@ -27,8 +27,8 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(reviewDelivery broker.Delivery) {
-	messageId := message.ID(reviewDelivery.Headers[broker.MessageIdHeader].(uint8))
+func (f *filter) Process(reviewDelivery amqp.Delivery) {
+	_ = message.ID(reviewDelivery.Headers[amqp.MessageIdHeader].(uint8))
 	// TODO
 }
 
