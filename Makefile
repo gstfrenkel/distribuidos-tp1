@@ -6,8 +6,11 @@ all:
 build:
 	docker build -f ./build/review.Dockerfile -t "reviews-filter:latest" .
 	docker build -f ./build/action.Dockerfile -t "action-filter:latest" .
+	docker build -f ./build/indie.Dockerfile -t "indie-filter:latest" .
+	docker build -f ./build/platform.Dockerfile -t "platform-filter:latest" .
 	docker build -f ./build/gateway.Dockerfile -t "gateway:latest" .
 	docker build -f ./build/client.Dockerfile -t "client:latest" .
+	docker build -f ./build/topn.Dockerfile -t "topn:latest" .
 .PHONY: build
 
 build-client:

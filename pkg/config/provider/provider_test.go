@@ -10,7 +10,7 @@ import (
 func TestLoadConfig(t *testing.T) {
 	cfg, err := LoadConfig("config.toml")
 	assert.NoError(t, err, "LoadConfig should not return an errors")
-	assert.NotNil(t, cfg, "Config should be loaded and not nil")
+	assert.NotNil(t, cfg, "config should be loaded and not nil")
 }
 
 func TestBool(t *testing.T) {

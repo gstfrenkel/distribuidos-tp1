@@ -6,14 +6,14 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Replace with volume
-COPY configs/review.json config.json
+COPY configs/platform.json config.json
 
 # Update path to desired entrypoint
-COPY cmd/worker/review/review.go ./main.go
+COPY cmd/worker/platform/platform.go ./main.go
 COPY pkg/ ./pkg/
 COPY internal/errors/ ./internal/errors/
 COPY internal/worker/worker.go ./internal/worker/
 # Update path to desired entrypoint
-COPY internal/worker/review/review.go ./internal/worker/review/
+COPY internal/worker/platform/platform.go ./internal/worker/platform/
 
 ENTRYPOINT ["go", "run", "main.go"]

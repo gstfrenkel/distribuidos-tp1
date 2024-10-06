@@ -13,11 +13,8 @@ const (
 	ReviewIdMsg ID = iota + 1
 	GameIdMsg
 	EofMsg
-
-	ReviewID
-	PositiveReviewID // ScoredReview message ID. Score is implicitly equal to 1.
-	NegativeReviewID // ScoredReview message ID. Score is implicitly equal to -1.
-	PositiveReviewWithTextID
+	ScoredReviewID // ScoredReview message ID. Score is skipped as it's considered filtered.
+	ReviewWithTextID
 	GameNameID // GameName message ID.
 	GameReleaseID
 	PlatformID

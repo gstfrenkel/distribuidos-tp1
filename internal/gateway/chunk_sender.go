@@ -1,13 +1,14 @@
 package gateway
 
 import (
-	"tp1/pkg/broker"
+	"tp1/pkg/amqp"
+	"tp1/pkg/logs"
 	"tp1/pkg/message"
 )
 
 type ChunkSender struct {
 	channel      <-chan ChunkItem
-	broker       broker.MessageBroker
+	broker       amqp.MessageBroker
 	exchange     string
 	reviewsCount uint8
 	gamesCount   uint8
@@ -32,7 +33,7 @@ func wrapGamesFromClientGames(data any) ([]byte, error) {
 	return message.GameFromClientGame(data.([]message.DataCSVGames))
 }
 
-func newChunkSender(channel <-chan ChunkItem, broker broker.MessageBroker, exchange string, chunkMaxSize uint8, rRoutingKey string, gRoutingKey string) *ChunkSender {
+func newChunkSender(channel <-chan ChunkItem, broker amqp.MessageBroker, exchange string, chunkMaxSize uint8, rRoutingKey string, gRoutingKey string) *ChunkSender {
 	return &ChunkSender{
 		channel:      channel,
 		broker:       broker,
@@ -49,7 +50,7 @@ func newChunkSender(channel <-chan ChunkItem, broker broker.MessageBroker, excha
 	}
 }
 
-func startChunkSender(channel <-chan ChunkItem, broker broker.MessageBroker, exchange string, chunkMaxSize uint8, rRoutingKey string, gRoutingKey string) {
+func startChunkSender(channel <-chan ChunkItem, broker amqp.MessageBroker, exchange string, chunkMaxSize uint8, rRoutingKey string, gRoutingKey string) {
 	chunkSender := newChunkSender(channel, broker, exchange, chunkMaxSize, rRoutingKey, gRoutingKey)
 	for {
 		item := <-channel
@@ -67,7 +68,7 @@ func startChunkSender(channel <-chan ChunkItem, broker broker.MessageBroker, exc
 				chunkSender.updateGamesChunk(parseClientPayload(message.GameIdMsg, item.Msg).(message.DataCSVGames), false)
 			}
 		default:
-			logger.Errorf("Unsupported message ID: %d", item.MsgId)
+			logs.Logger.Errorf("Unsupported message ID: %d", item.MsgId)
 		}
 	}
 }
@@ -82,7 +83,7 @@ func parseClientPayload(msgId message.ID, payload []byte) any {
 	case message.GameIdMsg:
 		data, _ = message.DataCSVGamesFromBytes(payload)
 	default:
-		logger.Errorf("Unsupported message ID: %d", msgId)
+		logs.Logger.Errorf("Unsupported message ID: %d", msgId)
 	}
 
 	return data
@@ -116,25 +117,25 @@ func (s *ChunkSender) sendChunk(msgId uint8, routingKey string, count *uint8, ch
 	if (*count == s.maxChunkSize) || (eof && *count > 0) {
 		bytes, err := mapper(chunk)
 		if err != nil {
-			logger.Errorf("Error converting chunk to bytes: %s", err.Error())
+			logs.Logger.Errorf("Error converting chunk to bytes: %s", err.Error())
 			return
 		}
 
-		err = s.broker.Publish(s.exchange, routingKey, msgId, bytes)
+		err = s.broker.Publish(s.exchange, routingKey, bytes, map[string]any{amqp.MessageIdHeader: msgId})
 		if err != nil {
-			logger.Errorf("Error publishing chunk: %s", err.Error())
+			logs.Logger.Errorf("Error publishing chunk: %s", err.Error())
 			return
 		}
 
 		*count = 0
 		chunk = make([]any, s.maxChunkSize)
-		logger.Infof("Sent chunk with key %v", routingKey)
+		logs.Logger.Infof("Sent chunk with key %v", routingKey)
 	} else if eof {
-		err := s.broker.Publish(s.exchange, routingKey, msgId, nil)
+		err := s.broker.Publish(s.exchange, routingKey, nil, map[string]any{amqp.MessageIdHeader: msgId})
 		if err != nil {
-			logger.Errorf("Error publishing EOF: %s", err.Error())
+			logs.Logger.Errorf("Error publishing EOF: %s", err.Error())
 			return
 		}
-		logger.Infof("Sent eof with key %v", routingKey)
+		logs.Logger.Infof("Sent eof with key %v", routingKey)
 	}
 }

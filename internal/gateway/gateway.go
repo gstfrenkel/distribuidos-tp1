@@ -4,8 +4,8 @@ import (
 	"net"
 
 	"tp1/internal/gateway/rabbit"
-	"tp1/pkg/broker"
-	"tp1/pkg/broker/amqpconn"
+	"tp1/pkg/amqp"
+	"tp1/pkg/amqp/broker"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
 	"tp1/pkg/logs"
@@ -13,12 +13,10 @@ import (
 
 const configFilePath = "config.toml"
 
-var logger, _ = logs.GetLogger("gateway")
-
 type Gateway struct {
 	Config    config.Config
-	broker    broker.MessageBroker
-	queues    []broker.Queue //order: reviews, games_platform, games_shooter, games_indie
+	broker    amqp.MessageBroker
+	queues    []amqp.Queue //order: reviews, games_platform, games_action, games_indie
 	exchange  string
 	Listener  net.Listener
 	ChunkChan chan ChunkItem
@@ -30,7 +28,7 @@ func New() (*Gateway, error) {
 		return nil, err
 	}
 
-	b, err := amqpconn.NewBroker()
+	b, err := broker.NewBroker()
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +62,7 @@ func (g Gateway) Start() {
 
 	err := CreateGatewaySocket(&g)
 	if err != nil {
-		logger.Errorf("Failed to create gateway socket: %s", err.Error())
+		logs.Logger.Errorf("Failed to create gateway socket: %s", err.Error())
 		return
 	}
 
@@ -74,7 +72,7 @@ func (g Gateway) Start() {
 
 	err = ListenForNewClients(&g)
 	if err != nil {
-		logger.Errorf("Failed to listen for new clients: %s", err.Error())
+		logs.Logger.Errorf("Failed to listen for new clients: %s", err.Error())
 		return
 	}
 }

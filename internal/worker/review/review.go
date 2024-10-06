@@ -1,146 +1,96 @@
 package review
 
 import (
-	"fmt"
-	"os"
-	"strconv"
 	"tp1/internal/errors"
 	"tp1/internal/worker"
-	"tp1/pkg/broker"
-	"tp1/pkg/broker/amqpconn"
-	"tp1/pkg/config"
-	"tp1/pkg/config/provider"
+	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 )
 
-var (
-	outputExchange = "reviews"
-
-	positiveConsumers = 1
-	negativeConsumers = 1
-
-	positiveKey = "p%d"
-	negativeKey = "n%d"
-
-	input     broker.Route
-	outputs   []broker.Route
-	logger, _ = logs.GetLogger("review_filter")
+const (
+	query3 uint8 = iota
+	query4
+	query5
 )
 
-type Filter struct {
-	config     config.Config
-	broker     broker.MessageBroker
-	signalChan chan os.Signal
-	id         uint8
-	peers      uint8
+type filter struct {
+	w      *worker.Worker
+	scores [3]int8
 }
 
-func New() (worker.Worker, error) {
-	cfg, err := provider.LoadConfig("config.toml")
-	if err != nil {
-		return nil, err
-	}
-	_ = logs.InitLogger(cfg.String("log.level", "INFO"))
-	b, err := amqpconn.NewBroker()
+func New() (worker.Filter, error) {
+	w, err := worker.New()
 	if err != nil {
 		return nil, err
 	}
 
-	id, _ := strconv.Atoi(os.Getenv("worker-id"))
-
-	return &Filter{
-		id:         uint8(id),
-		peers:      uint8(cfg.Int("exchange.peers", 1)),
-		config:     cfg,
-		broker:     b,
-		signalChan: worker.SignalChannel(),
-	}, nil
+	return &filter{w: w, scores: [3]int8{}}, nil
 }
 
-func (f Filter) Init() error {
-	outputExchange = f.config.String("exchange.name", "reviews")
-	positiveKey = f.config.String("positive-reviews-sh.key", "p%d")
-	negativeKey = f.config.String("negative-reviews-sh.key", "n%d")
-	positiveConsumers = f.config.Int("positive-reviews-sh.consumers", 1)
-	negativeConsumers = f.config.Int("negative-reviews-sh.consumers", 1)
-
-	if err := f.broker.ExchangeDeclare(map[string]string{outputExchange: f.config.String("outputExchange.kind", "direct")}); err != nil {
-		return err
-	} else if _, err = f.broker.QueueDeclare(f.queues()...); err != nil {
-		return err
-	} else if err = f.broker.QueueBind(f.binds()...); err != nil {
-		return err
-	}
-
-	input = broker.Route{Exchange: f.config.String("gateway.exchange", "reviews"), Key: f.config.String("gateway.key", "review")}
-	outputs = append(outputs, broker.Route{Exchange: outputExchange, Key: ""})
-	for i := 0; i < positiveConsumers; i++ {
-		outputs = append(outputs, broker.Route{Exchange: outputExchange, Key: fmt.Sprintf(positiveKey, i)})
-	}
-	for i := 0; i < negativeConsumers; i++ {
-		outputs = append(outputs, broker.Route{Exchange: outputExchange, Key: fmt.Sprintf(negativeKey, i)})
-	}
-
-	return nil
+func (f *filter) Init() error {
+	return f.w.Init()
 }
 
-func (f Filter) Start() {
-	defer f.broker.Close()
+func (f *filter) Start() {
+	slice := f.w.Query.([]any)
+	f.scores[query3] = int8(slice[query3].(float64))
+	f.scores[query4] = int8(slice[query4].(float64))
+	f.scores[query5] = int8(slice[query5].(float64))
 
-	reviewChan, err := f.broker.Consume(f.config.String("gateway.queue-name", "reviews"), "", true, false)
-	if err != nil {
-		println(err.Error())
-		return
-	}
-
-	worker.Consume(f.process, f.signalChan, reviewChan)
+	f.w.Start(f)
 }
 
-func (f Filter) process(reviewDelivery amqpconn.Delivery) {
-	messageId := message.ID(reviewDelivery.Headers[amqpconn.MessageIdHeader].(uint8))
+func (f *filter) Process(reviewDelivery amqp.Delivery) {
+	messageId := message.ID(reviewDelivery.Headers[amqp.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
-		if err := f.broker.HandleEofMessage(f.id, f.peers, reviewDelivery.Body, input, outputs...); err != nil {
-			logger.Errorf("\n%s\n", errors.FailedToPublish.Error())
+		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, reviewDelivery.Body, nil, f.w.InputEof, f.w.OutputsEof...); err != nil {
+			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	} else if messageId == message.ReviewIdMsg {
 		msg, err := message.ReviewFromBytes(reviewDelivery.Body)
 		if err != nil {
-			logger.Errorf("%s: %s\n", errors.FailedToParse.Error(), err.Error())
+			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 			return
 		}
 
 		f.publish(msg)
 	} else {
-		logger.Infof(errors.InvalidMessageId.Error(), messageId)
+		logs.Logger.Infof(errors.InvalidMessageId.Error(), messageId)
 	}
 }
 
-func (f Filter) publish(msg message.Review) {
-	b, err := msg.ToPositiveReviewWithTextMessage().ToBytes()
+func (f *filter) publish(msg message.Review) {
+	headers := map[string]any{amqp.MessageIdHeader: message.ReviewWithTextID}
+	b, err := msg.ToReviewWithTextMessage(f.scores[query4]).ToBytes()
 	if err != nil {
-		logger.Errorf("%s: %s\n", errors.FailedToParse.Error(), err.Error())
-	} else if err = f.broker.Publish(outputExchange, "", uint8(message.PositiveReviewWithTextID), b); err != nil {
-		logger.Errorf("%s: %s\n", errors.FailedToPublish.Error(), err.Error())
+		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+	} else if err = f.w.Broker.Publish(f.w.Outputs[query4].Exchange, "", b, headers); err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 
-	f.shardPublish(msg.ToPositiveReviewMessage(), positiveKey, positiveConsumers, uint8(message.PositiveReviewID))
-	f.shardPublish(msg.ToNegativeReviewMessage(), negativeKey, negativeConsumers, uint8(message.NegativeReviewID))
+	reviews := msg.ToScoredReviewMessage(f.scores[query3])
+	f.shardPublish(reviews, f.w.Outputs[query3])
+
+	if f.scores[query5] != f.scores[query3] {
+		reviews = msg.ToScoredReviewMessage(f.scores[query5])
+	}
+	f.shardPublish(reviews, f.w.Outputs[query5])
 }
 
-func (f Filter) shardPublish(reviews message.ScoredReviews, k string, consumers int, id uint8) {
+func (f *filter) shardPublish(reviews message.ScoredReviews, output amqp.Destination) {
+	headers := map[string]any{amqp.MessageIdHeader: message.ScoredReviewID}
 	for _, rv := range reviews {
 		b, err := rv.ToBytes()
 		if err != nil {
-			logger.Errorf("%s: %s\n", errors.FailedToParse.Error(), err.Error())
+			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 			continue
 		}
 
-		key := fmt.Sprintf(k, rv.GameId%int64(consumers))
-		if err = f.broker.Publish(outputExchange, key, id, b); err != nil {
-			logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
+		k := worker.ShardGameId(rv.GameId, output.Key, output.Consumers)
+		if err = f.w.Broker.Publish(output.Exchange, k, b, headers); err != nil {
+			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
-		logger.Infof("Published message %d to %s with key %s", id, outputExchange, key)
 	}
 }

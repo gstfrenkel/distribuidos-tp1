@@ -24,7 +24,7 @@ services:
     container_name: reviews-filter-1
     image: reviews-filter:latest
     environment:
-      - worker-id=1
+      - worker-id=0
     depends_on:
       - rabbitmq
       - gateway
@@ -37,7 +37,33 @@ services:
     container_name: action-filter-1
     image: action-filter:latest
     environment:
-      - worker-id=1
+      - worker-id=0
+    depends_on:
+      - rabbitmq
+      - gateway
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+
+  indie-filter-1:
+    container_name: indie-filter-1
+    image: indie-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - rabbitmq
+      - gateway
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+
+  platform-filter-1:
+    container_name: platform-filter-1
+    image: platform-filter:latest
+    environment:
+      - worker-id=0
     depends_on:
       - rabbitmq
       - gateway

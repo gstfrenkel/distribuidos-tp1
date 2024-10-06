@@ -10,7 +10,6 @@ COPY configs/client.toml config.toml
 # Update path to desired entrypoint
 COPY cmd/client/client.go ./main.go
 COPY pkg/ ./pkg/
-COPY internal/ ./internal/
-
+COPY internal/client/client.go ./internal/client/
 
 ENTRYPOINT ["go", "run", "main.go"]

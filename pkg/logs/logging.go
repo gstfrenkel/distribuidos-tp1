@@ -5,6 +5,8 @@ import (
 	"os"
 )
 
+var Logger, _ = GetLogger("")
+
 // InitLogger Receives the log level to be set in go-logging as a string. This method
 // parses the string and set the level to the logger. If the level string is not
 // valid an error is returned

@@ -3,6 +3,7 @@ package gateway
 import (
 	"net"
 	"tp1/pkg/ioutils"
+	"tp1/pkg/logs"
 	"tp1/pkg/message"
 )
 
@@ -17,14 +18,14 @@ func CreateGatewaySocket(g *Gateway) error {
 	if err != nil {
 		return err
 	}
-	logger.Infof("Gateway listening on %s", conn.Addr().String())
+	logs.Logger.Infof("Gateway listening on %s", conn.Addr().String())
 	g.Listener = conn
 	return nil
 }
 
 func ListenForNewClients(g *Gateway) error {
 	for {
-		logger.Infof("Waiting for new client connection...")
+		logs.Logger.Infof("Waiting for new client connection...")
 		c, err := g.Listener.Accept()
 		if err != nil {
 			return err
@@ -33,10 +34,10 @@ func ListenForNewClients(g *Gateway) error {
 	}
 }
 
-// handleConnection reads the data from the client and sends it to the broker.
+// handleConnection reads the data from the client and sends it to the amqp.
 // It reads considering that Read can return less than the desired buffer size
 func handleConnection(g *Gateway, conn net.Conn) {
-	logger.Infof("New client connected: %s", conn.RemoteAddr().String())
+	logs.Logger.Infof("New client connected: %s", conn.RemoteAddr().String())
 	bufferSize := g.Config.Int("gateway.buffer_size", 1024)
 	read, msgId, payloadSize, eofs := 0, uint8(0), uint64(0), uint8(0)
 	buffer := make([]byte, bufferSize)
@@ -46,9 +47,9 @@ func handleConnection(g *Gateway, conn net.Conn) {
 		n, err := conn.Read(buffer)
 		if err != nil {
 			if err.Error() == "EOF" {
-				logger.Infof("Client disconnected: %s", conn.RemoteAddr().String())
+				logs.Logger.Infof("Client disconnected: %s", conn.RemoteAddr().String())
 			} else {
-				logger.Errorf("Error reading from client: %s", err.Error())
+				logs.Logger.Errorf("Error reading from client: %s", err.Error())
 				return
 			}
 		}
@@ -57,12 +58,12 @@ func handleConnection(g *Gateway, conn net.Conn) {
 		read += n
 		if hasNotReadId(read, msgId) {
 			auxBuffer = readId(&msgId, auxBuffer, &read)
-			logger.Infof("Received message ID: %d", msgId)
+			logs.Logger.Infof("Received message ID: %d", msgId)
 		}
 
 		if hasNotReadPayloadSize(read, payloadSize) {
 			auxBuffer = readPayloadSize(&payloadSize, auxBuffer, &read)
-			logger.Infof("Payload size: %d", payloadSize)
+			logs.Logger.Infof("Payload size: %d", payloadSize)
 		}
 
 		if hasReadCompletePayload(auxBuffer, payloadSize) {
@@ -77,12 +78,12 @@ func processRemaining(rem []byte, msgId *uint8, payloadSize *uint64) []byte {
 	*msgId, *payloadSize = 0, 0
 	if hasNotReadId(len(rem), *msgId) {
 		rem = readId(msgId, rem, nil)
-		logger.Infof("Received message ID: %d", *msgId)
+		logs.Logger.Infof("Received message ID: %d", *msgId)
 	}
 
 	if hasNotReadPayloadSize(len(rem), *payloadSize) {
 		rem = readPayloadSize(payloadSize, rem, nil)
-		logger.Infof("Payload size: %d", *payloadSize)
+		logs.Logger.Infof("Payload size: %d", *payloadSize)
 	}
 
 	return rem
@@ -131,7 +132,7 @@ func hasNotReadId(read int, msgId uint8) bool {
 // Moves the buffer payloadLen positions
 func processPayload(g *Gateway, msgId message.ID, payload []byte, payloadLen uint64, eofs *uint8) {
 	if isEndOfFile(payloadLen) {
-		logger.Infof("End of file received for message ID: %d", msgId)
+		logs.Logger.Infof("End of file received for message ID: %d", msgId)
 		sendMsgToChunkSender(g, msgId, nil)
 		*eofs++
 	}
@@ -141,7 +142,7 @@ func processPayload(g *Gateway, msgId message.ID, payload []byte, payloadLen uin
 
 func sendMsgToChunkSender(g *Gateway, msgId message.ID, payload []byte) {
 	g.ChunkChan <- ChunkItem{msgId, payload}
-	logger.Infof("Sent message: %d to chunk sender", msgId)
+	logs.Logger.Infof("Sent message: %d to chunk sender", msgId)
 }
 
 func isEndOfFile(payloadLen uint64) bool {

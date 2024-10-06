@@ -1,0 +1,22 @@
+{
+  "peers": 1,
+  "input-queues": {
+    "exchange": "platform",
+    "name": "games_platform",
+    "key": "input"
+  },
+  "output-queues": [
+    {
+      "exchange": "platform",
+      "name": "platforms",
+      "key": ""
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "platform",
+      "kind": "direct"
+    }
+  ],
+  "log-level": "INFO"
+}
