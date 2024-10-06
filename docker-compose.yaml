@@ -26,7 +26,6 @@ services:
     environment:
       - worker-id=0
     depends_on:
-      - rabbitmq
       - gateway
     links:
       - rabbitmq
@@ -39,7 +38,7 @@ services:
     environment:
       - worker-id=0
     depends_on:
-      - gateway
+      - reviews-filter-1
     links:
       - rabbitmq
     networks:
@@ -77,9 +76,27 @@ services:
     depends_on:
       - gateway
     links:
+      - gateway
+    networks:
+      - tp1_net
+
+  joiner-counter-filter-1:
+    container_name: joiner-counter-filter-1
+    image: joiner-counter-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - review-text-filter-1
+      - action-filter-1
+    links:
       - rabbitmq
     networks:
       - tp1_net
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 3s
+        max_attempts: 3
 
 networks:
   tp1_net:

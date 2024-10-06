@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"reflect"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"tp1/pkg/amqp"
@@ -72,21 +73,30 @@ func (f *Worker) Init() error {
 
 func (f *Worker) Start(filter Filter) {
 	defer f.Broker.Close()
+	defer close(f.SignalChan)
 
-	var inputQ amqp.Destination
+	var inputQ []amqp.Destination
 	err := f.config.Unmarshal("input-queues", &inputQ)
 	if err != nil {
 		logs.Logger.Errorf("error unmarshalling input-queue: %s", err.Error())
 		return
 	}
 
-	ch, err := f.Broker.Consume(inputQ.Name, "", true, false)
-	if err != nil {
-		logs.Logger.Errorf("error consuming from input-queue: %s", err.Error())
-		return
+	channels := make([]<-chan amqp.Delivery, 0, len(inputQ))
+	for _, q := range inputQ {
+		queueName := q.Name
+		if strings.Contains(queueName, "%d") {
+			queueName = fmt.Sprintf(queueName, f.Id)
+		}
+		ch, err := f.Broker.Consume(queueName, "", true, false)
+		if err != nil {
+			logs.Logger.Errorf("error consuming from input-queue: %s", err.Error())
+			os.Exit(1)
+		}
+		channels = append(channels, ch)
 	}
 
-	f.consume(filter, f.SignalChan, ch)
+	f.consume(filter, f.SignalChan, channels...)
 }
 
 func (f *Worker) consume(filter Filter, signalChan chan os.Signal, deliveryChan ...<-chan amqp.Delivery) {
@@ -99,6 +109,7 @@ func (f *Worker) consume(filter Filter, signalChan chan os.Signal, deliveryChan 
 
 	for {
 		chosen, recv, ok := reflect.Select(cases)
+		logs.Logger.Infof("Received message: %d %v", chosen, ok)
 		if !ok || chosen == 0 {
 			return
 		}
@@ -116,14 +127,7 @@ func (f *Worker) initExchanges() error {
 }
 
 func (f *Worker) initQueues() error {
-	// Input queue unmarshaling and binding.
-	if err := f.config.Unmarshal("input-queues", &f.InputEof); err != nil {
-		return err
-	} else if err = f.Broker.QueueBind(amqp.QueueBind{Exchange: f.InputEof.Exchange, Name: f.InputEof.Name, Key: f.InputEof.Key}); err != nil {
-		return err
-	}
-
-	// Output queue unmarshaling.
+	// Output queue unmarshalling.
 	if err := f.config.Unmarshal("output-queues", &f.Outputs); err != nil {
 		return err
 	}
@@ -139,6 +143,23 @@ func (f *Worker) initQueues() error {
 		// EOF Output queue processing.
 		for _, aux := range destination {
 			outputsEof = append(outputsEof, amqp.DestinationEof(aux))
+		}
+	}
+
+	// Input queue unmarshalling and binding.
+	var inputQ []amqp.Destination
+	err := f.config.Unmarshal("input-queues", &inputQ)
+	if err != nil {
+		return err
+	}
+
+	for _, q := range inputQ {
+		if q.Exchange != "" {
+			f.InputEof = amqp.DestinationEof(q)
+			if err = f.Broker.QueueBind(amqp.QueueBind{Exchange: f.InputEof.Exchange, Name: f.InputEof.Name, Key: f.InputEof.Key}); err != nil {
+				return err
+			}
+			break
 		}
 	}
 
