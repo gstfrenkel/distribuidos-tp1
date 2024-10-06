@@ -104,6 +104,7 @@ func (f *filter) sendTop() {
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, bytes, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
+	logs.Logger.Info("Top N games sent")
 
 	f.publishEof()
 }
@@ -121,4 +122,5 @@ func (f *filter) publishEof() {
 	if err := f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, nil, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
+	logs.Logger.Info("Top N games eof sent")
 }
