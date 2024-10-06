@@ -1,0 +1,23 @@
+{
+  "query": [2010, 2019],
+  "peers": 1,
+  "input-queues": {
+    "exchange": "release",
+    "name": "indie_q2",
+    "key": ""
+  },
+  "output-queues": [
+    {
+      "exchange": "release",
+      "name": "release_date",
+      "key": ""
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "release",
+      "kind": "direct"
+    }
+  ],
+  "log-level": "INFO"
+}
