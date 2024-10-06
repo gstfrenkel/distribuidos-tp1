@@ -36,9 +36,10 @@ func (f *filter) Start() {
 
 func (f *filter) Process(reviewDelivery amqp.Delivery) {
 	messageId := message.ID(reviewDelivery.Headers[amqp.MessageIdHeader].(uint8))
+	headers := map[string]any{amqp.OriginIdHeader: amqp.GameOriginId}
 
 	if messageId == message.EofMsg {
-		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, reviewDelivery.Body, nil, f.w.InputEof, f.w.OutputsEof...); err != nil {
+		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, reviewDelivery.Body, headers, f.w.InputEof, f.w.OutputsEof...); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	} else if messageId == message.GameIdMsg {

@@ -2,7 +2,15 @@ package amqp
 
 import amqp "github.com/rabbitmq/amqp091-go"
 
-const MessageIdHeader = "x-message-id"
+const (
+	MessageIdHeader = "x-message-id"
+	OriginIdHeader  = "x-origin-id"
+)
+
+const (
+	ReviewOriginId uint8 = iota
+	GameOriginId
+)
 
 type Delivery = amqp.Delivery
 type Publishing = amqp.Publishing
