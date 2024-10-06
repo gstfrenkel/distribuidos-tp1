@@ -33,13 +33,24 @@ services:
     networks:
       - tp1_net
 
+  review-text-filter-1:
+    container_name: review-text-filter-1
+    image: review-text-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - gateway
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+
   action-filter-1:
     container_name: action-filter-1
     image: action-filter:latest
     environment:
       - worker-id=0
     depends_on:
-      - rabbitmq
       - gateway
     links:
       - rabbitmq
@@ -52,7 +63,6 @@ services:
     environment:
       - worker-id=0
     depends_on:
-      - rabbitmq
       - gateway
     links:
       - rabbitmq
@@ -65,7 +75,6 @@ services:
     environment:
       - worker-id=0
     depends_on:
-      - rabbitmq
       - gateway
     links:
       - rabbitmq

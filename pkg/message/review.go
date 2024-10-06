@@ -1,9 +1,5 @@
 package message
 
-import (
-	"tp1/pkg/message/utils"
-)
-
 type Review []review
 
 type review struct {
@@ -61,20 +57,18 @@ func (m Review) ToScoredReviewMessage(targetScore int8) ScoredReviews {
 	return scoredReviewMsg
 }
 
-func (m Review) ToReviewWithTextMessage(targetScore int8) TextReview {
-	textReviewMessage := TextReview{}
+func (m Review) ToReviewWithTextMessage(targetScore int8) TextReviews {
+	textReviewMessage := TextReviews{}
 
 	for _, reviewMsg := range m {
 		if reviewMsg.Score != targetScore {
 			continue
 		}
 
-		key := utils.Key{GameId: reviewMsg.GameId, GameName: reviewMsg.GameName}
-
-		if _, exists := textReviewMessage[key]; exists {
-			textReviewMessage[key] = append(textReviewMessage[key], reviewMsg.Text)
+		if _, exists := textReviewMessage[reviewMsg.GameId]; exists {
+			textReviewMessage[reviewMsg.GameId] = append(textReviewMessage[reviewMsg.GameId], reviewMsg.Text)
 		} else {
-			textReviewMessage[key] = []string{reviewMsg.Text}
+			textReviewMessage[reviewMsg.GameId] = []string{reviewMsg.Text}
 		}
 	}
 
