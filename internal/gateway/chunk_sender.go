@@ -121,7 +121,7 @@ func (s *ChunkSender) sendChunk(msgId uint8, routingKey string, count *uint8, ch
 			return
 		}
 
-		err = s.broker.Publish(s.exchange, routingKey, msgId, bytes)
+		err = s.broker.Publish(s.exchange, routingKey, bytes, map[string]any{amqp.MessageIdHeader: msgId})
 		if err != nil {
 			logs.Logger.Errorf("Error publishing chunk: %s", err.Error())
 			return
@@ -131,7 +131,7 @@ func (s *ChunkSender) sendChunk(msgId uint8, routingKey string, count *uint8, ch
 		chunk = make([]any, s.maxChunkSize)
 		logs.Logger.Infof("Sent chunk with key %v", routingKey)
 	} else if eof {
-		err := s.broker.Publish(s.exchange, routingKey, msgId, nil)
+		err := s.broker.Publish(s.exchange, routingKey, nil, map[string]any{amqp.MessageIdHeader: msgId})
 		if err != nil {
 			logs.Logger.Errorf("Error publishing EOF: %s", err.Error())
 			return

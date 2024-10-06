@@ -20,7 +20,7 @@ import (
 type Filter interface {
 	Init() error
 	Start()
-	Process(delivery broker.Delivery)
+	Process(delivery amqp.Delivery)
 }
 
 type Worker struct {
@@ -89,7 +89,7 @@ func (f *Worker) Start(filter Filter) {
 	f.consume(filter, f.SignalChan, ch)
 }
 
-func (f *Worker) consume(filter Filter, signalChan chan os.Signal, deliveryChan ...<-chan broker.Delivery) {
+func (f *Worker) consume(filter Filter, signalChan chan os.Signal, deliveryChan ...<-chan amqp.Delivery) {
 	cases := make([]reflect.SelectCase, 0, len(deliveryChan)+1)
 	cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(signalChan)})
 
@@ -102,7 +102,7 @@ func (f *Worker) consume(filter Filter, signalChan chan os.Signal, deliveryChan 
 		if !ok || chosen == 0 {
 			return
 		}
-		filter.Process(recv.Interface().(broker.Delivery))
+		filter.Process(recv.Interface().(amqp.Delivery))
 	}
 }
 
