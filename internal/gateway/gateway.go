@@ -4,8 +4,8 @@ import (
 	"net"
 
 	"tp1/internal/gateway/rabbit"
-	"tp1/pkg/broker"
-	"tp1/pkg/broker/amqpconn"
+	"tp1/pkg/amqp"
+	"tp1/pkg/amqp/broker"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
 	"tp1/pkg/logs"
@@ -15,8 +15,8 @@ const configFilePath = "config.toml"
 
 type Gateway struct {
 	Config    config.Config
-	broker    broker.MessageBroker
-	queues    []broker.Queue //order: reviews, games_platform, games_shooter, games_indie
+	broker    amqp.MessageBroker
+	queues    []amqp.Queue //order: reviews, games_platform, games_shooter, games_indie
 	exchange  string
 	Listener  net.Listener
 	ChunkChan chan ChunkItem
@@ -28,7 +28,7 @@ func New() (*Gateway, error) {
 		return nil, err
 	}
 
-	b, err := amqpconn.NewBroker()
+	b, err := broker.NewBroker()
 	if err != nil {
 		return nil, err
 	}

@@ -3,7 +3,7 @@ package platform
 import (
 	"tp1/internal/errors"
 	"tp1/internal/worker"
-	"tp1/pkg/broker/amqpconn"
+	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 )
@@ -28,11 +28,11 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(reviewDelivery amqpconn.Delivery) {
-	messageId := message.ID(reviewDelivery.Headers[amqpconn.MessageIdHeader].(uint8))
+func (f *filter) Process(reviewDelivery amqp.Delivery) {
+	messageId := message.ID(reviewDelivery.Headers[amqp.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
-		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, reviewDelivery.Body, f.w.InputEof, f.w.OutputsEof...); err != nil {
+		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, reviewDelivery.Body, nil, f.w.InputEof, f.w.OutputsEof...); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
 	} else if messageId == message.GameIdMsg {
@@ -55,7 +55,8 @@ func (f *filter) publish(msg message.Game) {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 	}
 
-	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, uint8(message.PlatformID), b); err != nil {
+	headers := map[string]any{amqp.MessageIdHeader: message.PlatformID}
+	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 }

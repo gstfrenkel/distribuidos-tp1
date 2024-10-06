@@ -1,14 +1,14 @@
 package gateway
 
 import (
-	"tp1/pkg/broker"
+	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 )
 
 type ChunkSender struct {
 	channel      <-chan ChunkItem
-	broker       broker.MessageBroker
+	broker       amqp.MessageBroker
 	exchange     string
 	reviewsCount uint8
 	gamesCount   uint8
@@ -33,7 +33,7 @@ func wrapGamesFromClientGames(data any) ([]byte, error) {
 	return message.GameFromClientGame(data.([]message.DataCSVGames))
 }
 
-func newChunkSender(channel <-chan ChunkItem, broker broker.MessageBroker, exchange string, chunkMaxSize uint8, rRoutingKey string, gRoutingKey string) *ChunkSender {
+func newChunkSender(channel <-chan ChunkItem, broker amqp.MessageBroker, exchange string, chunkMaxSize uint8, rRoutingKey string, gRoutingKey string) *ChunkSender {
 	return &ChunkSender{
 		channel:      channel,
 		broker:       broker,
@@ -50,7 +50,7 @@ func newChunkSender(channel <-chan ChunkItem, broker broker.MessageBroker, excha
 	}
 }
 
-func startChunkSender(channel <-chan ChunkItem, broker broker.MessageBroker, exchange string, chunkMaxSize uint8, rRoutingKey string, gRoutingKey string) {
+func startChunkSender(channel <-chan ChunkItem, broker amqp.MessageBroker, exchange string, chunkMaxSize uint8, rRoutingKey string, gRoutingKey string) {
 	chunkSender := newChunkSender(channel, broker, exchange, chunkMaxSize, rRoutingKey, gRoutingKey)
 	for {
 		item := <-channel

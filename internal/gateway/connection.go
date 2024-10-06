@@ -34,7 +34,7 @@ func ListenForNewClients(g *Gateway) error {
 	}
 }
 
-// handleConnection reads the data from the client and sends it to the broker.
+// handleConnection reads the data from the client and sends it to the amqp.
 // It reads considering that Read can return less than the desired buffer size
 func handleConnection(g *Gateway, conn net.Conn) {
 	logs.Logger.Infof("New client connected: %s", conn.RemoteAddr().String())

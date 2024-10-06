@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"syscall"
 
-	"tp1/pkg/broker"
-	"tp1/pkg/broker/amqpconn"
+	"tp1/pkg/amqp"
+	"tp1/pkg/amqp/broker"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
 	"tp1/pkg/logs"
@@ -20,16 +20,16 @@ import (
 type Filter interface {
 	Init() error
 	Start()
-	Process(delivery amqpconn.Delivery)
+	Process(delivery broker.Delivery)
 }
 
 type Worker struct {
 	config     config.Config
 	Query      any
-	Broker     broker.MessageBroker
-	InputEof   broker.DestinationEof
-	OutputsEof []broker.DestinationEof
-	Outputs    []broker.Destination
+	Broker     amqp.MessageBroker
+	InputEof   amqp.DestinationEof
+	OutputsEof []amqp.DestinationEof
+	Outputs    []amqp.Destination
 	SignalChan chan os.Signal
 	Id         uint8
 	Peers      uint8
@@ -41,7 +41,7 @@ func New() (*Worker, error) {
 		return nil, err
 	}
 	_ = logs.InitLogger(cfg.String("log-level", "INFO"))
-	b, err := amqpconn.NewBroker()
+	b, err := broker.NewBroker()
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (f *Worker) Init() error {
 func (f *Worker) Start(filter Filter) {
 	defer f.Broker.Close()
 
-	var inputQ broker.Destination
+	var inputQ amqp.Destination
 	err := f.config.Unmarshal("inputQ", &inputQ)
 	if err != nil {
 		logs.Logger.Errorf("error unmarshalling input-queue: %s", err.Error())
@@ -89,7 +89,7 @@ func (f *Worker) Start(filter Filter) {
 	f.consume(filter, f.SignalChan, ch)
 }
 
-func (f *Worker) consume(filter Filter, signalChan chan os.Signal, deliveryChan ...<-chan amqpconn.Delivery) {
+func (f *Worker) consume(filter Filter, signalChan chan os.Signal, deliveryChan ...<-chan broker.Delivery) {
 	cases := make([]reflect.SelectCase, 0, len(deliveryChan)+1)
 	cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(signalChan)})
 
@@ -102,12 +102,12 @@ func (f *Worker) consume(filter Filter, signalChan chan os.Signal, deliveryChan 
 		if !ok || chosen == 0 {
 			return
 		}
-		filter.Process(recv.Interface().(amqpconn.Delivery))
+		filter.Process(recv.Interface().(broker.Delivery))
 	}
 }
 
 func (f *Worker) initExchanges() error {
-	var exchanges []broker.Exchange
+	var exchanges []amqp.Exchange
 	if err := f.config.Unmarshal("exchanges", &exchanges); err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func (f *Worker) initQueues() error {
 	// Input queue unmarshaling and binding.
 	if err := f.config.Unmarshal("input-queues", &f.InputEof); err != nil {
 		return err
-	} else if err = f.Broker.QueueBind(broker.QueueBind{Exchange: f.InputEof.Exchange, Name: f.InputEof.Name, Key: f.InputEof.Key}); err != nil {
+	} else if err = f.Broker.QueueBind(amqp.QueueBind{Exchange: f.InputEof.Exchange, Name: f.InputEof.Name, Key: f.InputEof.Key}); err != nil {
 		return err
 	}
 
@@ -128,7 +128,7 @@ func (f *Worker) initQueues() error {
 		return err
 	}
 
-	var outputsEof []broker.DestinationEof
+	var outputsEof []amqp.DestinationEof
 
 	for _, dst := range f.Outputs {
 		// Queue declaration and binding.
@@ -138,27 +138,27 @@ func (f *Worker) initQueues() error {
 		}
 		// EOF Output queue processing.
 		for _, aux := range destination {
-			outputsEof = append(outputsEof, broker.DestinationEof(aux))
+			outputsEof = append(outputsEof, amqp.DestinationEof(aux))
 		}
 	}
 
 	return nil
 }
 
-func (f *Worker) initQueue(dst broker.Destination) ([]broker.Queue, []broker.Destination, error) {
+func (f *Worker) initQueue(dst amqp.Destination) ([]amqp.Queue, []amqp.Destination, error) {
 	if dst.Consumers == 0 {
 		q, err := f.Broker.QueueDeclare(dst.Name)
 		if err != nil {
 			return nil, nil, err
 		}
-		if err = f.Broker.QueueBind(broker.QueueBind{Exchange: dst.Exchange, Name: dst.Name, Key: dst.Key}); err != nil {
+		if err = f.Broker.QueueBind(amqp.QueueBind{Exchange: dst.Exchange, Name: dst.Name, Key: dst.Key}); err != nil {
 			return nil, nil, err
 		}
-		return q, []broker.Destination{{Exchange: dst.Exchange, Key: dst.Key}}, nil
+		return q, []amqp.Destination{{Exchange: dst.Exchange, Key: dst.Key}}, nil
 	}
 
-	queues := make([]broker.Queue, 0, dst.Consumers)
-	destinations := make([]broker.Destination, 0, dst.Consumers)
+	queues := make([]amqp.Queue, 0, dst.Consumers)
+	destinations := make([]amqp.Destination, 0, dst.Consumers)
 
 	for i := uint8(0); i < dst.Consumers; i++ {
 		name := fmt.Sprintf(dst.Name, i)
@@ -167,11 +167,11 @@ func (f *Worker) initQueue(dst broker.Destination) ([]broker.Queue, []broker.Des
 			return nil, nil, err
 		}
 		key := fmt.Sprintf(dst.Key, i)
-		if err = f.Broker.QueueBind(broker.QueueBind{Exchange: dst.Exchange, Name: name, Key: key}); err != nil {
+		if err = f.Broker.QueueBind(amqp.QueueBind{Exchange: dst.Exchange, Name: name, Key: key}); err != nil {
 			return nil, nil, err
 		}
 		queues = append(queues, q...)
-		destinations = append(destinations, broker.Destination{Exchange: dst.Exchange, Key: key})
+		destinations = append(destinations, amqp.Destination{Exchange: dst.Exchange, Key: key})
 	}
 
 	return queues, destinations, nil

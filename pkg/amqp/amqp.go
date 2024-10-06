@@ -1,7 +1,11 @@
-package broker
+package amqp
 
 import amqp "github.com/rabbitmq/amqp091-go"
 
+const MessageIdHeader = "x-message-id"
+
+type Delivery = amqp.Delivery
+type Publishing = amqp.Publishing
 type Queue amqp.Queue
 
 type QueueBind struct {
@@ -29,8 +33,8 @@ type MessageBroker interface {
 	ExchangeDeclare(exchange ...Exchange) error
 	QueueBind(binds ...QueueBind) error
 	ExchangeBind(dst, key, src string) error
-	Publish(exchange, key string, msgId uint8, msg []byte) error
-	Consume(queue, consumer string, autoAck, exclusive bool) (<-chan amqp.Delivery, error)
-	HandleEofMessage(workerId, peers uint8, msg []byte, input DestinationEof, outputs ...DestinationEof) error
+	Publish(exchange, key string, msg []byte, headers map[string]any) error
+	Consume(queue, consumer string, autoAck, exclusive bool) (<-chan Delivery, error)
+	HandleEofMessage(workerId, peers uint8, msg []byte, headers map[string]any, input DestinationEof, outputs ...DestinationEof) error
 	Close()
 }
