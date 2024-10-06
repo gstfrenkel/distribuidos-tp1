@@ -5,6 +5,7 @@ all:
 
 build:
 	docker build -f ./build/review.Dockerfile -t "reviews-filter:latest" .
+	docker build -f ./build/text.Dockerfile -t "review-text-filter:latest" .
 	docker build -f ./build/action.Dockerfile -t "action-filter:latest" .
 	docker build -f ./build/indie.Dockerfile -t "indie-filter:latest" .
 	docker build -f ./build/platform.Dockerfile -t "platform-filter:latest" .

@@ -1,16 +1,12 @@
 package message
 
-import (
-	"tp1/pkg/message/utils"
-)
+type TextReviews map[int64][]string
 
-type TextReview map[utils.Key][]string
-
-func TextReviewFromBytes(b []byte) (TextReview, error) {
-	var m TextReview
+func TextReviewFromBytes(b []byte) (TextReviews, error) {
+	var m TextReviews
 	return m, fromBytes(b, &m)
 }
 
-func (m TextReview) ToBytes() ([]byte, error) {
+func (m TextReviews) ToBytes() ([]byte, error) {
 	return toBytes(m)
 }

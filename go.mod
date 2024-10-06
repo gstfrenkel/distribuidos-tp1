@@ -10,6 +10,12 @@ require (
 )
 
 require (
+	github.com/pemistahl/lingua-go v1.4.0 // indirect
+	github.com/shopspring/decimal v1.3.1 // indirect
+	google.golang.org/protobuf v1.33.0 // indirect
+)
+
+require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
