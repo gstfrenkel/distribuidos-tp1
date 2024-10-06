@@ -7,7 +7,7 @@ log_level = "INFO"
 [rabbitmq]
 reviews_q = "reviews"
 games_platform_q = "games_platform"
-games_shooter_q = "games_action"
+games_action_q = "games_action"
 games_indie_q = "games_indie"
 exchange_name = "gateway"
 exchange_kind = "direct"

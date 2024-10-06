@@ -8,7 +8,7 @@ import (
 func CreateGatewayQueues(b amqp.MessageBroker, cfg config.Config) ([]amqp.Queue, error) {
 	reviewsAndGamesQ, err := b.QueueDeclare(cfg.String("rabbitmq.reviews_q", "reviews"),
 		cfg.String("rabbitmq.games_platform_q", "games_platform"),
-		cfg.String("rabbitmq.games_shooter_q", "games_shooter"),
+		cfg.String("rabbitmq.games_action_q", "games_action"),
 		cfg.String("rabbitmq.games_indie_q", "games_indie"))
 	if err != nil {
 		b.Close()
