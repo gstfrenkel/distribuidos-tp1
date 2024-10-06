@@ -7,7 +7,7 @@ type GameName struct {
 	GameName string
 }
 
-func FromBytes(b []byte) (GameName, error) {
+func GameNameFromBytes(b []byte) (GameName, error) {
 	var m GameName
 	return m, fromBytes(b, &m)
 }
