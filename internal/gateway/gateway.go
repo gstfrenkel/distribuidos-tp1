@@ -16,7 +16,7 @@ const configFilePath = "config.toml"
 type Gateway struct {
 	Config    config.Config
 	broker    amqp.MessageBroker
-	queues    []amqp.Queue //order: reviews, games_platform, games_shooter, games_indie
+	queues    []amqp.Queue //order: reviews, games_platform, games_action, games_indie
 	exchange  string
 	Listener  net.Listener
 	ChunkChan chan ChunkItem

@@ -5,11 +5,11 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY configs/client.toml config.toml
-
 # Update path to desired entrypoint
 COPY cmd/client/client.go ./main.go
 COPY pkg/ ./pkg/
-COPY internal/ ./internal/
+COPY internal/client/client.go ./internal/client/
+
+COPY configs/client.toml config.toml
 
 ENTRYPOINT ["go", "run", "main.go"]

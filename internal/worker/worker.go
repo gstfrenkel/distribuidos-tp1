@@ -74,7 +74,7 @@ func (f *Worker) Start(filter Filter) {
 	defer f.Broker.Close()
 
 	var inputQ amqp.Destination
-	err := f.config.Unmarshal("inputQ", &inputQ)
+	err := f.config.Unmarshal("input-queues", &inputQ)
 	if err != nil {
 		logs.Logger.Errorf("error unmarshalling input-queue: %s", err.Error())
 		return
