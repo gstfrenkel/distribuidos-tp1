@@ -1,4 +1,4 @@
-package release_date
+package top_n_playtime
 
 import (
 	"tp1/internal/errors"
@@ -10,8 +10,7 @@ import (
 
 type filter struct {
 	w *worker.Worker
-	startYear int
-	endYear int
+	n int
 }
 
 func New() (worker.Filter, error) {
@@ -38,7 +37,7 @@ func (f *filter) Process(delivery amqp.Delivery) {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
 	} else if messageId == message.GameIdMsg {
-		msg, err := message.ReleasesFromBytes(delivery.Body)
+		msg, err := message.DateFilteredReleasesFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 			return
@@ -50,14 +49,12 @@ func (f *filter) Process(delivery amqp.Delivery) {
 	}
 }
 
-func (f *filter) publish(msg message.Releases) {
+func (f *filter) publish(msg message.DateFilteredReleases) {
 
-	// TODO: read from json	as filter attributes
-	initialYear := 2010
-	endYear := 2019
-
-	date_filtered_games := msg.ToPlaytimeMessage(initialYear,endYear) 
-	b, err := date_filtered_games.ToBytes()
+	// TODO read from json as filter attribute
+	n:= 10
+	topNPlaytime := msg.ToTopNPlaytimeMessage(n) 
+	b, err := topNPlaytime.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 	}
