@@ -1,11 +1,11 @@
 {
   "query": "action",
   "peers": 1,
-  "input-queues": {
+  "input-queues": [{
     "exchange": "action",
     "name": "games_action",
     "key": "input"
-  },
+  }],
   "output-queues": [
     {
       "exchange": "action",

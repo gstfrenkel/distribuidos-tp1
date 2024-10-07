@@ -1,11 +1,11 @@
 {
   "query": [1, -1, -1],
   "peers": 1,
-  "input-queues": {
+  "input-queues": [{
     "exchange": "review",
     "name": "reviews",
     "key": "input"
-  },
+  }],
   "output-queues": [
     {
       "exchange": "review",
