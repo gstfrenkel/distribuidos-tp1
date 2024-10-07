@@ -1,7 +1,7 @@
 {
   "query": 5,
   "input-queues": {
-    "name": "count_queue_%d"
+    "name": "joined_top_%d"
   },
   "output-queues": [
     {
