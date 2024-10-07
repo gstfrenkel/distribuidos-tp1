@@ -1,7 +1,7 @@
 {
   "query": 5,
   "input-queues": {
-    "name": "count_queue_%d"
+    "name": "joined_top_%d"
   },
   "output-queues": [
     {
@@ -13,8 +13,7 @@
   "exchanges": [
     {
       "name": "",
-      "kind": "direct",
-      "queue": "top_queue"
+      "kind": "direct"
     }
   ],
   "log-level": "INFO"
