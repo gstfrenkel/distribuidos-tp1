@@ -25,7 +25,7 @@ func New() (worker.Filter, error) {
 }
 
 func (f *filter) Init() error {
-	f.n = f.w.Query.(uint8)
+	f.n = uint8(f.w.Query.(float64))
 	return f.w.Init()
 }
 
