@@ -1,4 +1,4 @@
-package platform_counter
+package platform_counter_agg
 
 import (
 	"tp1/internal/errors"
@@ -10,7 +10,7 @@ import (
 
 type filter struct {
 
-	counter message.Platform // Uso el struct de mensaje porque ya tiene los campos que necesito.
+	counter message.Platform 
 	w *worker.Worker
 }
 
@@ -36,15 +36,9 @@ func (f *filter) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
-		
 		f.publish()
-
-		f.counter.ResetValues() // Set 0 los valores de la estructura
-		
-		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, nil, f.w.InputEof, f.w.OutputsEof...); err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
-		}
-
+		return
+	
 	} else if messageId == message.GameIdMsg {
 		msg, err := message.PlatfromFromBytes(delivery.Body)
 		if err != nil {
@@ -60,11 +54,6 @@ func (f *filter) Process(delivery amqp.Delivery) {
 func (f *filter) publish() {
 
 	platforms := f.counter
-
-	// Vale la pena mandar mensaje si es todo 0?
-	if platforms.IsEmpty() {
-		return 
-	}
 
 	b, err := platforms.ToBytes()
 	if err != nil {
