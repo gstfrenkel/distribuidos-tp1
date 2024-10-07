@@ -2,6 +2,8 @@ package top_n
 
 import "tp1/pkg/message"
 
+//minimal heap implementation for the top n filter
+
 type PriorityQueue []*message.ScoredReview
 
 //(you should never interact with this file directly, use the std heap instead)
@@ -9,7 +11,7 @@ type PriorityQueue []*message.ScoredReview
 func (pq *PriorityQueue) Len() int { return len(*pq) }
 
 func (pq *PriorityQueue) Less(i, j int) bool {
-	return (*pq)[i].Votes > (*pq)[j].Votes
+	return (*pq)[i].Votes < (*pq)[j].Votes
 }
 
 func (pq *PriorityQueue) Swap(i, j int) {

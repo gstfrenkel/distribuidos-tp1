@@ -19,7 +19,7 @@ func TestUpdateVotes(t *testing.T) {
 }
 
 func TestPublishNewGame(t *testing.T) {
-	f := fakeFilter()
+	f := fakeFilter(5)
 
 	msg := message.ScoredReview{GameId: 1, Votes: 10}
 	f.updateTop(msg)
@@ -32,7 +32,7 @@ func TestPublishNewGame(t *testing.T) {
 }
 
 func TestPublishExistingGame(t *testing.T) {
-	f := fakeFilter()
+	f := fakeFilter(5)
 	msg1 := message.ScoredReview{GameId: 1, Votes: 10}
 	msg2 := message.ScoredReview{GameId: 1, Votes: 5}
 	f.updateTop(msg1)
@@ -46,7 +46,7 @@ func TestPublishExistingGame(t *testing.T) {
 }
 
 func TestPublishTopNLimit(t *testing.T) {
-	f := fakeFilter()
+	f := fakeFilter(5)
 	for i := 1; i <= 6; i++ {
 		msg := message.ScoredReview{GameId: int64(i), Votes: uint64(i * 10)}
 		f.updateTop(msg)
@@ -54,13 +54,13 @@ func TestPublishTopNLimit(t *testing.T) {
 	if f.top.Len() != 5 {
 		t.Errorf("Expected top length 5, got %d", f.top.Len())
 	}
-	if heap.Pop(&f.top).(*message.ScoredReview).Votes != 60 {
-		t.Errorf("Expected max top vote 60, got %d", heap.Pop(&f.top).(*message.ScoredReview).Votes)
+	if heap.Pop(&f.top).(*message.ScoredReview).Votes != 20 {
+		t.Errorf("Expected min top vote 20, got %d", heap.Pop(&f.top).(*message.ScoredReview).Votes)
 	}
 }
 
 func TestInsertTwoElementsWithSameVotes(t *testing.T) {
-	f := fakeFilter()
+	f := fakeFilter(5)
 
 	msg1 := message.ScoredReview{GameId: 1, Votes: 10}
 	msg2 := message.ScoredReview{GameId: 2, Votes: 10}
@@ -92,6 +92,24 @@ func TestInsertTwoElementsWithSameVotes(t *testing.T) {
 	}
 }
 
-func fakeFilter() *filter {
-	return &filter{votes: make(map[GameId]uint64), top: make(PriorityQueue, 0, 5), n: 5}
+func TestTopToTopNSlice(t *testing.T) {
+	f := fakeFilter(2)
+	msg := message.ScoredReview{GameId: 1, Votes: 10}
+	f.updateTop(msg)
+	msg = message.ScoredReview{GameId: 2, Votes: 20}
+	f.updateTop(msg)
+	msg = message.ScoredReview{GameId: 3, Votes: 30}
+	f.updateTop(msg)
+
+	top := f.getTopNScoredReviews()
+	if len(top) != 2 {
+		t.Errorf("Expected top length 2, got %d", len(top))
+	}
+	if top[0].GameId != 3 || top[0].Votes != 30 {
+		t.Errorf("Expected top GameId 3 with 30 Votes, got GameId %d with %d Votes", top[0].GameId, top[0].Votes)
+	}
+}
+
+func fakeFilter(n int) *filter {
+	return &filter{votes: make(map[GameId]uint64), top: make(PriorityQueue, 0, n), n: n}
 }

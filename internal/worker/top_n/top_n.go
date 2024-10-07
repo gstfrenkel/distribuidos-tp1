@@ -63,7 +63,7 @@ func (f *filter) updateTop(msg message.ScoredReview) {
 		if f.top.Len() < f.n {
 			msg.Votes = f.votes[GameId(msg.GameId)]
 			heap.Push(&f.top, &msg)
-		} else if f.votes[GameId(msg.GameId)] > f.top[0].Votes {
+		} else if f.votes[GameId(msg.GameId)] > f.top[0].Votes { //the game has more votes than the lowest in the top N
 			heap.Pop(&f.top)
 			heap.Push(&f.top, &msg)
 		}
@@ -112,7 +112,7 @@ func (f *filter) sendTop() {
 func (f *filter) getTopNScoredReviews() message.ScoredReviews {
 	topNAsSlice := make([]message.ScoredReview, f.top.Len())
 	for i := 0; i < f.n; i++ {
-		topNAsSlice[i] = *heap.Pop(&f.top).(*message.ScoredReview)
+		topNAsSlice[(f.n-1)-i] = *heap.Pop(&f.top).(*message.ScoredReview)
 	}
 	return topNAsSlice
 }

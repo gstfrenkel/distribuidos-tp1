@@ -25,16 +25,16 @@ func TestPriorityQueuePush(t *testing.T) {
 	max2 := heap.Pop(pq).(*message.ScoredReview)
 	max3 := heap.Pop(pq).(*message.ScoredReview)
 
-	if max1.Votes != 20 {
-		t.Errorf("Expected max element with 20 votes, got %d", max1.Votes)
+	if max1.Votes != 5 {
+		t.Errorf("Expected max element with 5 votes, got %d", max1.Votes)
 	}
 
 	if max2.Votes != 10 {
 		t.Errorf("Expected max element with 10 votes, got %d", max2.Votes)
 	}
 
-	if max3.Votes != 5 {
-		t.Errorf("Expected max element with 5 votes, got %d", max3.Votes)
+	if max3.Votes != 20 {
+		t.Errorf("Expected max element with 20 votes, got %d", max3.Votes)
 	}
 
 	if pq.Len() != 0 {
@@ -53,10 +53,21 @@ func TestPriorityQueueFix(t *testing.T) {
 	heap.Push(pq, item2)
 	heap.Push(pq, item3)
 
-	(*pq)[0].Votes = 25
+	(*pq)[0].Votes = 6
 	heap.Fix(pq, 0)
 
-	if (*pq)[0].Votes != 25 {
-		t.Errorf("Expected top element with 10 votes, got %d", (*pq)[0].Votes)
+	if (*pq)[0].Votes != 6 {
+		t.Errorf("Expected top element with 6 votes, got %d", (*pq)[0].Votes)
+	} else {
+		t.Log("When changing the top element to the lower value, the top element should be the same")
+	}
+
+	(*pq)[0].Votes = 60
+	heap.Fix(pq, 0)
+
+	if (*pq)[0].Votes != 10 {
+		t.Errorf("Expected top element with 6 votes, got %d", (*pq)[0].Votes)
+	} else {
+		t.Log("When changing the top element to the higher value, the heap should re-arrange itself")
 	}
 }
