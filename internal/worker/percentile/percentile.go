@@ -82,7 +82,7 @@ func (f *filter) sortScoredReviews() {
 
 func (f *filter) percentileIdx() int {
 	length := len(f.scoredReviews)
-	percentileIndex := int(float64(f.n/100) * float64(length))
+	percentileIndex := int((float64(f.n) / 100) * float64(length))
 	if percentileIndex >= length {
 		percentileIndex = length - 1
 	}

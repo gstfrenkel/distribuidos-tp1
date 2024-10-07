@@ -1,0 +1,20 @@
+{
+  "query": 90,
+  "input-queues": {
+    "name": "count_queue_%d" //TODO
+  },
+  "output-queues": [
+    {
+      "name": "percentile_queue",
+      "key": "",
+      "consumers": 1
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "",
+      "kind": "direct"
+    }
+  ],
+  "log-level": "INFO"
+}
