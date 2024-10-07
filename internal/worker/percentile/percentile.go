@@ -73,7 +73,6 @@ func (f *filter) getGamesInPercentile() message.ScoredReviews {
 	return f.scoredReviews[f.percentileIdx():]
 }
 
-// todo valen test
 func (f *filter) sortScoredReviews() {
 	sort.Slice(f.scoredReviews, func(i, j int) bool {
 		return f.scoredReviews[i].Votes < f.scoredReviews[j].Votes
