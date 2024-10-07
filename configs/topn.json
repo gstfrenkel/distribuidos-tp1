@@ -13,8 +13,7 @@
   "exchanges": [
     {
       "name": "",
-      "kind": "direct",
-      "queue": "top_queue"
+      "kind": "direct"
     }
   ],
   "log-level": "INFO"
