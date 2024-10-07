@@ -33,8 +33,7 @@ func (m ScoredReviews) ToGameNameBytes() ([]byte, error) {
 	}
 
 	if gameNames != nil {
-		bytes, err := gameNames.ToBytes()
-		return bytes, err
+		return gameNames.ToBytes()
 	}
 	return nil, nil
 }
