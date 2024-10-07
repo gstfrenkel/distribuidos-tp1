@@ -106,7 +106,10 @@ func (f *filter) publish() {
 	}
 	logs.Logger.Info("Top N games sent")
 
-	f.publishEof()
+	if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, nil, headers, f.w.InputEof, f.w.OutputsEof...); err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
+	}
+	logs.Logger.Info("EOF sent")
 }
 
 func (f *filter) getTopNScoredReviews() message.ScoredReviews {
@@ -115,12 +118,4 @@ func (f *filter) getTopNScoredReviews() message.ScoredReviews {
 		topNAsSlice[(f.n-1)-i] = *heap.Pop(&f.top).(*message.ScoredReview)
 	}
 	return topNAsSlice
-}
-
-func (f *filter) publishEof() {
-	headers := map[string]any{amqp.MessageIdHeader: message.EofMsg}
-	if err := f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, nil, headers); err != nil {
-		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
-	}
-	logs.Logger.Info("Top N games eof sent")
 }
