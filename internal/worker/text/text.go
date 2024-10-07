@@ -97,7 +97,7 @@ func (f *filter) publish(msg message.TextReviews) {
 		}
 
 		k := worker.ShardGameId(gameId, f.w.Outputs[0].Key, f.w.Outputs[0].Consumers)
-		b, err := message.ScoredReview{GameId: gameId, Votes: int64(count)}.ToBytes()
+		b, err := message.ScoredReview{GameId: gameId, Votes: uint64(count)}.ToBytes()
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 			continue

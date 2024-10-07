@@ -51,7 +51,7 @@ func (m Review) ToScoredReviewMessage(targetScore int8) ScoredReviews {
 	}
 
 	for k, v := range gameVotesMap {
-		scoredReviewMsg = append(scoredReviewMsg, ScoredReview{GameId: k, GameName: gameNamesMap[k], Votes: v})
+		scoredReviewMsg = append(scoredReviewMsg, ScoredReview{GameId: k, GameName: gameNamesMap[k], Votes: uint64(v)})
 	}
 
 	return scoredReviewMsg

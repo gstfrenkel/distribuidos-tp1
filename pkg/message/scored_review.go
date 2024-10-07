@@ -4,7 +4,7 @@ type ScoredReviews []ScoredReview
 
 type ScoredReview struct {
 	GameId   int64
-	Votes    int64
+	Votes    uint64
 	GameName string
 }
 
