@@ -14,6 +14,6 @@ COPY internal/worker/worker.go ./internal/worker/
 COPY internal/worker/top_n_playtime_agg/top_n_playtime_agg.go ./internal/worker/top_n_playtime_agg/
 
 # Replace with volume
-COPY configs/top_n_playtime_agg.json config.json
+COPY configs/topn_playtime_agg.json config.json
 
 ENTRYPOINT ["go", "run", "main.go"]
