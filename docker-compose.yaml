@@ -128,6 +128,30 @@ services:
     networks:
       - tp1_net
 
+  joiner-percentile-filter-1:
+    container_name: joiner-percentile-filter-1
+    image: joiner-percentile-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - rabbitmq
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+
+  joiner-percentile-filter-2:
+    container_name: joiner-percentile-filter-2
+    image: joiner-percentile-filter:latest
+    environment:
+      - worker-id=1
+    depends_on:
+      - rabbitmq
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+
 networks:
   tp1_net:
     ipam:

@@ -16,3 +16,7 @@ func ScoredReviewFromBytes(b []byte) (ScoredReview, error) {
 func (m ScoredReview) ToBytes() ([]byte, error) {
 	return toBytes(m)
 }
+
+func (m ScoredReviews) ToBytes() ([]byte, error) {
+	return toBytes(m)
+}
