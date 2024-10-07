@@ -6,18 +6,6 @@ import (
 	"tp1/pkg/message"
 )
 
-func TestUpdateVotes(t *testing.T) {
-	f := &filter{votes: make(map[GameId]uint64)}
-	f.updateVotes(1, 10)
-	if f.votes[1] != 10 {
-		t.Errorf("Expected 10 Votes, got %d", f.votes[1])
-	}
-	f.updateVotes(1, 5)
-	if f.votes[1] != 15 {
-		t.Errorf("Expected 15 Votes, got %d", f.votes[1])
-	}
-}
-
 func TestPublishNewGame(t *testing.T) {
 	f := fakeFilter(5)
 
@@ -34,7 +22,7 @@ func TestPublishNewGame(t *testing.T) {
 func TestPublishExistingGame(t *testing.T) {
 	f := fakeFilter(5)
 	msg1 := message.ScoredReview{GameId: 1, Votes: 10}
-	msg2 := message.ScoredReview{GameId: 1, Votes: 5}
+	msg2 := message.ScoredReview{GameId: 1, Votes: 15}
 	f.updateTop(msg1)
 	f.updateTop(msg2)
 	if f.top.Len() != 1 {
@@ -111,5 +99,5 @@ func TestTopToTopNSlice(t *testing.T) {
 }
 
 func fakeFilter(n int) *filter {
-	return &filter{votes: make(map[GameId]uint64), top: make(PriorityQueue, 0, n), n: n}
+	return &filter{top: make(PriorityQueue, 0, n), n: n}
 }
