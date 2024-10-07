@@ -1,5 +1,6 @@
 {
   "peers": 1,
+  "query": 10,
   "input-queues": {
     "exchange": "topn_playtime",
     "name": "release_date",

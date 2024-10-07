@@ -26,6 +26,7 @@ func (f *filter) Init() error {
 }
 
 func (f *filter) Start() {
+	f.n = f.w.Query.(int)
 	f.w.Start(f)
 }
 
@@ -51,9 +52,7 @@ func (f *filter) Process(delivery amqp.Delivery) {
 
 func (f *filter) publish(msg message.DateFilteredReleases) {
 
-	// TODO read from json as filter attribute
-	n:= 10
-	topNPlaytime := msg.ToTopNPlaytimeMessage(n) 
+	topNPlaytime := msg.ToTopNPlaytimeMessage(f.n) 
 	b, err := topNPlaytime.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
