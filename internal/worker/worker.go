@@ -88,10 +88,13 @@ func (f *Worker) Start(filter Filter) {
 		if strings.Contains(queueName, "%d") {
 			queueName = fmt.Sprintf(queueName, f.Id)
 		}
+		if _, err = f.Broker.QueueDeclare(queueName); err != nil {
+			logs.Logger.Errorf("error declaring queue %s: %s", queueName, err.Error())
+		}
 		ch, err := f.Broker.Consume(queueName, "", true, false)
 		if err != nil {
 			logs.Logger.Errorf("error consuming from input-queue: %s", err.Error())
-			os.Exit(1)
+			return
 		}
 		channels = append(channels, ch)
 	}

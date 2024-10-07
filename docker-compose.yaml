@@ -26,7 +26,7 @@ services:
     environment:
       - worker-id=0
     depends_on:
-      - gateway
+      - rabbitmq
     links:
       - rabbitmq
     networks:
@@ -38,7 +38,7 @@ services:
     environment:
       - worker-id=0
     depends_on:
-      - reviews-filter-1
+      - rabbitmq
     links:
       - rabbitmq
     networks:
@@ -50,7 +50,7 @@ services:
     environment:
       - worker-id=0
     depends_on:
-      - gateway
+      - rabbitmq
     links:
       - rabbitmq
     networks:
@@ -62,7 +62,7 @@ services:
     environment:
       - worker-id=0
     depends_on:
-      - gateway
+      - rabbitmq
     links:
       - rabbitmq
     networks:
@@ -74,7 +74,7 @@ services:
     environment:
       - worker-id=0
     depends_on:
-      - gateway
+      - rabbitmq
     links:
       - gateway
     networks:
@@ -92,11 +92,6 @@ services:
       - rabbitmq
     networks:
       - tp1_net
-    deploy:
-      restart_policy:
-        condition: on-failure
-        delay: 3s
-        max_attempts: 3
 
 networks:
   tp1_net:
