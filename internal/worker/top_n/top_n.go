@@ -41,7 +41,7 @@ func (f *filter) Start() {
 func (f *filter) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 	if messageId == message.EofMsg {
-		f.sendTop()
+		f.publish()
 	} else if messageId == message.ScoredReviewID {
 		msg, err := message.ScoredReviewFromBytes(delivery.Body)
 		if err != nil {
@@ -93,7 +93,7 @@ func (f *filter) updateVotes(gameId int64, votes uint64) {
 
 // Eof msg received, so all msgs were received too.
 // Send the top n games to the broker
-func (f *filter) sendTop() {
+func (f *filter) publish() {
 	headers := map[string]any{amqp.MessageIdHeader: message.ScoredReviewID}
 	topNScoredReviews := f.getTopNScoredReviews()
 	bytes, err := topNScoredReviews.ToBytes()
