@@ -92,12 +92,7 @@ func (f *filter) publish() {
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, bytes, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
-	logs.Logger.Info("Top N games sent")
-
-	if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, nil, headers, f.w.InputEof, f.w.OutputsEof...); err != nil {
-		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
-	}
-	logs.Logger.Info("EOF sent")
+	logs.Logger.Infof("Top %d games sent", f.n)
 }
 
 func (f *filter) getTopNScoredReviews() message.ScoredReviews {
