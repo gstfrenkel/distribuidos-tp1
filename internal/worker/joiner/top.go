@@ -70,7 +70,7 @@ func (t *top) Process(delivery amqp.Delivery) {
 
 func (t *top) processEof(origin uint8) {
 	if origin == amqp.GameOriginId {
-		t.recvReviewEof = true
+		t.recvGameEof = true
 	} else if origin == amqp.ReviewOriginId {
 		t.recvReviewEof = true
 	} else {
@@ -108,7 +108,7 @@ func (t *top) processReview(msg message.ScoredReview) {
 	b, err := message.ScoredReview{GameId: msg.GameId, GameName: info.gameName, Votes: info.votes + msg.Votes}.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-	} else if err = t.w.Broker.Publish(t.w.Outputs[0].Exchange, t.outputKey, b, map[string]any{amqp.MessageIdHeader: message.GameNameID}); err != nil {
+	} else if err = t.w.Broker.Publish(t.w.Outputs[0].Exchange, t.outputKey, b, map[string]any{amqp.MessageIdHeader: message.ScoredReviewID}); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 }

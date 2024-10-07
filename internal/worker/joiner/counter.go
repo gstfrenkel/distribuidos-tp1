@@ -71,7 +71,7 @@ func (c *counter) Process(delivery amqp.Delivery) {
 
 func (c *counter) processEof(origin uint8) {
 	if origin == amqp.GameOriginId {
-		c.recvReviewEof = true
+		c.recvGameEof = true
 	} else if origin == amqp.ReviewOriginId {
 		c.recvReviewEof = true
 	} else {
