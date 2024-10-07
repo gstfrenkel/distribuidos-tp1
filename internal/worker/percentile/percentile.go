@@ -10,9 +10,9 @@ import (
 )
 
 type filter struct {
-	w     *worker.Worker
-	n     uint8 //percentile value (0-100)
-	games map[uint8][]int
+	w             *worker.Worker
+	n             uint8 //percentile value (0-100)
+	scoredReviews map[message.GameId]message.ScoredReview
 }
 
 func New() (worker.Filter, error) {
@@ -26,6 +26,7 @@ func New() (worker.Filter, error) {
 
 func (f *filter) Init() error {
 	f.n = f.w.Query.(uint8)
+	f.scoredReviews = make(map[message.GameId]message.ScoredReview)
 	return f.w.Init()
 }
 
@@ -52,10 +53,52 @@ func (f *filter) Process(delivery amqp.Delivery) {
 }
 
 func (f *filter) saveScoredReview(msg message.ScoredReview) {
-
+	review, exists := f.scoredReviews[msg.GameId]
+	if !exists {
+		f.scoredReviews[msg.GameId] = msg
+	} else {
+		review.Votes += msg.Votes
+		f.scoredReviews[msg.GameId] = review
+	}
 }
 
 func (f *filter) publish() {
+	var topGames []string
+
+	for _, reviews := range f.scoredReviews {
+		if len(reviews) == 0 {
+			continue
+		}
+
+		// Ordenar las reseñas por la cantidad de votos.
+		sort.Slice(reviews, func(i, j int) bool {
+			return reviews[i].Votes < reviews[j].Votes
+		})
+
+		// Calcular el índice del percentil 90.
+		index := int(float64(len(reviews)) * 0.9)
+		if index >= len(reviews) {
+			index = len(reviews) - 1
+		}
+
+		// Obtener el juego si está en el percentil 90 o superior.
+		if len(reviews) > 0 && reviews[index].Votes > 0 {
+			topGames = append(topGames, reviews[index].GameName)
+		}
+	}
+
+	// Publicar el resultado (por ejemplo, imprimir o enviar por otro canal)
+	logs.Logger.Infof("Top juegos dentro del percentil 90: %v", topGames)
+}
+
+func (f *filter) calculatePercentile() {
+	for _, s := range f.scoredReviews {
+		var votes []uint64
+		for _, r := range s {
+			votes = append(votes, r.Votes)
+		}
+		percentile := calculatePercentile(votes, float64(f.n))
+	}
 
 }
 

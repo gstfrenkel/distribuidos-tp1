@@ -7,7 +7,7 @@ import (
 )
 
 func TestUpdateVotes(t *testing.T) {
-	f := &filter{votes: make(map[GameId]uint64)}
+	f := &filter{votes: make(map[message.GameId]uint64)}
 	f.updateVotes(1, 10)
 	if f.votes[1] != 10 {
 		t.Errorf("Expected 10 Votes, got %d", f.votes[1])
@@ -48,7 +48,7 @@ func TestPublishExistingGame(t *testing.T) {
 func TestPublishTopNLimit(t *testing.T) {
 	f := fakeFilter(5)
 	for i := 1; i <= 6; i++ {
-		msg := message.ScoredReview{GameId: int64(i), Votes: uint64(i * 10)}
+		msg := message.ScoredReview{GameId: message.GameId(i), Votes: uint64(i * 10)}
 		f.updateTop(msg)
 	}
 	if f.top.Len() != 5 {
@@ -111,5 +111,5 @@ func TestTopToTopNSlice(t *testing.T) {
 }
 
 func fakeFilter(n int) *filter {
-	return &filter{votes: make(map[GameId]uint64), top: make(PriorityQueue, 0, n), n: n}
+	return &filter{votes: make(map[message.GameId]uint64), top: make(PriorityQueue, 0, n), n: n}
 }

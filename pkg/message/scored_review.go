@@ -1,9 +1,10 @@
 package message
 
 type ScoredReviews []ScoredReview
+type GameId int64
 
 type ScoredReview struct {
-	GameId   int64
+	GameId   GameId
 	Votes    uint64
 	GameName string
 }

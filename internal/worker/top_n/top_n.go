@@ -9,11 +9,9 @@ import (
 	"tp1/pkg/message"
 )
 
-type GameId int64
-
 type filter struct {
 	w     *worker.Worker
-	votes map[GameId]uint64
+	votes map[message.GameId]uint64
 	top   PriorityQueue //top n games
 	n     int
 }
@@ -30,7 +28,7 @@ func New() (worker.Filter, error) {
 func (f *filter) Init() error {
 	f.n = f.w.Query.(int)
 	f.top = make(PriorityQueue, 0, f.n)
-	f.votes = make(map[GameId]uint64)
+	f.votes = make(map[message.GameId]uint64)
 	return f.w.Init()
 }
 
@@ -61,9 +59,9 @@ func (f *filter) updateTop(msg message.ScoredReview) {
 
 	if notInTop {
 		if f.top.Len() < f.n {
-			msg.Votes = f.votes[GameId(msg.GameId)]
+			msg.Votes = f.votes[msg.GameId]
 			heap.Push(&f.top, &msg)
-		} else if f.votes[GameId(msg.GameId)] > f.top[0].Votes { //the game has more votes than the lowest in the top N
+		} else if f.votes[msg.GameId] > f.top[0].Votes { //the game has more votes than the lowest in the top N
 			heap.Pop(&f.top)
 			heap.Push(&f.top, &msg)
 		}
@@ -75,7 +73,7 @@ func (f *filter) updateTop(msg message.ScoredReview) {
 func (f *filter) fixHeap(msg message.ScoredReview) bool {
 	for i, item := range f.top {
 		if item.GameId == msg.GameId {
-			f.top[i].Votes = f.votes[GameId(msg.GameId)]
+			f.top[i].Votes = f.votes[msg.GameId]
 			heap.Fix(&f.top, i)
 			return false
 		}
@@ -83,11 +81,11 @@ func (f *filter) fixHeap(msg message.ScoredReview) bool {
 	return true
 }
 
-func (f *filter) updateVotes(gameId int64, votes uint64) {
-	if _, ok := f.votes[GameId(gameId)]; ok {
-		f.votes[GameId(gameId)] += votes
+func (f *filter) updateVotes(gameId message.GameId, votes uint64) {
+	if _, ok := f.votes[gameId]; ok {
+		f.votes[gameId] += votes
 	} else {
-		f.votes[GameId(gameId)] = votes
+		f.votes[gameId] = votes
 	}
 }
 
