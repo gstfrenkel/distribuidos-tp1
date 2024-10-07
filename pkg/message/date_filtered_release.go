@@ -39,32 +39,45 @@ func (h MinHeap) Len() int           { return len(h) }
 func (h MinHeap) Less(i, j int) bool { return h[i].AvgPlaytime < h[j].AvgPlaytime } 
 func (h MinHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
 
-func topNReleases(releases DateFilteredReleases, n int) DateFilteredReleases {
-	h := &MinHeap{}
-	heap.Init(h)
+func topNReleases(h *MinHeap, n int) DateFilteredReleases {
+	topReleases := make(DateFilteredReleases, 0, n)
+	if h.Len() < n {
+		n = h.Len()
+	}
+	hCopy := *h
+	for i := 0; i < n; i++ {
+		topReleases = append(topReleases, heap.Pop(&hCopy).(DateFilteredRelease))
+	}
+	sort.Slice(topReleases, func(i, j int) bool {
+		return topReleases[i].AvgPlaytime > topReleases[j].AvgPlaytime
+	})
+	return topReleases
+}
 
+func ToTopNPlaytimeMessage(n int, h *MinHeap) DateFilteredReleases {
+	return topNReleases(h, n)
+}
+
+func (m *MinHeap) UpdateReleases(releases DateFilteredReleases) {
 	for _, release := range releases {
-		if h.Len() < n {
-			heap.Push(h, release)
-		} else if release.AvgPlaytime > (*h)[0].AvgPlaytime {
-			heap.Pop(h)
-			heap.Push(h, release)
+		if m.Len() < 10 {
+			heap.Push(m, release)
+		} else if release.AvgPlaytime > (*m)[0].AvgPlaytime {
+			heap.Pop(m)   
+			heap.Push(m, release)
 		}
 	}
+}
 
-	topReleases := make(DateFilteredReleases, h.Len())
+func (m *MinHeap) GetTopReleases() DateFilteredReleases {
+	topReleases := make(DateFilteredReleases, m.Len())
 	for i := range topReleases {
-		topReleases[i] = heap.Pop(h).(DateFilteredRelease)
+		topReleases[i] = heap.Pop(m).(DateFilteredRelease)
 	}
-
+	
 	sort.Slice(topReleases, func(i, j int) bool {
 		return topReleases[i].AvgPlaytime > topReleases[j].AvgPlaytime
 	})
 
 	return topReleases
-}
-func (d DateFilteredReleases) ToTopNPlaytimeMessage(n int) DateFilteredReleases{
-	var result DateFilteredReleases
-	result = topNReleases(d,n)
-	return result
 }
