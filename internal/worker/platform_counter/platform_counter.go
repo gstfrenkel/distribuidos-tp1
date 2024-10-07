@@ -10,8 +10,7 @@ import (
 
 type filter struct {
 
-	counter message.Platform
-	received int 
+	counter message.Platform // Uso el struct de mensaje porque ya tiene los campos que necesito.
 	w *worker.Worker
 }
 
@@ -25,7 +24,6 @@ func New() (worker.Filter, error) {
 }
 
 func (f *filter) Init() error {
-	f.received = 0
 	f.counter = message.Platform{Windows: 0, Linux: 0, Mac: 0}
 	return f.w.Init()
 }
@@ -38,13 +36,14 @@ func (f *filter) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
-		// Handle Eof + publish data
+		
+		f.publish()
+
+		f.counter.ResetValues() // Set 0 los valores de la estructura
+		
 		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, nil, f.w.InputEof, f.w.OutputsEof...); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
-
-		f.publish()
-
 
 	} else if messageId == message.GameIdMsg {
 		msg, err := message.PlatfromFromBytes(delivery.Body)
@@ -52,18 +51,7 @@ func (f *filter) Process(delivery amqp.Delivery) {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 			return
 		}
-
-		// Incrementar contador de plataformas segun el valor recibido
-		f.counter.Increment(msg)
-		f.received++
-
-		if f.received == 10 { // n?
-			f.publish()
-			f.received = 0
-		}
-			
-
-	
+		f.counter.Increment(msg)	
 	} else {
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
 	}
@@ -73,6 +61,7 @@ func (f *filter) publish() {
 
 	platforms := f.counter
 
+	// Vale la pena mandar mensaje si es todo 0?
 	if platforms.IsEmpty() {
 		return 
 	}
