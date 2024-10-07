@@ -86,8 +86,43 @@ services:
     environment:
       - worker-id=0
     depends_on:
-      - review-text-filter-1
-      - action-filter-1
+      - rabbitmq
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+
+  joiner-counter-filter-2:
+    container_name: joiner-counter-filter-2
+    image: joiner-counter-filter:latest
+    environment:
+      - worker-id=1
+    depends_on:
+      - rabbitmq
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+
+  joiner-top-filter-1:
+    container_name: joiner-top-filter-1
+    image: joiner-top-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - rabbitmq
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+
+  joiner-top-filter-2:
+    container_name: joiner-top-filter-2
+    image: joiner-top-filter:latest
+    environment:
+      - worker-id=1
+    depends_on:
+      - rabbitmq
     links:
       - rabbitmq
     networks:
