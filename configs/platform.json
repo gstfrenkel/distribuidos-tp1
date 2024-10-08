@@ -1,10 +1,10 @@
 {
   "peers": 1,
-  "input-queues": {
+  "input-queues": [{
     "exchange": "platform",
     "name": "games_platform",
     "key": "input"
-  },
+  }],
   "output-queues": [
     {
       "exchange": "platform",

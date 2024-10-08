@@ -4,6 +4,9 @@ PWD := $(shell pwd)
 all:
 
 build:
+	docker build -f ./build/joiner_percentile.Dockerfile -t "joiner-percentile-filter:latest" .
+	docker build -f ./build/joiner_counter.Dockerfile -t "joiner-counter-filter:latest" .
+	docker build -f ./build/joiner_top.Dockerfile -t "joiner-top-filter:latest" .
 	docker build -f ./build/review.Dockerfile -t "reviews-filter:latest" .
 	docker build -f ./build/text.Dockerfile -t "review-text-filter:latest" .
 	docker build -f ./build/action.Dockerfile -t "action-filter:latest" .
@@ -30,7 +33,7 @@ docker-compose-up-client: build-client
 .PHONY: docker-compose-client
 
 docker-compose-down:
-	docker compose -f docker-compose.yaml stop -t 1
+	docker compose -f docker-compose.yaml stop
 	docker compose -f docker-compose.yaml down
 .PHONY: docker-compose-down
 

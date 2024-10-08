@@ -1,0 +1,21 @@
+{
+  "input-queues": [
+    {"name": "reviews_q3_%d"},
+    {"name": "indie_q3_%d"}
+  ],
+  "output-queues": [
+    {
+      "exchange": "join_top",
+      "name": "joined_top_%d",
+      "key": "%d",
+      "consumers": 2
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "join_top",
+      "kind": "direct"
+    }
+  ],
+  "log-level": "INFO"
+}

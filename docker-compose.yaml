@@ -27,7 +27,6 @@ services:
       - worker-id=0
     depends_on:
       - rabbitmq
-      - gateway
     links:
       - rabbitmq
     networks:
@@ -39,7 +38,7 @@ services:
     environment:
       - worker-id=0
     depends_on:
-      - gateway
+      - rabbitmq
     links:
       - rabbitmq
     networks:
@@ -51,7 +50,7 @@ services:
     environment:
       - worker-id=0
     depends_on:
-      - gateway
+      - rabbitmq
     links:
       - rabbitmq
     networks:
@@ -63,7 +62,7 @@ services:
     environment:
       - worker-id=0
     depends_on:
-      - gateway
+      - rabbitmq
     links:
       - rabbitmq
     networks:
@@ -72,6 +71,90 @@ services:
   platform-filter-1:
     container_name: platform-filter-1
     image: platform-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - rabbitmq
+    links:
+      - gateway
+    networks:
+      - tp1_net
+
+  joiner-counter-filter-1:
+    container_name: joiner-counter-filter-1
+    image: joiner-counter-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - rabbitmq
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+
+  joiner-counter-filter-2:
+    container_name: joiner-counter-filter-2
+    image: joiner-counter-filter:latest
+    environment:
+      - worker-id=1
+    depends_on:
+      - rabbitmq
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+
+  joiner-top-filter-1:
+    container_name: joiner-top-filter-1
+    image: joiner-top-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - rabbitmq
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+
+  joiner-top-filter-2:
+    container_name: joiner-top-filter-2
+    image: joiner-top-filter:latest
+    environment:
+      - worker-id=1
+    depends_on:
+      - rabbitmq
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+
+  joiner-percentile-filter-1:
+    container_name: joiner-percentile-filter-1
+    image: joiner-percentile-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - rabbitmq
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+
+  joiner-percentile-filter-2:
+    container_name: joiner-percentile-filter-2
+    image: joiner-percentile-filter:latest
+    environment:
+      - worker-id=1
+    depends_on:
+      - rabbitmq
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+
+  topn-filter-1:
+    container_name: topn-filter-1
+    image: topn:latest
     environment:
       - worker-id=0
     depends_on:
