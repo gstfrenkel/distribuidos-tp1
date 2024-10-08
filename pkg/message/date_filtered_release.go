@@ -54,8 +54,8 @@ func topNReleases(h *MinHeap, n int) DateFilteredReleases {
 	return topReleases
 }
 
-func ToTopNPlaytimeMessage(n int, h *MinHeap) DateFilteredReleases {
-	return topNReleases(h, n)
+func ToTopNPlaytimeMessage(n uint8, h *MinHeap) DateFilteredReleases {
+	return topNReleases(h, int(n))
 }
 
 func (m *MinHeap) UpdateReleases(releases DateFilteredReleases) {
