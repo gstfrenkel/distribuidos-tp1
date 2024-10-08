@@ -1,0 +1,21 @@
+{
+  "query": 50000,
+  "input-queues": [
+    {"name": "reviews_q4_%d"},
+    {"name": "action_q4_%d"}
+  ],
+  "output-queues": [
+    {
+      "exchange": "join_counter",
+      "name": "joined_counted",
+      "key": ""
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "join_counter",
+      "kind": "direct"
+    }
+  ],
+  "log-level": "INFO"
+}

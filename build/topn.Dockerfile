@@ -11,9 +11,6 @@ COPY pkg/ ./pkg/
 COPY internal/errors/ ./internal/errors/
 COPY internal/worker/worker.go ./internal/worker/
 # Update path to desired entrypoint
-COPY internal/worker/top_n/top_n.go ./internal/worker/top_n/
-
-# Replace with volume
-COPY configs/topn.json config.json
+COPY internal/worker/top_n/ ./internal/worker/top_n/
 
 ENTRYPOINT ["go", "run", "main.go"]

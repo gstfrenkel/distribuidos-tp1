@@ -6,11 +6,11 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Update path to desired entrypoint
-COPY cmd/worker/indie/indie.go ./main.go
+COPY cmd/worker/joiner_percentile/percentile.go ./main.go
 COPY pkg/ ./pkg/
 COPY internal/errors/ ./internal/errors/
 COPY internal/worker/worker.go ./internal/worker/
 # Update path to desired entrypoint
-COPY internal/worker/indie/indie.go ./internal/worker/indie/
+COPY internal/worker/joiner/percentile.go ./internal/worker/joiner/
 
 ENTRYPOINT ["go", "run", "main.go"]
