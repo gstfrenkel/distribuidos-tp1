@@ -41,7 +41,7 @@ func (f *filter) Process(delivery amqp.Delivery) {
 		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, nil, f.w.InputEof, f.w.OutputsEof...); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
-	} else if messageId == message.GameIdMsg {
+	} else if messageId == message.GameReleaseID {
 		msg, err := message.ReleasesFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
@@ -62,7 +62,7 @@ func (f *filter) publish(msg message.Releases) {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 	}
 
-	headers := map[string]any{amqp.MessageIdHeader: message.PlatformID}
+	headers := map[string]any{amqp.MessageIdHeader: message.GameWithPlaytimeID}
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}

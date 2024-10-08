@@ -1,7 +1,6 @@
 package top_n_playtime
 
 import (
-	"container/heap"
 	"tp1/internal/errors"
 	"tp1/internal/worker"
 	"tp1/pkg/amqp"
@@ -12,7 +11,7 @@ import (
 type filter struct {
 	w *worker.Worker
 	n uint8
-	heap  message.MinHeap
+	heap  message.MinHeapPlaytime
 }
 
 func New() (worker.Filter, error) {
@@ -24,8 +23,7 @@ func New() (worker.Filter, error) {
 }
 
 func (f *filter) Init() error {
-	f.heap = message.MinHeap{}
-	heap.Init(&f.heap)
+	f.heap = message.MinHeapPlaytime{}
 	return f.w.Init()
 }
 
@@ -47,7 +45,7 @@ func (f *filter) Process(delivery amqp.Delivery) {
 		}
 
 		
-	} else if messageId == message.GameIdMsg {
+	} else if messageId == message.GameWithPlaytimeID {
 		msg, err := message.DateFilteredReleasesFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
@@ -55,9 +53,7 @@ func (f *filter) Process(delivery amqp.Delivery) {
 		}
 		
 		// update heap with new data
-		f.heap.UpdateReleases(msg)
-
-		
+		f.heap.UpdateReleases(msg,int(f.n))		
 	} else {
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
 	}
@@ -75,7 +71,7 @@ func (f *filter) publish() {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 	}
 
-	headers := map[string]any{amqp.MessageIdHeader: message.PlatformID}
+	headers := map[string]any{amqp.MessageIdHeader: message.GameWithPlaytimeID}
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}

@@ -18,6 +18,7 @@ const (
 	GameNameID // GameName message ID.
 	GameReleaseID
 	PlatformID
+	GameWithPlaytimeID
 )
 
 type ID uint8
