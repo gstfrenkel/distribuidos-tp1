@@ -176,6 +176,20 @@ services:
     volumes:
       - ./configs/joiner_percentile.json:/app/config.json
 
+  percentile-filter-1:
+    container_name: percentile-filter-1
+    image: percentile:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - gateway
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/percentile.json:/app/config.json
+
   topn-filter-1:
     container_name: topn-filter-1
     image: topn:latest
@@ -189,6 +203,20 @@ services:
       - tp1_net
     volumes:
       - ./configs/topn.json:/app/config.json
+
+  topn-aggregator-1:
+    container_name: topn-aggregator-1
+    image: topn:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - gateway
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/topn_agg.json:/app/config.json
 
   platform-counter-1:
     container_name: platform-counter-1
