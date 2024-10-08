@@ -9,8 +9,7 @@
     {
       "exchange": "reports_agg",
       "name": "reports_queue",
-      "key": "",
-      "consumers": 1
+      "key": ""
     }
   ],
   "exchanges": [

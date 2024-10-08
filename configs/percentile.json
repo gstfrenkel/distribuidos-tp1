@@ -7,8 +7,7 @@
     {
       "exchange": "reports",
       "name": "reports_queue",
-      "key": "",
-      "consumers": 1
+      "key": ""
     }
   ],
   "exchanges": [
