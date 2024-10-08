@@ -1,19 +1,19 @@
 {
-  "query": 5,
+  "query": 90,
   "input-queues": [{
-    "name": "joined_top_%d"
+    "name": "joined_percentile_%d"
   }],
   "output-queues": [
     {
-      "exchange": "top",
-      "name": "top_queue",
+      "exchange": "reports",
+      "name": "reports_queue",
       "key": "",
       "consumers": 1
     }
   ],
   "exchanges": [
     {
-      "name": "top",
+      "name": "reports",
       "kind": "direct"
     }
   ],
