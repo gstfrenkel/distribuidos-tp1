@@ -13,7 +13,4 @@ COPY internal/worker/worker.go ./internal/worker/
 # Update path to desired entrypoint
 COPY internal/worker/percentile/percentile.go ./internal/worker/percentile/
 
-# Replace with volume
-COPY configs/percentile.json config.json
-
 ENTRYPOINT ["go", "run", "main.go"]

@@ -187,6 +187,8 @@ services:
       - rabbitmq
     networks:
       - tp1_net
+    volumes:
+      - ./configs/percentile.json:/app/config.json
 
   topn-filter-1:
     container_name: topn-filter-1
