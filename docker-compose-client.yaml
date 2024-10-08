@@ -4,6 +4,7 @@ services:
     image: client:latest
     volumes:
       - ./data:/app/data
+      - ./configs/client.toml:/app/config.toml
     networks:
       - tp1_net
 networks:
