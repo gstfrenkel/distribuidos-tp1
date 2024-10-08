@@ -44,7 +44,7 @@ func (f *filter) Process(delivery amqp.Delivery) {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
 
-	} else if messageId == message.GameIdMsg {
+	} else if messageId == message.PlatformID {
 		msg, err := message.PlatfromFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
