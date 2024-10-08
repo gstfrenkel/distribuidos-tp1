@@ -12,7 +12,7 @@ import (
 
 type counterGameInfo struct {
 	gameName string // If gameName is an empty string, reviews of this game have been received but the game has not yet been identified as the correct genre.
-	votes    int64
+	votes    uint64
 	sent     bool // Whether the game information has been forwarded to aggregator or not. Sent games should stop being processed.
 }
 
@@ -20,7 +20,7 @@ type counter struct {
 	w             *worker.Worker
 	recvReviewEof bool
 	recvGameEof   bool
-	target        int64
+	target        uint64
 	gameInfoById  map[int64]counterGameInfo
 }
 
@@ -38,7 +38,7 @@ func (c *counter) Init() error {
 }
 
 func (c *counter) Start() {
-	c.target = int64(c.w.Query.(float64))
+	c.target = uint64(c.w.Query.(float64))
 
 	c.w.Start(c)
 }

@@ -12,7 +12,7 @@ import (
 
 type percentileGameInfo struct {
 	gameName string // If gameName is an empty string, reviews of this game have been received but the game has not yet been identified as the correct genre.
-	votes    int64
+	votes    uint64
 }
 
 type percentile struct {
