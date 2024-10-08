@@ -4,6 +4,7 @@ PWD := $(shell pwd)
 all:
 
 build:
+	docker build -f ./build/joiner_percentile.Dockerfile -t "joiner-percentile-filter:latest" .
 	docker build -f ./build/joiner_counter.Dockerfile -t "joiner-counter-filter:latest" .
 	docker build -f ./build/joiner_top.Dockerfile -t "joiner-top-filter:latest" .
 	docker build -f ./build/review.Dockerfile -t "reviews-filter:latest" .
