@@ -2,7 +2,7 @@
   "query": 5,
   "input-queues": [
     {
-      "name": "partial_top_n"
+      "name": "top_queue"
     }
   ],
   "output-queues": [

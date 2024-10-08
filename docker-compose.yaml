@@ -190,6 +190,20 @@ services:
     volumes:
       - ./configs/topn.json:/app/config.json
 
+  topn-aggregator-1:
+    container_name: topn-aggregator-1
+    image: topn:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - gateway
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/topn_agg.json:/app/config.json
+
 networks:
   tp1_net:
     ipam:
