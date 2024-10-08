@@ -1,0 +1,21 @@
+{
+  "input-queues": {
+    "exchange": "results",
+    "name": "platform_counts",
+    "key": ""
+  },
+  "output-queues": [
+    {
+      "exchange": "results",
+      "name": "q1_results",
+      "key": ""
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "results",
+      "kind": "direct"
+    }
+  ],
+  "log-level": "INFO"
+}
