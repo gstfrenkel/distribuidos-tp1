@@ -5,6 +5,7 @@
   }],
   "output-queues": [
     {
+      "exchange": "top",
       "name": "top_queue",
       "key": "",
       "consumers": 1
@@ -12,7 +13,7 @@
   ],
   "exchanges": [
     {
-      "name": "",
+      "name": "top",
       "kind": "direct"
     }
   ],
