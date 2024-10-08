@@ -20,7 +20,6 @@ type percentile struct {
 	recvReviewEof bool
 	recvGameEof   bool
 	gameInfoById  map[int64]percentileGameInfo
-	output        amqp.Destination
 	batchSize     uint16
 }
 
@@ -38,8 +37,6 @@ func (p *percentile) Init() error {
 }
 
 func (p *percentile) Start() {
-	p.output = p.w.Outputs[0]
-	p.output.Key = fmt.Sprintf(p.w.Outputs[0].Key, p.w.Id)
 	p.batchSize = uint16(p.w.Query.(float64))
 
 	p.w.Start(p)
@@ -102,7 +99,7 @@ func (p *percentile) processEof(origin uint8) {
 		p.publish(reviews)
 	}
 
-	if err := p.w.Broker.HandleEofMessage(p.w.Id, 0, message.Eof{}, nil, p.w.InputEof, amqp.DestinationEof(p.output)); err != nil {
+	if err := p.w.Broker.HandleEofMessage(p.w.Id, 0, message.Eof{}, nil, p.w.InputEof, p.w.OutputsEof...); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 
@@ -133,7 +130,7 @@ func (p *percentile) publish(reviews message.ScoredReviews) {
 	b, err := reviews.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-	} else if err = p.w.Broker.Publish(p.output.Exchange, p.output.Key, b, map[string]any{amqp.MessageIdHeader: message.ScoredReviewID}); err != nil {
+	} else if err = p.w.Broker.Publish(p.w.Outputs[0].Exchange, p.w.Outputs[0].Key, b, map[string]any{amqp.MessageIdHeader: message.ScoredReviewID}); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 }
