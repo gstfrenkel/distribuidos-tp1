@@ -10,6 +10,4 @@ COPY cmd/client/client.go ./main.go
 COPY pkg/ ./pkg/
 COPY internal/client/client.go ./internal/client/
 
-COPY configs/client.toml config.toml
-
 ENTRYPOINT ["go", "run", "main.go"]

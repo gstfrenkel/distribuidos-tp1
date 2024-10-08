@@ -7,9 +7,8 @@
   "output-queues": [
     {
       "exchange": "join_percentile",
-      "name": "joined_percentile_%d",
-      "key": "%d",
-      "consumers": 2
+      "name": "joined_percentile",
+      "key": ""
     }
   ],
   "exchanges": [
