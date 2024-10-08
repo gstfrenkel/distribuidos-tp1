@@ -65,7 +65,7 @@ func (f *filter) publish() {
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, bytes, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
-	logs.Logger.Info("Games in percentile %d published", f.n)
+	logs.Logger.Infof("Games in percentile %d published", f.n)
 }
 
 func (f *filter) getGamesInPercentile() message.ScoredReviews {
