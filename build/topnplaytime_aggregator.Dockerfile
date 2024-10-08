@@ -13,7 +13,4 @@ COPY internal/worker/worker.go ./internal/worker/
 # Update path to desired entrypoint
 COPY internal/worker/top_n_playtime_agg/top_n_playtime_agg.go ./internal/worker/top_n_playtime_agg/
 
-# Replace with volume
-COPY configs/topn_playtime_agg.json config.json
-
 ENTRYPOINT ["go", "run", "main.go"]

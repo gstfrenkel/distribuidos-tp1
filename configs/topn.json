@@ -7,8 +7,9 @@
   ],
   "output-queues": [
     {
+      "exchange": "",
       "name": "top_queue",
-      "key": "",
+      "key": "top_queue",
       "consumers": 1
     }
   ],

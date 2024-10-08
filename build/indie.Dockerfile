@@ -13,7 +13,4 @@ COPY internal/worker/worker.go ./internal/worker/
 # Update path to desired entrypoint
 COPY internal/worker/indie/indie.go ./internal/worker/indie/
 
-# Replace with volume
-COPY configs/indie.json config.json
-
 ENTRYPOINT ["go", "run", "main.go"]
