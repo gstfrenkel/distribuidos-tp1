@@ -158,6 +158,9 @@ func (f *Worker) initQueues() error {
 
 	for _, q := range inputQ {
 		if q.Exchange != "" {
+			if _, err = f.Broker.QueueDeclare(q.Name); err != nil {
+				return err
+			}
 			f.InputEof = amqp.DestinationEof(q)
 			if err = f.Broker.QueueBind(amqp.QueueBind{Exchange: f.InputEof.Exchange, Name: f.InputEof.Name, Key: f.InputEof.Key}); err != nil {
 				return err

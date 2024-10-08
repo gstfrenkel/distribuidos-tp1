@@ -8,6 +8,6 @@ RUN go mod download
 # Update path to desired entrypoint
 COPY cmd/client/client.go ./main.go
 COPY pkg/ ./pkg/
-COPY internal/client/client.go ./internal/client/
+COPY internal/client/* ./internal/client/
 
 ENTRYPOINT ["go", "run", "main.go"]

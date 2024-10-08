@@ -1,19 +1,19 @@
 package main
 
 import (
-	"fmt"
 	"tp1/internal/worker/top_n"
+	"tp1/pkg/logs"
 )
 
 func main() {
 	topNworker, err := top_n.New()
 	if err != nil {
-		fmt.Printf("Failed to create new top N worker: %s", err.Error())
+		logs.Logger.Errorf("Failed to create new top N worker: %s", err.Error())
 		return
 	}
 
 	if err = topNworker.Init(); err != nil {
-		fmt.Printf("Failed to initialize top N worker: %s", err.Error())
+		logs.Logger.Errorf("Failed to initialize top N worker: %s", err.Error())
 		return
 	}
 
