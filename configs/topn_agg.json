@@ -1,0 +1,22 @@
+{
+  "query": 5,
+  "input-queues": [
+    {
+      "name": "partial_top_n"
+    }
+  ],
+  "output-queues": [
+    {
+      "name": "reports_queue",
+      "key": "",
+      "consumers": 1
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "",
+      "kind": "direct"
+    }
+  ],
+  "log-level": "INFO"
+}
