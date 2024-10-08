@@ -1,11 +1,11 @@
 {
   "query": 90,
-  "input-queues": {
-    "name": "count_queue_%d" //TODO
-  },
+  "input-queues": [{
+    "name": "joined_percentile_%d"
+  }],
   "output-queues": [
     {
-      "name": "percentile_queue",
+      "name": "reports_queue",
       "key": "",
       "consumers": 1
     }
