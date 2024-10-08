@@ -15,6 +15,7 @@ build:
 	docker build -f ./build/gateway.Dockerfile -t "gateway:latest" .
 	docker build -f ./build/client.Dockerfile -t "client:latest" .
 	docker build -f ./build/topn.Dockerfile -t "topn:latest" .
+	docker build -f ./build/percentile.Dockerfile -t "percentile:latest" .
 	docker build -f ./build/release.Dockerfile -t "release-date-filter:latest" .
 	docker build -f ./build/topnplaytime.Dockerfile -t "topn-playtime-filter:latest" .
 	docker build -f ./build/topnplaytime_aggregator.Dockerfile -t "topn-playtime-aggregator:latest" .

@@ -2,19 +2,19 @@
   "query": 5,
   "input-queues": [
     {
-      "name": "joined_top_%d"
+      "name": "top_queue"
     }
   ],
   "output-queues": [
     {
-      "exchange": "top",
-      "name": "top_queue",
+      "exchange": "reports_agg",
+      "name": "reports_queue",
       "key": ""
     }
   ],
   "exchanges": [
     {
-      "name": "top",
+      "name": "reports_agg",
       "kind": "direct"
     }
   ],

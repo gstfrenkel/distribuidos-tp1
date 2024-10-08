@@ -1,0 +1,20 @@
+{
+  "query": 90,
+  "input-queues": [{
+    "name": "joined_percentile_%d"
+  }],
+  "output-queues": [
+    {
+      "exchange": "reports",
+      "name": "reports_queue",
+      "key": ""
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "reports",
+      "kind": "direct"
+    }
+  ],
+  "log-level": "INFO"
+}
