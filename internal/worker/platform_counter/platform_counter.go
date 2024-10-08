@@ -10,7 +10,7 @@ import (
 
 type filter struct {
 
-	counter message.Platform // Uso el struct de mensaje porque ya tiene los campos que necesito.
+	counter message.Platform 
 	w *worker.Worker
 }
 
@@ -38,9 +38,8 @@ func (f *filter) Process(delivery amqp.Delivery) {
 	if messageId == message.EofMsg {
 		
 		f.publish()
-
-		f.counter.ResetValues() // Set 0 los valores de la estructura
-		
+		f.counter.ResetValues() 
+	
 		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, nil, f.w.InputEof, f.w.OutputsEof...); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
@@ -61,7 +60,6 @@ func (f *filter) publish() {
 
 	platforms := f.counter
 
-	// Vale la pena mandar mensaje si es todo 0?
 	if platforms.IsEmpty() {
 		return 
 	}

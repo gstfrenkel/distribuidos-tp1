@@ -20,7 +20,7 @@ services:
       tp1_net:
         ipv4_address: 172.25.125.100
     volumes:
-       - ./configs/gateway.toml:/app/config.toml
+      - ./configs/gateway.toml:/app/config.toml
 
   reviews-filter-1:
     container_name: reviews-filter-1
@@ -90,7 +90,7 @@ services:
     networks:
       - tp1_net
     volumes:
-        - ./configs/platform.json:/app/config.json
+      - ./configs/platform.json:/app/config.json
 
   joiner-counter-filter-1:
     container_name: joiner-counter-filter-1
@@ -201,10 +201,12 @@ services:
       - rabbitmq
     networks:
       - tp1_net
+    volumes:
+      - ./configs/platform_counter.json:/app/config.json
 
   platform-aggregator-1:
     container_name: platform-aggregator-1
-    image: platform-aggregator:latest
+    image: platform-counter:latest
     environment:
       - worker-id=0
     depends_on:
@@ -213,6 +215,8 @@ services:
       - rabbitmq
     networks:
       - tp1_net
+    volumes:
+      - ./configs/platform_counter_agg.json:/app/config.json
 
 networks:
   tp1_net:
