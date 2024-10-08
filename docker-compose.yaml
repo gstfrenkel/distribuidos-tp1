@@ -18,7 +18,9 @@ services:
       - rabbitmq
     networks:
       tp1_net:
-        ipv4_address: 172.25.125.10
+        ipv4_address: 172.25.125.100
+    volumes:
+       - ./configs/gateway.toml:/app/config.toml
 
   reviews-filter-1:
     container_name: reviews-filter-1
@@ -27,11 +29,12 @@ services:
       - worker-id=0
     depends_on:
       - rabbitmq
-      - gateway
     links:
       - rabbitmq
     networks:
       - tp1_net
+    volumes:
+      - ./configs/review.json:/app/config.json
 
   review-text-filter-1:
     container_name: review-text-filter-1
@@ -39,11 +42,13 @@ services:
     environment:
       - worker-id=0
     depends_on:
-      - gateway
+      - rabbitmq
     links:
       - rabbitmq
     networks:
       - tp1_net
+    volumes:
+      - ./configs/text.json:/app/config.json
 
   action-filter-1:
     container_name: action-filter-1
@@ -51,11 +56,13 @@ services:
     environment:
       - worker-id=0
     depends_on:
-      - gateway
+      - rabbitmq
     links:
       - rabbitmq
     networks:
       - tp1_net
+    volumes:
+      - ./configs/action.json:/app/config.json
 
   indie-filter-1:
     container_name: indie-filter-1
@@ -63,11 +70,13 @@ services:
     environment:
       - worker-id=0
     depends_on:
-      - gateway
+      - rabbitmq
     links:
       - rabbitmq
     networks:
       - tp1_net
+    volumes:
+      - ./configs/indie.json:/app/config.json
 
   platform-filter-1:
     container_name: platform-filter-1
@@ -75,11 +84,97 @@ services:
     environment:
       - worker-id=0
     depends_on:
+      - rabbitmq
+    links:
       - gateway
+    networks:
+      - tp1_net
+    volumes:
+        - ./configs/platform.json:/app/config.json
+
+  joiner-counter-filter-1:
+    container_name: joiner-counter-filter-1
+    image: joiner-counter-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - rabbitmq
     links:
       - rabbitmq
     networks:
       - tp1_net
+    volumes:
+      - ./configs/joiner_counter.json:/app/config.json
+
+  joiner-counter-filter-2:
+    container_name: joiner-counter-filter-2
+    image: joiner-counter-filter:latest
+    environment:
+      - worker-id=1
+    depends_on:
+      - rabbitmq
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/joiner_counter.json:/app/config.json
+
+  joiner-top-filter-1:
+    container_name: joiner-top-filter-1
+    image: joiner-top-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - rabbitmq
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/joiner_top.json:/app/config.json
+
+  joiner-top-filter-2:
+    container_name: joiner-top-filter-2
+    image: joiner-top-filter:latest
+    environment:
+      - worker-id=1
+    depends_on:
+      - rabbitmq
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/joiner_top.json:/app/config.json
+
+  joiner-percentile-filter-1:
+    container_name: joiner-percentile-filter-1
+    image: joiner-percentile-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - rabbitmq
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/joiner_percentile.json:/app/config.json
+
+  joiner-percentile-filter-2:
+    container_name: joiner-percentile-filter-2
+    image: joiner-percentile-filter:latest
+    environment:
+      - worker-id=1
+    depends_on:
+      - rabbitmq
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/joiner_percentile.json:/app/config.json
 
   percentile-filter-1:
     container_name: percentile-filter-1
@@ -104,6 +199,8 @@ services:
       - rabbitmq
     networks:
       - tp1_net
+    volumes:
+      - ./configs/topn.json:/app/config.json
 
 networks:
   tp1_net:

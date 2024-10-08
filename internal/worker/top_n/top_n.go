@@ -27,7 +27,7 @@ func New() (worker.Filter, error) {
 }
 
 func (f *filter) Init() error {
-	f.n = f.w.Query.(int)
+	f.n = int(f.w.Query.(float64))
 	f.top = make(PriorityQueue, 0, f.n)
 	return f.w.Init()
 }
