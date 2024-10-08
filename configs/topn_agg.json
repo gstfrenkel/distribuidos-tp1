@@ -1,0 +1,23 @@
+{
+  "query": 5,
+  "input-queues": [
+    {
+      "name": "top_queue"
+    }
+  ],
+  "output-queues": [
+    {
+      "exchange": "reports_agg",
+      "name": "reports_queue",
+      "key": "",
+      "consumers": 1
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "reports_agg",
+      "kind": "direct"
+    }
+  ],
+  "log-level": "INFO"
+}
