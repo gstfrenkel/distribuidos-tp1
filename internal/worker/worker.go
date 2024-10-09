@@ -112,7 +112,6 @@ func (f *Worker) consume(filter Filter, signalChan chan os.Signal, deliveryChan 
 
 	for {
 		chosen, recv, ok := reflect.Select(cases)
-		logs.Logger.Infof("Received message: %d %v", chosen, ok)
 		if !ok || chosen == 0 {
 			return
 		}

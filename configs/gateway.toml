@@ -1,6 +1,6 @@
 [gateway]
 address = "172.25.125.100:5050"
-buffer_size = 1024
+buffer_size = 16384
 chunk_size = 100
 log_level = "INFO"
 

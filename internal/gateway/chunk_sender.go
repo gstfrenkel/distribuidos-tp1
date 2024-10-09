@@ -129,7 +129,7 @@ func (s *ChunkSender) sendChunk(msgId uint8, routingKey string, count *uint8, ch
 
 		*count = 0
 		chunk = make([]any, s.maxChunkSize)
-		logs.Logger.Infof("Sent chunk with key %v", routingKey)
+		logs.Logger.Debugf("Sent chunk with key %v", routingKey)
 	} else if eof {
 		err := s.broker.Publish(s.exchange, routingKey, nil, map[string]any{amqp.MessageIdHeader: msgId})
 		if err != nil {

@@ -7,7 +7,7 @@
   "output-queues": [
     {
       "exchange": "results",
-      "name": "q1_results",
+      "name": "reports",
       "key": ""
     }
   ],

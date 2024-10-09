@@ -63,7 +63,7 @@ func (f *filter) Process(delivery amqp.Delivery) {
 }
 
 func (f *filter) publish(msg message.Review) {
-	headers := map[string]any{amqp.MessageIdHeader: message.ReviewWithTextID}
+	headers := map[string]any{amqp.MessageIdHeader: uint8(message.ReviewWithTextID)}
 	b, err := msg.ToReviewWithTextMessage(f.scores[query4]).ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
@@ -81,7 +81,7 @@ func (f *filter) publish(msg message.Review) {
 }
 
 func (f *filter) shardPublish(reviews message.ScoredReviews, output amqp.Destination) {
-	headers := map[string]any{amqp.MessageIdHeader: message.ScoredReviewID}
+	headers := map[string]any{amqp.MessageIdHeader: uint8(message.ScoredReviewID)}
 	for _, rv := range reviews {
 		b, err := rv.ToBytes()
 		if err != nil {

@@ -6,7 +6,7 @@
   "output-queues": [
     {
       "exchange": "reports",
-      "name": "reports_queue",
+      "name": "reports",
       "key": ""
     }
   ],

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"sync"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
+	"tp1/pkg/logs"
 	"tp1/pkg/message"
 )
 
@@ -45,11 +45,14 @@ func (c *Client) Start() {
 
 	defer conn.Close()
 
-	var wg sync.WaitGroup
+	/*var wg sync.WaitGroup
 
-	wg.Add(2)
+	wg.Add(2)*/
 
-	go func() {
+	go readAndSendCSV(c.cfg.String("client.games_path", "data/games.csv"), uint8(message.GameIdMsg), conn, &message.DataCSVGames{})
+	go readAndSendCSV(c.cfg.String("client.reviews_path", "data/reviews.csv"), uint8(message.ReviewIdMsg), conn, &message.DataCSVReviews{})
+
+	/*go func() {
 		defer wg.Done()
 		readAndSendCSV(c.cfg.String("client.games_path", "data/games.csv"), uint8(message.GameIdMsg), conn, &message.DataCSVGames{})
 	}()
@@ -57,9 +60,14 @@ func (c *Client) Start() {
 	go func() {
 		defer wg.Done()
 		readAndSendCSV(c.cfg.String("client.reviews_path", "data/reviews.csv"), uint8(message.ReviewIdMsg), conn, &message.DataCSVReviews{})
-	}()
+	}()*/
 
-	wg.Wait()
+	header := make([]byte, 1024)
+	if _, err := conn.Read(header); err != nil {
+		logs.Logger.Errorf("failed to read message header: %v", err.Error())
+	}
+
+	//wg.Wait()
 
 	// TODO: recibir resultados del gateway
 }

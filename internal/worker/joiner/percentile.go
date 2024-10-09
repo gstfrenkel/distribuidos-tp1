@@ -130,7 +130,7 @@ func (p *percentile) publish(reviews message.ScoredReviews) {
 	b, err := reviews.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-	} else if err = p.w.Broker.Publish(p.w.Outputs[0].Exchange, p.w.Outputs[0].Key, b, map[string]any{amqp.MessageIdHeader: message.ScoredReviewID}); err != nil {
+	} else if err = p.w.Broker.Publish(p.w.Outputs[0].Exchange, p.w.Outputs[0].Key, b, map[string]any{amqp.MessageIdHeader: uint8(message.ScoredReviewID)}); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 }

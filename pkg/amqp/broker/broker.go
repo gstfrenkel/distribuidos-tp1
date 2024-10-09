@@ -96,9 +96,9 @@ func (b *messageBroker) HandleEofMessage(workerId, peers uint8, msg []byte, head
 	}
 
 	if headers == nil {
-		headers = map[string]any{amqp.MessageIdHeader: message.EofMsg}
+		headers = map[string]any{amqp.MessageIdHeader: uint8(message.EofMsg)}
 	} else {
-		headers[amqp.MessageIdHeader] = message.EofMsg
+		headers[amqp.MessageIdHeader] = uint8(message.EofMsg)
 	}
 
 	if uint8(len(workersVisited)) < peers {

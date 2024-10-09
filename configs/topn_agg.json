@@ -8,7 +8,7 @@
   "output-queues": [
     {
       "exchange": "reports_agg",
-      "name": "reports_queue",
+      "name": "reports",
       "key": ""
     }
   ],

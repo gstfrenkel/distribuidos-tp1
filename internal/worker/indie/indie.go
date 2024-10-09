@@ -13,6 +13,12 @@ const (
 	query3
 )
 
+var (
+	headersEof    = map[string]any{amqp.OriginIdHeader: amqp.GameOriginId}
+	headersQuery2 = map[string]any{amqp.MessageIdHeader: uint8(message.GameReleaseID)}
+	headersQuery3 = map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID)}
+)
+
 type filter struct {
 	w *worker.Worker
 }
@@ -36,10 +42,9 @@ func (f *filter) Start() {
 
 func (f *filter) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
-	headers := map[string]any{amqp.OriginIdHeader: amqp.GameOriginId}
 
 	if messageId == message.EofMsg {
-		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, headers, f.w.InputEof, f.w.OutputsEof...); err != nil {
+		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, headersEof, f.w.InputEof, f.w.OutputsEof...); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	} else if messageId == message.GameIdMsg {
@@ -64,13 +69,11 @@ func (f *filter) publish(msg message.Game) {
 		return
 	}
 
-	headers := map[string]any{amqp.MessageIdHeader: message.GameReleaseID}
-	if err = f.w.Broker.Publish(f.w.Outputs[query2].Exchange, f.w.Outputs[query3].Key, b, headers); err != nil {
+	if err = f.w.Broker.Publish(f.w.Outputs[query2].Exchange, f.w.Outputs[query3].Key, b, headersQuery2); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 
 	gameNames := msg.ToGameNamesMessage(genre)
-	headers[amqp.MessageIdHeader] = message.GameNameID
 	for _, game := range gameNames {
 		b, err = game.ToBytes()
 		if err != nil {
@@ -79,7 +82,7 @@ func (f *filter) publish(msg message.Game) {
 		}
 
 		k := worker.ShardGameId(game.GameId, f.w.Outputs[query3].Key, f.w.Outputs[query3].Consumers)
-		if err = f.w.Broker.Publish(f.w.Outputs[query3].Exchange, k, b, headers); err != nil {
+		if err = f.w.Broker.Publish(f.w.Outputs[query3].Exchange, k, b, headersQuery3); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	}

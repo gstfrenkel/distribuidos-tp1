@@ -39,7 +39,7 @@ func ListenForNewClients(g *Gateway) error {
 func handleConnection(g *Gateway, conn net.Conn) {
 	logs.Logger.Infof("New client connected: %s", conn.RemoteAddr().String())
 	bufferSize := g.Config.Int("gateway.buffer_size", 1024)
-	read, msgId, payloadSize, eofs := 0, uint8(0), uint64(0), uint8(0)
+	read, msgId, payloadSize, eofs := 0, uint8(0), int64(-1), uint8(0)
 	buffer := make([]byte, bufferSize)
 	var auxBuffer []byte
 
@@ -50,47 +50,57 @@ func handleConnection(g *Gateway, conn net.Conn) {
 				logs.Logger.Infof("Client disconnected: %s", conn.RemoteAddr().String())
 			} else {
 				logs.Logger.Errorf("Error reading from client: %s", err.Error())
-				return
 			}
+			return
 		}
 
 		auxBuffer = append(auxBuffer, buffer[:n]...)
 		read += n
 		if hasNotReadId(read, msgId) {
 			auxBuffer = readId(&msgId, auxBuffer, &read)
-			logs.Logger.Infof("Received message ID: %d", msgId)
 		}
 
 		if hasNotReadPayloadSize(read, payloadSize) {
 			auxBuffer = readPayloadSize(&payloadSize, auxBuffer, &read)
-			logs.Logger.Infof("Payload size: %d", payloadSize)
 		}
 
 		if hasReadCompletePayload(auxBuffer, payloadSize) {
 			processPayload(g, message.ID(msgId), auxBuffer[:payloadSize], payloadSize, &eofs)
 			auxBuffer = processRemaining(auxBuffer[payloadSize:], &msgId, &payloadSize)
-			read = 0
+			read = len(auxBuffer)
 		}
+	}
+
+	sendConfirmationToClient(conn)
+}
+
+func sendConfirmationToClient(conn net.Conn) {
+	eofMsg := message.ClientMessage{
+		ID:      uint8(message.EofMsg),
+		DataLen: 0,
+		Data:    nil,
+	}
+	if err := message.SendMessage(conn, eofMsg); err != nil {
+		logs.Logger.Error("Error sending EOF message")
 	}
 }
 
-func processRemaining(rem []byte, msgId *uint8, payloadSize *uint64) []byte {
-	*msgId, *payloadSize = 0, 0
+func processRemaining(rem []byte, msgId *uint8, payloadSize *int64) []byte {
+	*msgId, *payloadSize = 0, -1
 	if hasNotReadId(len(rem), *msgId) {
 		rem = readId(msgId, rem, nil)
-		logs.Logger.Infof("Received message ID: %d", *msgId)
+		logs.Logger.Debugf("Received message ID: %d", *msgId)
 	}
 
 	if hasNotReadPayloadSize(len(rem), *payloadSize) {
 		rem = readPayloadSize(payloadSize, rem, nil)
-		logs.Logger.Infof("Payload size: %d", *payloadSize)
 	}
 
 	return rem
 }
 
-func readPayloadSize(payloadSize *uint64, data []byte, read *int) []byte {
-	*payloadSize = ioutils.ReadU64FromSlice(data)
+func readPayloadSize(payloadSize *int64, data []byte, read *int) []byte {
+	*payloadSize = int64(ioutils.ReadU64FromSlice(data))
 	if read != nil && *read >= LenFieldSize {
 		*read -= LenFieldSize
 	}
@@ -113,13 +123,13 @@ func readId(msgId *uint8, data []byte, read *int) []byte {
 	return moveBuff(data, MsgIdSize)
 }
 
-func hasReadCompletePayload(buf []byte, payloadSize uint64) bool {
+func hasReadCompletePayload(buf []byte, payloadSize int64) bool {
 	return len(buf) >= int(payloadSize)
 }
 
 // hasNotReadPayloadSize returns true if the payload size field has been read (8 bytes)
-func hasNotReadPayloadSize(read int, payloadSize uint64) bool {
-	return read >= LenFieldSize && payloadSize == 0
+func hasNotReadPayloadSize(read int, payloadSize int64) bool {
+	return read >= LenFieldSize && payloadSize == -1
 }
 
 // hasNotReadId returns true if the message ID field has been read (1 byte)
@@ -130,7 +140,7 @@ func hasNotReadId(read int, msgId uint8) bool {
 // processPayload parses the data received from the client and appends it to the corresponding chunk
 // Returns true if the end of the file was reached
 // Moves the buffer payloadLen positions
-func processPayload(g *Gateway, msgId message.ID, payload []byte, payloadLen uint64, eofs *uint8) {
+func processPayload(g *Gateway, msgId message.ID, payload []byte, payloadLen int64, eofs *uint8) {
 	if isEndOfFile(payloadLen) {
 		logs.Logger.Infof("End of file received for message ID: %d", msgId)
 		sendMsgToChunkSender(g, msgId, nil)
@@ -142,9 +152,9 @@ func processPayload(g *Gateway, msgId message.ID, payload []byte, payloadLen uin
 
 func sendMsgToChunkSender(g *Gateway, msgId message.ID, payload []byte) {
 	g.ChunkChan <- ChunkItem{msgId, payload}
-	logs.Logger.Infof("Sent message: %d to chunk sender", msgId)
+	logs.Logger.Debugf("Sent message: %d to chunk sender", msgId)
 }
 
-func isEndOfFile(payloadLen uint64) bool {
+func isEndOfFile(payloadLen int64) bool {
 	return payloadLen == 0
 }

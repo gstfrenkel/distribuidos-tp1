@@ -9,9 +9,8 @@ import (
 )
 
 type filter struct {
-
-	counter message.Platform 
-	w *worker.Worker
+	counter message.Platform
+	w       *worker.Worker
 }
 
 func New() (worker.Filter, error) {
@@ -19,7 +18,7 @@ func New() (worker.Filter, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &filter{w: w}, nil
 }
 
@@ -36,10 +35,11 @@ func (f *filter) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
-		
+		logs.Logger.Infof("Received EOF")
+
 		f.publish()
-		f.counter.ResetValues() 
-	
+		f.counter.ResetValues()
+
 		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, nil, f.w.InputEof, f.w.OutputsEof...); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
@@ -50,7 +50,7 @@ func (f *filter) Process(delivery amqp.Delivery) {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 			return
 		}
-		f.counter.Increment(msg)	
+		f.counter.Increment(msg)
 	} else {
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
 	}
@@ -61,7 +61,7 @@ func (f *filter) publish() {
 	platforms := f.counter
 
 	if platforms.IsEmpty() {
-		return 
+		return
 	}
 
 	b, err := platforms.ToBytes()
@@ -69,7 +69,9 @@ func (f *filter) publish() {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 	}
 
-	headers := map[string]any{amqp.MessageIdHeader: message.PlatformID}
+	headers := map[string]any{amqp.MessageIdHeader: uint8(message.PlatformID)}
+	logs.Logger.Infof("Sending %v with key %s", platforms, f.w.Outputs[0].Key)
+
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}

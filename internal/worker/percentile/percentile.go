@@ -61,7 +61,7 @@ func (f *filter) publish() {
 		return
 	}
 
-	headers := map[string]any{amqp.MessageIdHeader: message.GameNameID}
+	headers := map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID)}
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, bytes, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
