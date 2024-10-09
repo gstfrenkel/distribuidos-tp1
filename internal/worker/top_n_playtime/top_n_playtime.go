@@ -37,13 +37,19 @@ func (f *filter) Process(delivery amqp.Delivery) {
 
 	if messageId == message.EofMsg {
 
-		f.publish()
-		f.heap = nil
+		workersVisited, err := message.EofFromBytes(delivery.Body)
+		if err != nil {
+			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+			return
+		}
+
+		if !workersVisited.Contains(f.w.Id) {
+			f.publish()
+		}
 
 		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, nil, f.w.InputEof, f.w.OutputsEof...); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
-
 		
 	} else if messageId == message.GameWithPlaytimeID {
 		msg, err := message.DateFilteredReleasesFromBytes(delivery.Body)
