@@ -11,7 +11,7 @@ import (
 type filter struct {
 	w *worker.Worker
 	n uint8
-	heap  message.MinHeapPlaytime
+	heap  MinHeapPlaytime
 }
 
 func New() (worker.Filter, error) {
@@ -23,7 +23,7 @@ func New() (worker.Filter, error) {
 }
 
 func (f *filter) Init() error {
-	f.heap = message.MinHeapPlaytime{}
+	f.heap = MinHeapPlaytime{}
 	return f.w.Init()
 }
 
@@ -65,7 +65,7 @@ func (f *filter) publish() {
 		return
 	}
 
-	topNPlaytime := message.ToTopNPlaytimeMessage(f.n,&f.heap) 
+	topNPlaytime := ToTopNPlaytimeMessage(f.n,&f.heap) 
 	b, err := topNPlaytime.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())

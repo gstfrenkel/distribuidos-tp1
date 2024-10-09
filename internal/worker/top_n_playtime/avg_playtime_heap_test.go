@@ -1,4 +1,4 @@
-package test_test
+package top_n_playtime
 
 import (
 	"testing"
@@ -22,7 +22,7 @@ func TestTop10ReleasesWith13Games(t *testing.T) {
 		{GameId: 13, GameName: "Game 13", AvgPlaytime: 450},
 	}
 
-	h := &message.MinHeapPlaytime{}
+	h := &MinHeapPlaytime{}
 	h.UpdateReleases(games, 10)
 
 	topReleases := h.GetTopReleases()
@@ -63,7 +63,7 @@ func TestTop10ReleasesWith8Games(t *testing.T) {
 		{GameId: 8, GameName: "Game 8", AvgPlaytime: 150},
 	}
 
-	h := &message.MinHeapPlaytime{}
+	h := &MinHeapPlaytime{}
 	h.UpdateReleases(games, 10)
 
 	topReleases := h.GetTopReleases()
