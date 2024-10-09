@@ -27,7 +27,7 @@ func New() (*Client, error) {
 }
 
 func (c *Client) Start() {
-	log.Println("Client running...")
+	logs.Logger.Info("Client running...")
 	address := c.cfg.String("gateway.address", "127.0.0.1")
 	port := c.cfg.String("gateway.port", "5050")
 	fullAddress := address + ":" + port

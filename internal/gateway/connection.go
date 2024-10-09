@@ -25,6 +25,12 @@ func CreateGatewaySocket(g *Gateway) error {
 
 func ListenForNewClients(g *Gateway) error {
 	for {
+		g.finishedMu.Lock()
+		if g.finished {
+			g.finishedMu.Unlock()
+			break
+		}
+		g.finishedMu.Unlock()
 		logs.Logger.Infof("Waiting for new client connection...")
 		c, err := g.Listener.Accept()
 		if err != nil {
@@ -32,6 +38,7 @@ func ListenForNewClients(g *Gateway) error {
 		}
 		go handleConnection(g, c)
 	}
+	return nil
 }
 
 // handleConnection reads the data from the client and sends it to the amqp.
@@ -44,6 +51,13 @@ func handleConnection(g *Gateway, conn net.Conn) {
 	var auxBuffer []byte
 
 	for eofs < maxEofs {
+		g.finishedMu.Lock()
+		if g.finished {
+			g.finishedMu.Unlock()
+			break
+		}
+		g.finishedMu.Unlock()
+
 		n, err := conn.Read(buffer)
 		if err != nil {
 			if err.Error() == "EOF" {
@@ -65,6 +79,7 @@ func handleConnection(g *Gateway, conn net.Conn) {
 		}
 
 		if hasReadCompletePayload(auxBuffer, payloadSize) {
+			logs.Logger.Infof("Processing msg ID: %d", msgId)
 			processPayload(g, message.ID(msgId), auxBuffer[:payloadSize], payloadSize, &eofs)
 			auxBuffer = processRemaining(auxBuffer[payloadSize:], &msgId, &payloadSize)
 			read = len(auxBuffer)
