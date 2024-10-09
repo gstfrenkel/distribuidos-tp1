@@ -16,13 +16,16 @@ import (
 )
 
 const configFilePath = "config.toml"
+const GamesListener = 0
+const ReviewsListener = 1
+const connections = 2
 
 type Gateway struct {
 	Config     config.Config
 	broker     amqp.MessageBroker
 	queues     []amqp.Queue //order: reviews, games_platform, games_action, games_indie
 	exchange   string
-	Listener   net.Listener
+	Listeners  [2]net.Listener
 	ChunkChan  chan ChunkItem
 	finished   bool
 	finishedMu sync.Mutex
@@ -62,6 +65,7 @@ func New() (*Gateway, error) {
 		ChunkChan:  make(chan ChunkItem),
 		finished:   false,
 		finishedMu: sync.Mutex{},
+		Listeners:  [connections]net.Listener{},
 	}, nil
 }
 
@@ -75,28 +79,41 @@ func (g *Gateway) Start() {
 		g.HandleSIGTERM()
 	}()
 
-	err := CreateGatewaySocket(g)
+	err := g.createGatewaySockets()
 	if err != nil {
 		logs.Logger.Errorf("Failed to create gateway socket: %s", err.Error())
 		return
 	}
 
-	defer g.Listener.Close() //TODO handle
-
 	go startChunkSender(g.ChunkChan, g.broker, g.exchange, g.Config.Uint8("gateway.chunk_size", 100), g.Config.String("rabbitmq.reviews_routing_key", "review"), g.Config.String("rabbitmq.games_routing_key", "game"))
 
-	err = ListenForNewClients(g)
-	if err != nil {
-		logs.Logger.Errorf("Failed to listen for new clients: %s", err.Error())
-		return
-	}
+	wg := &sync.WaitGroup{}
+	wg.Add(connections)
 
+	go func() {
+		defer wg.Done()
+		err = g.listenForNewClients(ReviewsListener)
+		if err != nil {
+			logs.Logger.Errorf("Error listening reviews: %s", err.Error())
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		err = g.listenForNewClients(GamesListener)
+		if err != nil {
+			logs.Logger.Errorf("Error listening games: %s", err.Error())
+		}
+	}()
+
+	wg.Wait()
 	g.free(sigs)
 }
 
 func (g *Gateway) free(sigs chan os.Signal) {
 	g.broker.Close()
-	g.Listener.Close()
+	g.Listeners[ReviewsListener].Close()
+	g.Listeners[GamesListener].Close()
 	close(g.ChunkChan)
 	close(sigs)
 }

@@ -88,8 +88,7 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 		}
 
 		msg := message.ClientMessage{
-			ID:      id,
-			DataLen: uint64(len(dataBuf)),
+			DataLen: uint32(len(dataBuf)),
 			Data:    dataBuf,
 		}
 
@@ -101,12 +100,11 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 
 	// Send EOF message
 	eofMsg := message.ClientMessage{
-		ID:      id,
 		DataLen: 0, // DataLen = 0 for eof message.
 		Data:    nil,
 	}
 	if err := message.SendMessage(conn, eofMsg); err != nil {
 		logs.Logger.Errorf("Error sending EOF message: %s", err)
 	}
-	logs.Logger.Infof("Sent EOF for: %v", eofMsg.ID)
+	logs.Logger.Infof("Sent EOF for: %v", id)
 }

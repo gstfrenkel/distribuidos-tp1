@@ -28,29 +28,40 @@ func New() (*Client, error) {
 
 func (c *Client) Start() {
 	logs.Logger.Info("Client running...")
-	address := c.cfg.String("gateway.address", "127.0.0.1")
-	port := c.cfg.String("gateway.port", "5050")
-	fullAddress := address + ":" + port
+	address := c.cfg.String("gateway.address", "172.25.125.100")
 
-	conn, err := net.Dial("tcp", fullAddress)
+	gamesPort := c.cfg.String("gateway.games_port", "5050")
+	gamesFullAddress := address + ":" + gamesPort
 
+	reviewsPort := c.cfg.String("gateway.reviews_port", "5051")
+	reviewsFullAddress := address + ":" + reviewsPort
+
+	gamesConn, err := net.Dial("tcp", gamesFullAddress)
 	if err != nil {
-		fmt.Println("Error connecting to gateway:", err)
+		fmt.Println("Games Conn error:", err)
 		return
 	}
 
-	log.Printf("test: %s", fullAddress)
+	reviewsConn, err := net.Dial("tcp", reviewsFullAddress)
+	if err != nil {
+		fmt.Println("Reviews Conn error:", err)
+		return
+	}
 
-	log.Printf("Connected to: %s", fullAddress)
+	//log.Printf("test: %s", fullAddress)
 
-	defer conn.Close()
+	log.Printf("Games conn: %s", gamesFullAddress)
+	log.Printf("Reviews conn: %s", gamesFullAddress)
+
+	defer gamesConn.Close()
+	defer reviewsConn.Close()
 
 	/*var wg sync.WaitGroup
 
 	wg.Add(2)*/
 
-	go readAndSendCSV(c.cfg.String("client.games_path", "data/games.csv"), uint8(message.GameIdMsg), conn, &message.DataCSVGames{})
-	go readAndSendCSV(c.cfg.String("client.reviews_path", "data/reviews.csv"), uint8(message.ReviewIdMsg), conn, &message.DataCSVReviews{})
+	go readAndSendCSV(c.cfg.String("client.games_path", "data/games.csv"), uint8(message.GameIdMsg), gamesConn, &message.DataCSVGames{})
+	go readAndSendCSV(c.cfg.String("client.reviews_path", "data/reviews.csv"), uint8(message.ReviewIdMsg), reviewsConn, &message.DataCSVReviews{})
 
 	/*go func() {
 		defer wg.Done()
@@ -63,7 +74,7 @@ func (c *Client) Start() {
 	}()*/
 
 	header := make([]byte, 1024)
-	if _, err := conn.Read(header); err != nil {
+	if _, err := gamesConn.Read(header); err != nil {
 		logs.Logger.Errorf("failed to read message header: %v", err.Error())
 	}
 
