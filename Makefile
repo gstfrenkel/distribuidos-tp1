@@ -16,6 +16,7 @@ build:
 	docker build -f ./build/client.Dockerfile -t "client:latest" .
 	docker build -f ./build/topn.Dockerfile -t "topn:latest" .
 	docker build -f ./build/percentile.Dockerfile -t "percentile:latest" .
+	docker build -f ./build/platform_counter.Dockerfile -t "platform-counter:latest" .
 	docker build -f ./build/release.Dockerfile -t "release-date-filter:latest" .
 	docker build -f ./build/topnplaytime.Dockerfile -t "topn-playtime-filter:latest" .
 .PHONY: build
