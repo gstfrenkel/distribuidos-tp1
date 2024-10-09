@@ -55,12 +55,13 @@ func New() (*Gateway, error) {
 	}
 
 	return &Gateway{
-		Config:    cfg,
-		broker:    b,
-		queues:    queues,
-		exchange:  exchangeName,
-		ChunkChan: make(chan ChunkItem),
-		finished:  false,
+		Config:     cfg,
+		broker:     b,
+		queues:     queues,
+		exchange:   exchangeName,
+		ChunkChan:  make(chan ChunkItem),
+		finished:   false,
+		finishedMu: sync.Mutex{},
 	}, nil
 }
 
