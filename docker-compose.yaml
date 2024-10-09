@@ -248,7 +248,7 @@ services:
 
   topn-playtime-aggregator-1:
     container_name: topn-playtime-aggregator-1
-    image: topn-playtime-aggregator:latest
+    image: topn-playtime-filter:latest
     environment:
       - worker-id=0
     depends_on:
