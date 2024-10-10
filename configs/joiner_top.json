@@ -8,7 +8,7 @@
       "exchange": "join_top",
       "name": "joined_top_%d",
       "key": "%d",
-      "consumers": 1
+      "consumers": 2
     }
   ],
   "exchanges": [

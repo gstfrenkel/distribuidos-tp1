@@ -128,8 +128,6 @@ func (p *percentile) processGame(msg message.GameName) {
 }
 
 func (p *percentile) publish(reviews message.ScoredReviews) {
-	logs.Logger.Infof("Sending percentile info: %v", reviews)
-
 	b, err := reviews.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())

@@ -11,13 +11,13 @@
       "exchange": "action",
       "name": "action_q4_%d",
       "key": "q4-%d",
-      "consumers": 1
+      "consumers": 2
     },
     {
       "exchange": "action",
       "name": "action_q5_%d",
       "key": "q5-%d",
-      "consumers": 1
+      "consumers": 2
     }
   ],
   "exchanges": [

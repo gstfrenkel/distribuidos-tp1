@@ -2,7 +2,6 @@ package joiner
 
 import (
 	"fmt"
-
 	"tp1/internal/errors"
 	"tp1/internal/worker"
 	"tp1/pkg/amqp"
@@ -79,6 +78,7 @@ func (t *top) processEof(origin uint8) {
 	}
 
 	if t.recvReviewEof && t.recvGameEof {
+		logs.Logger.Infof("\n\nSending eof to: %v\n\n", t.output)
 		if err := t.w.Broker.HandleEofMessage(t.w.Id, 0, amqp.EmptyEof, nil, t.w.InputEof, amqp.DestinationEof(t.output)); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}

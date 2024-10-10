@@ -11,7 +11,7 @@
       "exchange": "review",
       "name": "reviews_q3_%d",
       "key": "q3-%d",
-      "consumers": 1
+      "consumers": 2
     },
     {
       "exchange": "review",
@@ -22,7 +22,7 @@
       "exchange": "review",
       "name": "reviews_q5_%d",
       "key": "q5-%d",
-      "consumers": 1
+      "consumers": 2
     }
   ],
   "exchanges": [

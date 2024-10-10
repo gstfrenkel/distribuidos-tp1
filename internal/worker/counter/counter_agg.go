@@ -36,7 +36,6 @@ func (f *filter) Process(delivery amqp.Delivery) {
 	if messageId == message.EofMsg {
 		f.publish()
 	} else if messageId == message.GameNameID {
-		logs.Logger.Infof("Received game")
 		msg, err := message.GameNameFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())

@@ -2,7 +2,6 @@ package broker
 
 import (
 	"tp1/pkg/amqp"
-	"tp1/pkg/logs"
 	"tp1/pkg/message"
 
 	amqpgo "github.com/rabbitmq/amqp091-go"
@@ -102,8 +101,6 @@ func (b *messageBroker) HandleEofMessage(workerId, peers uint8, msg []byte, head
 		headers[amqp.MessageIdHeader] = uint8(message.EofMsg)
 	}
 
-	logs.Logger.Infof("Workers visited: %v and peers: %d", workersVisited, peers)
-
 	if uint8(len(workersVisited)) < peers {
 		bytes, err := workersVisited.ToBytes()
 		if err != nil {
@@ -112,7 +109,6 @@ func (b *messageBroker) HandleEofMessage(workerId, peers uint8, msg []byte, head
 		return b.Publish(input.Exchange, input.Key, bytes, headers)
 	}
 
-	logs.Logger.Infof("EOF Outputs: %v", outputs)
 	for _, output := range outputs {
 		if err = b.Publish(output.Exchange, output.Key, amqp.EmptyEof, headers); err != nil {
 			return err

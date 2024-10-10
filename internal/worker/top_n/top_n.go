@@ -12,9 +12,10 @@ import (
 type GameId int64
 
 type filter struct {
-	w   *worker.Worker
-	top PriorityQueue //top n games
-	n   int
+	w        *worker.Worker
+	top      PriorityQueue //top n games
+	n        int
+	eofsRecv uint8
 }
 
 func New() (worker.Filter, error) {
@@ -29,6 +30,7 @@ func New() (worker.Filter, error) {
 func (f *filter) Init() error {
 	f.n = int(f.w.Query.(float64))
 	f.top = make(PriorityQueue, 0, f.n)
+	f.eofsRecv = 0
 	return f.w.Init()
 }
 
@@ -39,7 +41,10 @@ func (f *filter) Start() {
 func (f *filter) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 	if messageId == message.EofMsg {
-		f.publish()
+		f.eofsRecv++
+		if f.eofsRecv > f.w.Peers {
+			f.publish()
+		}
 	} else if messageId == message.ScoredReviewID {
 		msg, err := message.ScoredReviewsFromBytes(delivery.Body)
 		if err != nil {
@@ -92,10 +97,18 @@ func (f *filter) publish() {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 		return
 	}
+
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, bytes, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 	logs.Logger.Debugf("Top %d games sent", f.n)
+	f.top = make(PriorityQueue, 0, f.n)
+
+	if f.w.Peers == 0 {
+		if err := f.w.Broker.HandleEofMessage(f.w.Id, 0, amqp.EmptyEof, nil, f.w.InputEof, amqp.DestinationEof(f.w.Outputs[0])); err != nil {
+			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
+		}
+	}
 }
 
 func (f *filter) getTopNScoredReviews() message.ScoredReviews {
