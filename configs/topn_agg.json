@@ -7,14 +7,14 @@
   ],
   "output-queues": [
     {
-      "exchange": "reports_agg",
+      "exchange": "reports",
       "name": "reports",
       "key": ""
     }
   ],
   "exchanges": [
     {
-      "name": "reports_agg",
+      "name": "reports",
       "kind": "direct"
     }
   ],
