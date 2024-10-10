@@ -1,5 +1,5 @@
 {
-  "query": "action",
+  "query": "Action",
   "peers": 1,
   "input-queues": [{
     "exchange": "action",

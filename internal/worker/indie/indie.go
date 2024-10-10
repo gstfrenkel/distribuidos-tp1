@@ -69,7 +69,7 @@ func (f *filter) publish(msg message.Game) {
 		return
 	}
 
-	if err = f.w.Broker.Publish(f.w.Outputs[query2].Exchange, f.w.Outputs[query3].Key, b, headersQuery2); err != nil {
+	if err = f.w.Broker.Publish(f.w.Outputs[query2].Exchange, f.w.Outputs[query2].Key, b, headersQuery2); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 

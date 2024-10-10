@@ -9,9 +9,9 @@ import (
 )
 
 type filter struct {
-	w *worker.Worker
+	w         *worker.Worker
 	startYear int
-	endYear int
+	endYear   int
 }
 
 func New() (worker.Filter, error) {
@@ -28,9 +28,8 @@ func (f *filter) Init() error {
 
 func (f *filter) Start() {
 	slice := f.w.Query.([]any)
-	f.startYear = int(slice[0].(float64)) 
-	f.endYear = int(slice[1].(float64))  
-	// logs.Logger.Infof("Start year: %d, End year: %d", f.startYear, f.endYear)
+	f.startYear = int(slice[0].(float64))
+	f.endYear = int(slice[1].(float64))
 	f.w.Start(f)
 }
 
@@ -55,14 +54,13 @@ func (f *filter) Process(delivery amqp.Delivery) {
 }
 
 func (f *filter) publish(msg message.Releases) {
-
-	date_filtered_games := msg.ToPlaytimeMessage(f.startYear,f.endYear) 
-	b, err := date_filtered_games.ToBytes()
+	dateFilteredGames := msg.ToPlaytimeMessage(f.startYear, f.endYear)
+	b, err := dateFilteredGames.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 	}
 
-	headers := map[string]any{amqp.MessageIdHeader: message.GameWithPlaytimeID}
+	headers := map[string]any{amqp.MessageIdHeader: uint8(message.GameWithPlaytimeID)}
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}

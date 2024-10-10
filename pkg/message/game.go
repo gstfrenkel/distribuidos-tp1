@@ -2,7 +2,6 @@ package message
 
 import (
 	"strings"
-	"tp1/pkg/logs"
 )
 
 type Game []game
@@ -26,7 +25,6 @@ func GameFromBytes(b []byte) (Game, error) {
 func GamesFromClientGames(clientGame []DataCSVGames) ([]byte, error) {
 	gs := make(Game, 0, len(clientGame))
 	for _, g := range clientGame {
-		logs.Logger.Infof("Received Game: %s w id: %d", g.Name, g.AppID)
 		gs = append(gs, game{
 			GameId:          g.AppID,
 			Name:            g.Name,
