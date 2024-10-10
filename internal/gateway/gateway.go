@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"tp1/pkg/message"
 
 	"tp1/internal/gateway/rabbit"
 	"tp1/pkg/amqp"
@@ -25,8 +26,8 @@ type Gateway struct {
 	broker     amqp.MessageBroker
 	queues     []amqp.Queue //order: reviews, games_platform, games_action, games_indie
 	exchange   string
-	Listeners  [2]net.Listener
-	ChunkChan  chan ChunkItem
+	Listeners  [connections]net.Listener
+	ChunkChans [connections]chan ChunkItem
 	finished   bool
 	finishedMu sync.Mutex
 }
@@ -62,7 +63,7 @@ func New() (*Gateway, error) {
 		broker:     b,
 		queues:     queues,
 		exchange:   exchangeName,
-		ChunkChan:  make(chan ChunkItem),
+		ChunkChans: [connections]chan ChunkItem{make(chan ChunkItem), make(chan ChunkItem)},
 		finished:   false,
 		finishedMu: sync.Mutex{},
 		Listeners:  [connections]net.Listener{},
@@ -85,7 +86,8 @@ func (g *Gateway) Start() {
 		return
 	}
 
-	go startChunkSender(g.ChunkChan, g.broker, g.exchange, g.Config.Uint8("gateway.chunk_size", 100), g.Config.String("rabbitmq.reviews_routing_key", "review"), g.Config.String("rabbitmq.games_routing_key", "game"))
+	go startChunkSender(GamesListener, g.ChunkChans[GamesListener], g.broker, g.exchange, g.Config.Uint8("gateway.chunk_size", 100), g.Config.String("rabbitmq.games_routing_key", "game"))
+	go startChunkSender(ReviewsListener, g.ChunkChans[ReviewsListener], g.broker, g.exchange, g.Config.Uint8("gateway.chunk_size", 100), g.Config.String("rabbitmq.reviews_routing_key", "review"))
 
 	wg := &sync.WaitGroup{}
 	wg.Add(connections)
@@ -110,15 +112,31 @@ func (g *Gateway) Start() {
 	g.free(sigs)
 }
 
+func matchMessageId(listener int) message.ID {
+	if listener == ReviewsListener {
+		return message.ReviewIdMsg
+	}
+	return message.GameIdMsg
+}
+
+func matchListenerId(msgId message.ID) int {
+	if msgId == message.ReviewIdMsg {
+		return ReviewsListener
+	}
+	return GamesListener
+}
+
 func (g *Gateway) free(sigs chan os.Signal) {
 	g.broker.Close()
 	g.Listeners[ReviewsListener].Close()
 	g.Listeners[GamesListener].Close()
-	close(g.ChunkChan)
+	close(g.ChunkChans[ReviewsListener])
+	close(g.ChunkChans[GamesListener])
 	close(sigs)
 }
 
 func (g *Gateway) HandleSIGTERM() {
+	logs.Logger.Info("Received SIGTERM, shutting down")
 	g.finishedMu.Lock()
 	g.finished = true
 	g.finishedMu.Unlock()

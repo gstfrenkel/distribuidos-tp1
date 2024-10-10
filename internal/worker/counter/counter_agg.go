@@ -1,4 +1,4 @@
-package platform
+package counter
 
 import (
 	"tp1/internal/errors"
@@ -9,7 +9,8 @@ import (
 )
 
 type filter struct {
-	w *worker.Worker
+	w     *worker.Worker
+	games message.GameNames
 }
 
 func New() (worker.Filter, error) {
@@ -17,7 +18,8 @@ func New() (worker.Filter, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &filter{w: w}, nil
+
+	return &filter{w: w, games: nil}, nil
 }
 
 func (f *filter) Init() error {
@@ -32,30 +34,30 @@ func (f *filter) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
-		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, nil, f.w.InputEof, f.w.OutputsEof...); err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
-		}
-	} else if messageId == message.GameIdMsg {
-		msg, err := message.GameFromBytes(delivery.Body)
+		f.publish()
+	} else if messageId == message.GameNameID {
+		msg, err := message.GameNameFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 			return
 		}
-
-		f.publish(msg)
+		f.games = append(f.games, msg)
 	} else {
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
 	}
 }
 
-func (f *filter) publish(msg message.Game) {
-	platforms := msg.ToPlatformMessage()
-	b, err := platforms.ToBytes()
+func (f *filter) publish() {
+	if f.games == nil {
+		return
+	}
+	logs.Logger.Infof("Query 4 results: %v", f.games)
+	b, err := f.games.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 	}
 
-	headers := map[string]any{amqp.MessageIdHeader: uint8(message.PlatformID)}
+	headers := map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID), amqp.OriginIdHeader: amqp.Query4originId}
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}

@@ -55,12 +55,18 @@ func New() (*Worker, error) {
 		return nil, err
 	}
 
+	var peers uint8
+	if err = cfg.Unmarshal("peers", &peers); err != nil {
+		return nil, err
+	}
+
 	return &Worker{
 		config:     cfg,
 		Query:      query,
 		Broker:     b,
 		SignalChan: signalChan,
 		Id:         uint8(id),
+		Peers:      peers,
 	}, nil
 }
 
@@ -113,6 +119,7 @@ func (f *Worker) consume(filter Filter, signalChan chan os.Signal, deliveryChan 
 	for {
 		chosen, recv, ok := reflect.Select(cases)
 		if !ok || chosen == 0 {
+			logs.Logger.Criticalf("Signal received. Shutting down...")
 			return
 		}
 		filter.Process(recv.Interface().(amqp.Delivery))
@@ -134,8 +141,6 @@ func (f *Worker) initQueues() error {
 		return err
 	}
 
-	var outputsEof []amqp.DestinationEof
-
 	for _, dst := range f.Outputs {
 		// Queue declaration and binding.
 		_, destination, err := f.initQueue(dst)
@@ -144,7 +149,7 @@ func (f *Worker) initQueues() error {
 		}
 		// EOF Output queue processing.
 		for _, aux := range destination {
-			outputsEof = append(outputsEof, amqp.DestinationEof(aux))
+			f.OutputsEof = append(f.OutputsEof, amqp.DestinationEof(aux))
 		}
 	}
 

@@ -14,7 +14,7 @@ func ReviewFromBytes(b []byte) (Review, error) {
 	return m, fromBytes(b, &m)
 }
 
-func ReviewFromClientReview(clientReview []DataCSVReviews) ([]byte, error) {
+func ReviewsFromClientReviews(clientReview []DataCSVReviews) ([]byte, error) {
 	rs := make(Review, 0, len(clientReview))
 	for _, r := range clientReview {
 		rs = append(rs, review{

@@ -1,7 +1,7 @@
 [gateway]
 address = "172.25.125.100"
-games_port = 5050
-reviews_port = 5051
+games_port = 5051
+reviews_port = 5050
 
 [client]
 games_path = "data/games.csv"

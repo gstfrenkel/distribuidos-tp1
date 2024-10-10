@@ -39,7 +39,6 @@ func (c *counter) Init() error {
 
 func (c *counter) Start() {
 	c.target = uint64(c.w.Query.(float64))
-
 	c.w.Start(c)
 }
 
@@ -81,7 +80,7 @@ func (c *counter) processEof(origin uint8) {
 	if c.recvReviewEof && c.recvGameEof {
 		headers := map[string]any{amqp.OriginIdHeader: amqp.GameOriginId}
 
-		if err := c.w.Broker.HandleEofMessage(c.w.Id, 0, message.Eof{}, headers, c.w.InputEof, c.w.OutputsEof...); err != nil {
+		if err := c.w.Broker.HandleEofMessage(c.w.Id, 0, amqp.EmptyEof, headers, c.w.InputEof, c.w.OutputsEof...); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 

@@ -1,6 +1,9 @@
 package amqp
 
-import amqp "github.com/rabbitmq/amqp091-go"
+import (
+	amqp "github.com/rabbitmq/amqp091-go"
+	"tp1/pkg/message"
+)
 
 const (
 	MessageIdHeader = "x-message-id"
@@ -10,7 +13,14 @@ const (
 const (
 	ReviewOriginId uint8 = iota
 	GameOriginId
+	Query1originId
+	Query2originId
+	Query3originId
+	Query4originId
+	Query5originId
 )
+
+var EmptyEof, _ = message.Eof{}.ToBytes()
 
 type Delivery = amqp.Delivery
 type Publishing = amqp.Publishing

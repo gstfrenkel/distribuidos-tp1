@@ -1,6 +1,8 @@
 package message
 
-import "strings"
+import (
+	"strings"
+)
 
 type Game []game
 
@@ -20,7 +22,7 @@ func GameFromBytes(b []byte) (Game, error) {
 	return m, fromBytes(b, &m)
 }
 
-func GameFromClientGame(clientGame []DataCSVGames) ([]byte, error) {
+func GamesFromClientGames(clientGame []DataCSVGames) ([]byte, error) {
 	gs := make(Game, 0, len(clientGame))
 	for _, g := range clientGame {
 		gs = append(gs, game{
@@ -80,9 +82,11 @@ func (g Game) ToPlatformMessage() Platform {
 	for _, h := range g {
 		if h.Windows {
 			result.Windows += 1
-		} else if h.Mac {
+		}
+		if h.Mac {
 			result.Mac += 1
-		} else if h.Linux {
+		}
+		if h.Linux {
 			result.Linux += 1
 		}
 	}

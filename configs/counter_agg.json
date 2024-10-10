@@ -1,9 +1,9 @@
 {
-  "query": 90,
-  "peers": 2,
-  "input-queues": [{
-    "name": "joined_percentile"
-  }],
+  "input-queues": [
+    {
+      "name": "joined_counted"
+    }
+  ],
   "output-queues": [
     {
       "exchange": "reports",

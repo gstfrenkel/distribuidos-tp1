@@ -11,8 +11,7 @@ import (
 	"tp1/pkg/message"
 )
 
-func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interface{}) {
-
+func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interface{}, c *Client) {
 	file, err := os.Open(filename)
 	if err != nil {
 		logs.Logger.Errorf("Error opening CSV file: %s", err)
@@ -33,6 +32,14 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 	}
 
 	for {
+
+		c.stoppedMutex.Lock()
+		if c.stopped {
+			c.stoppedMutex.Unlock()
+			break
+		}
+		c.stoppedMutex.Unlock()
+
 		record, err := reader.Read()
 		if err == io.EOF {
 			break
@@ -96,10 +103,10 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 			logs.Logger.Errorf("Error sending message: %s", err.Error())
 			return
 		}
-		//logs.Logger.Infof("Sent message ID: %d with payload size: %d", id, msg.DataLen)
+		logs.Logger.Infof("Sent message ID: %d with payload size: %d", id, msg.DataLen)
 	}
 
-	// Send EOF message
+	// Send EOF message after breaking out of the loop
 	eofMsg := message.ClientMessage{
 		DataLen: 0, // DataLen = 0 for eof message.
 		Data:    nil,

@@ -9,9 +9,9 @@ import (
 )
 
 type filter struct {
-	w *worker.Worker
-	n uint8
-	heap  MinHeapPlaytime
+	w    *worker.Worker
+	n    uint8
+	heap MinHeapPlaytime
 }
 
 func New() (worker.Filter, error) {
@@ -36,7 +36,6 @@ func (f *filter) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
-
 		workersVisited, err := message.EofFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
@@ -50,16 +49,16 @@ func (f *filter) Process(delivery amqp.Delivery) {
 		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, nil, f.w.InputEof, f.w.OutputsEof...); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
-		
+
 	} else if messageId == message.GameWithPlaytimeID {
 		msg, err := message.DateFilteredReleasesFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 			return
 		}
-		
+
 		// update heap with new data
-		f.heap.UpdateReleases(msg,int(f.n))		
+		f.heap.UpdateReleases(msg, int(f.n))
 	} else {
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
 	}
@@ -71,13 +70,14 @@ func (f *filter) publish() {
 		return
 	}
 
-	topNPlaytime := ToTopNPlaytimeMessage(f.n,&f.heap) 
+	topNPlaytime := ToTopNPlaytimeMessage(f.n, &f.heap)
+	logs.Logger.Infof("Top %d games with most playtime: %v", f.n, topNPlaytime)
 	b, err := topNPlaytime.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 	}
 
-	headers := map[string]any{amqp.MessageIdHeader: message.GameWithPlaytimeID}
+	headers := map[string]any{amqp.MessageIdHeader: uint8(message.GameWithPlaytimeID), amqp.OriginIdHeader: amqp.Query2originId}
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}

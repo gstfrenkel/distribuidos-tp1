@@ -51,13 +51,6 @@ func (g *Gateway) listenForNewClients(listener int) error {
 	return nil
 }
 
-func matchMessageId(listener int) message.ID {
-	if listener == ReviewsListener {
-		return message.ReviewIdMsg
-	}
-	return message.GameIdMsg
-}
-
 func (g *Gateway) handleConnection(c net.Conn, msgId message.ID) {
 	sends := 0
 
@@ -66,6 +59,12 @@ func (g *Gateway) handleConnection(c net.Conn, msgId message.ID) {
 	finished := false
 
 	for !finished {
+		g.finishedMu.Lock()
+		if g.finished {
+			g.finishedMu.Unlock()
+			break
+		}
+		g.finishedMu.Unlock()
 		n, err := c.Read(auxBuf)
 		if err != nil {
 			logs.Logger.Errorf("Error reading from listener: %s", err)
@@ -75,6 +74,13 @@ func (g *Gateway) handleConnection(c net.Conn, msgId message.ID) {
 		buf = append(buf, auxBuf[:n]...)
 
 		for !finished {
+			g.finishedMu.Lock()
+			if g.finished {
+				g.finishedMu.Unlock()
+				break
+			}
+			g.finishedMu.Unlock()
+
 			if len(buf) < LenFieldSize {
 				break
 			}
@@ -115,7 +121,18 @@ func (g *Gateway) processPayload(msgId message.ID, payload []byte, payloadSize u
 }
 
 func (g *Gateway) sendMsgToChunkSender(msgId message.ID, payload []byte) {
-	g.ChunkChan <- ChunkItem{msgId, payload}
+	var data any
+	if payload != nil {
+		if msgId == message.ReviewIdMsg {
+			data, _ = message.DataCSVReviewsFromBytes(payload)
+		} else {
+			data, _ = message.DataCSVGamesFromBytes(payload)
+		}
+	} else {
+		data = nil
+	}
+
+	g.ChunkChans[matchListenerId(msgId)] <- ChunkItem{msgId, data}
 }
 
 func isEndOfFile(payloadSize uint32) bool {

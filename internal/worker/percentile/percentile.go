@@ -13,6 +13,7 @@ type filter struct {
 	w             *worker.Worker
 	n             uint8 //percentile value (0-100)
 	scoredReviews message.ScoredReviews
+	eofsRecv      uint8
 }
 
 func New() (worker.Filter, error) {
@@ -36,7 +37,10 @@ func (f *filter) Start() {
 func (f *filter) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 	if messageId == message.EofMsg {
-		f.publish()
+		f.eofsRecv++
+		if f.eofsRecv >= f.w.Peers {
+			f.publish()
+		}
 	} else if messageId == message.ScoredReviewID {
 		msg, err := message.ScoredReviewsFromBytes(delivery.Body)
 		if err != nil {
@@ -55,13 +59,15 @@ func (f *filter) saveScoredReview(msg message.ScoredReviews) {
 }
 
 func (f *filter) publish() {
-	bytes, err := f.getGamesInPercentile().ToGameNameBytes()
+	gamesInPercentile := f.getGamesInPercentile()
+	logs.Logger.Infof("Games in percentile %d: %v", f.n, gamesInPercentile)
+	bytes, err := gamesInPercentile.ToGameNameBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err)
 		return
 	}
 
-	headers := map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID)}
+	headers := map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID), amqp.OriginIdHeader: amqp.Query5originId}
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, bytes, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}

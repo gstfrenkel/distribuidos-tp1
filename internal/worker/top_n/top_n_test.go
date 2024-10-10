@@ -9,7 +9,7 @@ import (
 func TestPublishNewGame(t *testing.T) {
 	f := fakeFilter(5)
 
-	msg := message.ScoredReview{GameId: 1, Votes: 10}
+	msg := message.ScoredReviews{message.ScoredReview{GameId: 1, Votes: 10}}
 	f.updateTop(msg)
 	if f.top.Len() != 1 {
 		t.Errorf("Expected top length 1, got %d", f.top.Len())
@@ -21,8 +21,8 @@ func TestPublishNewGame(t *testing.T) {
 
 func TestPublishExistingGame(t *testing.T) {
 	f := fakeFilter(5)
-	msg1 := message.ScoredReview{GameId: 1, Votes: 10}
-	msg2 := message.ScoredReview{GameId: 1, Votes: 15}
+	msg1 := message.ScoredReviews{message.ScoredReview{GameId: 1, Votes: 10}}
+	msg2 := message.ScoredReviews{message.ScoredReview{GameId: 1, Votes: 15}}
 	f.updateTop(msg1)
 	f.updateTop(msg2)
 	if f.top.Len() != 1 {
@@ -36,7 +36,7 @@ func TestPublishExistingGame(t *testing.T) {
 func TestPublishTopNLimit(t *testing.T) {
 	f := fakeFilter(5)
 	for i := 1; i <= 6; i++ {
-		msg := message.ScoredReview{GameId: int64(i), Votes: uint64(i * 10)}
+		msg := message.ScoredReviews{message.ScoredReview{GameId: int64(i), Votes: uint64(i * 10)}}
 		f.updateTop(msg)
 	}
 	if f.top.Len() != 5 {
@@ -50,8 +50,8 @@ func TestPublishTopNLimit(t *testing.T) {
 func TestInsertTwoElementsWithSameVotes(t *testing.T) {
 	f := fakeFilter(5)
 
-	msg1 := message.ScoredReview{GameId: 1, Votes: 10}
-	msg2 := message.ScoredReview{GameId: 2, Votes: 10}
+	msg1 := message.ScoredReviews{message.ScoredReview{GameId: 1, Votes: 10}}
+	msg2 := message.ScoredReviews{message.ScoredReview{GameId: 2, Votes: 10}}
 
 	f.updateTop(msg1)
 	f.updateTop(msg2)
@@ -82,11 +82,11 @@ func TestInsertTwoElementsWithSameVotes(t *testing.T) {
 
 func TestTopToTopNSlice(t *testing.T) {
 	f := fakeFilter(2)
-	msg := message.ScoredReview{GameId: 1, Votes: 10}
+	msg := message.ScoredReviews{message.ScoredReview{GameId: 1, Votes: 10}}
 	f.updateTop(msg)
-	msg = message.ScoredReview{GameId: 2, Votes: 20}
+	msg = message.ScoredReviews{message.ScoredReview{GameId: 2, Votes: 20}}
 	f.updateTop(msg)
-	msg = message.ScoredReview{GameId: 3, Votes: 30}
+	msg = message.ScoredReviews{message.ScoredReview{GameId: 3, Votes: 30}}
 	f.updateTop(msg)
 
 	top := f.getTopNScoredReviews()

@@ -7,135 +7,87 @@ import (
 )
 
 type ChunkSender struct {
+	id           int //0 for games, 1 for reviews
 	channel      <-chan ChunkItem
 	broker       amqp.MessageBroker
 	exchange     string
-	reviewsCount uint8
-	gamesCount   uint8
-	reviewsChunk []message.DataCSVReviews
-	gamesChunk   []message.DataCSVGames
+	chunk        []any
 	maxChunkSize uint8
-	routingKeys  map[message.ID]string
+	routingKey   string
 }
 
 type ChunkItem struct {
 	MsgId message.ID
-	Msg   []byte //DataCSVGames or DataCSVReviews bytes
+	Msg   any //DataCSVGames or DataCSVReviews
 }
 
-type ToBytes func(any) ([]byte, error)
-
-func wrapReviewFromClientReview(data any) ([]byte, error) {
-	return message.ReviewFromClientReview(data.([]message.DataCSVReviews))
-}
-
-func wrapGamesFromClientGames(data any) ([]byte, error) {
-	return message.GameFromClientGame(data.([]message.DataCSVGames))
-}
-
-func newChunkSender(channel <-chan ChunkItem, broker amqp.MessageBroker, exchange string, chunkMaxSize uint8, rRoutingKey string, gRoutingKey string) *ChunkSender {
+func newChunkSender(id int, channel <-chan ChunkItem, broker amqp.MessageBroker, exchange string, chunkMaxSize uint8, routingKey string) *ChunkSender {
 	return &ChunkSender{
+		id:           id,
 		channel:      channel,
 		broker:       broker,
 		exchange:     exchange,
-		reviewsCount: 0,
-		gamesCount:   0,
-		reviewsChunk: make([]message.DataCSVReviews, chunkMaxSize),
-		gamesChunk:   make([]message.DataCSVGames, chunkMaxSize),
+		chunk:        make([]any, 0, chunkMaxSize),
 		maxChunkSize: chunkMaxSize,
-		routingKeys: map[message.ID]string{
-			message.ReviewIdMsg: rRoutingKey,
-			message.GameIdMsg:   gRoutingKey,
-		},
+		routingKey:   routingKey,
 	}
 }
 
-func startChunkSender(channel <-chan ChunkItem, broker amqp.MessageBroker, exchange string, chunkMaxSize uint8, rRoutingKey string, gRoutingKey string) {
-	chunkSender := newChunkSender(channel, broker, exchange, chunkMaxSize, rRoutingKey, gRoutingKey)
+func startChunkSender(id int, channel <-chan ChunkItem, broker amqp.MessageBroker, exchange string, chunkMaxSize uint8, routingKey string) {
+	s := newChunkSender(id, channel, broker, exchange, chunkMaxSize, routingKey)
 	for {
 		item := <-channel
-		switch item.MsgId {
-		case message.ReviewIdMsg:
-			if item.Msg == nil { //eof
-				chunkSender.updateReviewsChunk(message.DataCSVReviews{}, true)
-			} else {
-				chunkSender.updateReviewsChunk(parseClientPayload(message.ReviewIdMsg, item.Msg).(message.DataCSVReviews), false)
-			}
-		case message.GameIdMsg:
-			if item.Msg == nil { //eof
-				chunkSender.updateGamesChunk(message.DataCSVGames{}, true)
-			} else {
-				chunkSender.updateGamesChunk(parseClientPayload(message.GameIdMsg, item.Msg).(message.DataCSVGames), false)
-			}
-		default:
-			logs.Logger.Errorf("Unsupported message ID: %d", item.MsgId)
-		}
+		s.updateChunk(item.Msg, item.Msg == nil)
 	}
 }
 
-// parseClientPayload parses the payload received from the client and returns a DataCsvReviews or DataCsvGames
-func parseClientPayload(msgId message.ID, payload []byte) any {
-	var data any
-
-	switch msgId {
-	case message.ReviewIdMsg:
-		data, _ = message.DataCSVReviewsFromBytes(payload)
-	case message.GameIdMsg:
-		data, _ = message.DataCSVGamesFromBytes(payload)
-	default:
-		logs.Logger.Errorf("Unsupported message ID: %d", msgId)
-	}
-
-	return data
-}
-
-func (s *ChunkSender) updateReviewsChunk(reviews message.DataCSVReviews, eof bool) {
+func (s *ChunkSender) updateChunk(data any, eof bool) {
 	if !eof {
-		s.reviewsChunk[s.reviewsCount] = reviews
-		s.reviewsCount++
-		s.sendChunk(uint8(message.ReviewIdMsg), s.routingKeys[message.ReviewIdMsg], &s.reviewsCount, s.reviewsChunk, wrapReviewFromClientReview, eof)
-	} else {
-		s.reviewsCount = 0
-		s.sendChunk(uint8(message.EofMsg), s.routingKeys[message.ReviewIdMsg], &s.reviewsCount, nil, wrapReviewFromClientReview, eof)
+		s.chunk = append(s.chunk, data)
 	}
-}
 
-func (s *ChunkSender) updateGamesChunk(games message.DataCSVGames, eof bool) {
-	if !eof {
-		s.gamesChunk[s.gamesCount] = games
-		s.gamesCount++
-		s.sendChunk(uint8(message.GameIdMsg), s.routingKeys[message.GameIdMsg], &s.gamesCount, s.gamesChunk, wrapGamesFromClientGames, eof)
-	} else {
-		s.gamesCount = 0
-		s.sendChunk(uint8(message.EofMsg), s.routingKeys[message.GameIdMsg], &s.gamesCount, nil, wrapGamesFromClientGames, eof)
-	}
+	s.sendChunk(eof)
 }
 
 // sendChunk sends a chunk of data to the broker if the chunk is full or the eof flag is true
 // In case eof is true, it sends an EOF message to the broker
-func (s *ChunkSender) sendChunk(msgId uint8, routingKey string, count *uint8, chunk any, mapper ToBytes, eof bool) {
-	if (*count == s.maxChunkSize) || (eof && *count > 0) {
-		bytes, err := mapper(chunk)
+// if a chunk was sent restarts count
+func (s *ChunkSender) sendChunk(eof bool) {
+	messageId := matchMessageId(s.id)
+	if len(s.chunk) > 0 && (len(s.chunk) >= int(s.maxChunkSize) || eof) {
+		bytes, err := toBytes(messageId, s.chunk)
 		if err != nil {
 			logs.Logger.Errorf("Error converting chunk to bytes: %s", err.Error())
-			return
 		}
 
-		err = s.broker.Publish(s.exchange, routingKey, bytes, map[string]any{amqp.MessageIdHeader: msgId})
+		err = s.broker.Publish(s.exchange, s.routingKey, bytes, map[string]any{amqp.MessageIdHeader: uint8(messageId)})
 		if err != nil {
 			logs.Logger.Errorf("Error publishing chunk: %s", err.Error())
-			return
 		}
 
-		*count = 0
-		chunk = make([]any, s.maxChunkSize)
-		logs.Logger.Debugf("Sent chunk with key %v", routingKey)
-	} else if eof {
-		err := s.broker.Publish(s.exchange, routingKey, nil, map[string]any{amqp.MessageIdHeader: msgId})
+		s.chunk = make([]any, 0, s.maxChunkSize)
+	}
+	if eof {
+		err := s.broker.Publish(s.exchange, s.routingKey, amqp.EmptyEof, map[string]any{amqp.MessageIdHeader: uint8(message.EofMsg)})
 		if err != nil {
 			logs.Logger.Errorf("Error publishing EOF: %s", err.Error())
-			return
 		}
-		logs.Logger.Infof("Sent eof with key %v", routingKey)
+		logs.Logger.Infof("Sent eof with key %v", s.routingKey)
+		s.chunk = make([]any, 0, s.maxChunkSize)
 	}
+}
+
+func toBytes(msgId message.ID, chunk []any) ([]byte, error) {
+	if msgId == message.ReviewIdMsg {
+		reviews := make([]message.DataCSVReviews, 0, len(chunk))
+		for _, v := range chunk {
+			reviews = append(reviews, v.(message.DataCSVReviews))
+		}
+		return message.ReviewsFromClientReviews(reviews)
+	}
+	games := make([]message.DataCSVGames, 0, len(chunk))
+	for _, v := range chunk {
+		games = append(games, v.(message.DataCSVGames))
+	}
+	return message.GamesFromClientGames(games)
 }

@@ -2,7 +2,6 @@ package joiner
 
 import (
 	"fmt"
-
 	"tp1/internal/errors"
 	"tp1/internal/worker"
 	"tp1/pkg/amqp"
@@ -79,7 +78,7 @@ func (t *top) processEof(origin uint8) {
 	}
 
 	if t.recvReviewEof && t.recvGameEof {
-		if err := t.w.Broker.HandleEofMessage(t.w.Id, 0, message.Eof{}, nil, t.w.InputEof, amqp.DestinationEof(t.output)); err != nil {
+		if err := t.w.Broker.HandleEofMessage(t.w.Id, 0, amqp.EmptyEof, nil, t.w.InputEof, amqp.DestinationEof(t.output)); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 
@@ -102,7 +101,7 @@ func (t *top) processReview(msg message.ScoredReview) {
 		return
 	}
 
-	b, err := message.ScoredReview{GameId: msg.GameId, GameName: info.gameName, Votes: info.votes + msg.Votes}.ToBytes()
+	b, err := message.ScoredReviews{{GameId: msg.GameId, GameName: info.gameName, Votes: info.votes + msg.Votes}}.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 	} else if err = t.w.Broker.Publish(t.output.Exchange, t.output.Key, b, map[string]any{amqp.MessageIdHeader: uint8(message.ScoredReviewID)}); err != nil {
@@ -119,10 +118,10 @@ func (t *top) processGame(msg message.GameName) {
 
 	t.gameInfoById[msg.GameId] = topGameInfo{gameName: msg.GameName, votes: info.votes}
 
-	b, err := message.ScoredReview{GameId: msg.GameId, Votes: info.votes, GameName: msg.GameName}.ToBytes()
+	b, err := message.ScoredReviews{{GameId: msg.GameId, Votes: info.votes, GameName: msg.GameName}}.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-	} else if err = t.w.Broker.Publish(t.output.Exchange, t.output.Key, b, map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID)}); err != nil {
+	} else if err = t.w.Broker.Publish(t.output.Exchange, t.output.Key, b, map[string]any{amqp.MessageIdHeader: uint8(message.ScoredReviewID)}); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 }

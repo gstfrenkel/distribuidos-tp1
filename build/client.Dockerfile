@@ -10,4 +10,6 @@ COPY cmd/client/client.go ./main.go
 COPY pkg/ ./pkg/
 COPY internal/client/ ./internal/client/
 
-ENTRYPOINT ["go", "run", "main.go"]
+RUN CGO_ENABLED=0 GOOS=linux go build -o /main
+
+ENTRYPOINT ["/main"]

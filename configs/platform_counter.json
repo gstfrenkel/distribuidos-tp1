@@ -2,7 +2,7 @@
   "input-queues": {
     "exchange": "platform_count",
     "name": "platforms",
-    "key": ""
+    "key": "input"
   },
   "output-queues": [
     {
