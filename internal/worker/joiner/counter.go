@@ -39,7 +39,6 @@ func (c *counter) Init() error {
 
 func (c *counter) Start() {
 	c.target = uint64(c.w.Query.(float64))
-
 	c.w.Start(c)
 }
 
@@ -70,6 +69,7 @@ func (c *counter) Process(delivery amqp.Delivery) {
 }
 
 func (c *counter) processEof(origin uint8) {
+	logs.Logger.Infof("Received EOF: %d", origin)
 	if origin == amqp.GameOriginId {
 		c.recvGameEof = true
 	} else if origin == amqp.ReviewOriginId {
@@ -100,7 +100,10 @@ func (c *counter) processReview(msg message.ScoredReview) {
 		return
 	}
 
+	logs.Logger.Infof("Query 4 before checking target: %v", info)
+
 	if info.gameName != "" && info.votes+msg.Votes >= c.target {
+		logs.Logger.Infof("LLEGÓ")
 		b, err := message.GameName{GameId: msg.GameId, GameName: info.gameName}.ToBytes()
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
@@ -136,4 +139,7 @@ func (c *counter) processGame(msg message.GameName, b []byte) {
 	} else { // Reviews have been received, but they do not exceed the target vote count.
 		c.gameInfoById[msg.GameId] = counterGameInfo{gameName: msg.GameName, votes: info.votes}
 	}
+
+	logs.Logger.Infof("Query 4 before checking target: %v", c.gameInfoById[msg.GameId])
+
 }

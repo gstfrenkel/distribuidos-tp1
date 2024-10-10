@@ -36,6 +36,20 @@ services:
     volumes:
       - ./configs/action.json:/app/config.json
 
+  joiner-counter-filter-1:
+    container_name: joiner-counter-filter-1
+    image: joiner-counter-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - rabbitmq
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/joiner_counter.json:/app/config.json
+
   review-text-filter-1:
     container_name: review-text-filter-1
     image: review-text-filter:latest
