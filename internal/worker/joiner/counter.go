@@ -93,6 +93,7 @@ func (c *counter) processEof(origin uint8) {
 
 func (c *counter) processReview(msg message.ScoredReview) {
 	info, ok := c.gameInfoById[msg.GameId]
+	//logs.Logger.Infof("Received Scored Review: %v and had: %v", msg, info)
 	if !ok {
 		c.gameInfoById[msg.GameId] = counterGameInfo{votes: msg.Votes}
 		return
@@ -107,6 +108,7 @@ func (c *counter) processReview(msg message.ScoredReview) {
 			return
 		}
 
+		logs.Logger.Infof("Query 4 result: %v", message.GameName{GameId: msg.GameId, GameName: info.gameName})
 		if err = c.w.Broker.Publish(c.w.Outputs[0].Exchange, c.w.Outputs[0].Key, b, map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID)}); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		} else {
@@ -125,6 +127,7 @@ func (c *counter) processGame(msg message.GameName, b []byte) {
 	}
 
 	if info.votes >= c.target { // Reviews have been received, and they exceed the target vote count.
+		logs.Logger.Infof("Query 4 result: %v", msg)
 		if err := c.w.Broker.Publish(c.w.Outputs[0].Exchange, c.w.Outputs[0].Key, b, map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID)}); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 			return

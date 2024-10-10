@@ -46,6 +46,7 @@ func (p *percentile) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
+		logs.Logger.Infof("Received EOF")
 		p.processEof(delivery.Headers[amqp.OriginIdHeader].(uint8))
 	} else if messageId == message.ScoredReviewID {
 		msg, err := message.ScoredReviewFromBytes(delivery.Body)
@@ -127,6 +128,8 @@ func (p *percentile) processGame(msg message.GameName) {
 }
 
 func (p *percentile) publish(reviews message.ScoredReviews) {
+	logs.Logger.Infof("Sending percentile info: %v", reviews)
+
 	b, err := reviews.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())

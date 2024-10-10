@@ -36,9 +36,9 @@ services:
     volumes:
       - ./configs/review.json:/app/config.json
 
-  indie-filter-1:
-    container_name: indie-filter-1
-    image: indie-filter:latest
+  action-filter-1:
+    container_name: action-filter-1
+    image: action-filter:latest
     environment:
       - worker-id=0
     depends_on:
@@ -48,11 +48,11 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/indie.json:/app/config.json
+      - ./configs/action.json:/app/config.json
 
-  joiner-top-filter-1:
-    container_name: joiner-top-filter-1
-    image: joiner-top-filter:latest
+  joiner-percentile-filter-1:
+    container_name: joiner-percentile-filter-1
+    image: joiner-percentile-filter:latest
     environment:
       - worker-id=0
     depends_on:
@@ -62,11 +62,11 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/joiner_top.json:/app/config.json
+      - ./configs/joiner_percentile.json:/app/config.json
 
-  topn-filter-1:
-    container_name: topn-filter-1
-    image: topn:latest
+  percentile-filter-1:
+    container_name: percentile-filter-1
+    image: percentile:latest
     environment:
       - worker-id=0
     depends_on:
@@ -76,21 +76,7 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/topn.json:/app/config.json
-
-  topn-aggregator-1:
-    container_name: topn-aggregator-1
-    image: topn:latest
-    environment:
-      - worker-id=0
-    depends_on:
-      - gateway
-    links:
-      - rabbitmq
-    networks:
-      - tp1_net
-    volumes:
-      - ./configs/topn_agg.json:/app/config.json
+      - ./configs/percentile.json:/app/config.json
 
 networks:
   tp1_net:

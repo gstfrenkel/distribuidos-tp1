@@ -39,6 +39,7 @@ func (f *filter) Process(delivery amqp.Delivery) {
 		f.publish()
 	} else if messageId == message.ScoredReviewID {
 		msg, err := message.ScoredReviewsFromBytes(delivery.Body)
+		logs.Logger.Infof("Received scored reviews: %v", msg)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 			return
@@ -55,7 +56,9 @@ func (f *filter) saveScoredReview(msg message.ScoredReviews) {
 }
 
 func (f *filter) publish() {
-	bytes, err := f.getGamesInPercentile().ToGameNameBytes()
+	gamesInPercentile := f.getGamesInPercentile()
+	logs.Logger.Infof("Games in percentile %d: %v", f.n, gamesInPercentile)
+	bytes, err := gamesInPercentile.ToGameNameBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err)
 		return

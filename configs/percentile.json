@@ -1,7 +1,7 @@
 {
   "query": 90,
   "input-queues": [{
-    "name": "joined_percentile_%d"
+    "name": "joined_percentile"
   }],
   "output-queues": [
     {

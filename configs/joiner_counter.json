@@ -1,5 +1,5 @@
 {
-  "query": 8700,
+  "query": 1000,
   "input-queues": [
     {"name": "reviews_q4_%d"},
     {"name": "action_q4_%d"}
