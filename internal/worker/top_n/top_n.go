@@ -112,9 +112,10 @@ func (f *filter) publish() {
 }
 
 func (f *filter) getTopNScoredReviews() message.ScoredReviews {
-	topNAsSlice := make([]message.ScoredReview, f.top.Len())
-	for i := 0; i < f.n; i++ {
-		topNAsSlice[(f.n-1)-i] = *heap.Pop(&f.top).(*message.ScoredReview)
+	length := f.top.Len()
+	topNAsSlice := make([]message.ScoredReview, length)
+	for i := 0; i < length; i++ {
+		topNAsSlice[(length-1)-i] = *heap.Pop(&f.top).(*message.ScoredReview)
 	}
 	return topNAsSlice
 }
