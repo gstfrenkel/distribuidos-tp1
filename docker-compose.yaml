@@ -22,37 +22,51 @@ services:
     volumes:
       - ./configs/gateway.toml:/app/config.toml
 
-  platform-filter-1:
-    container_name: platform-filter-1
-    image: platform-filter:latest
+  reviews-filter-1:
+    container_name: reviews-filter-1
+    image: reviews-filter:latest
     environment:
       - worker-id=0
     depends_on:
       - rabbitmq
     links:
-      - gateway
+      - rabbitmq
     networks:
       - tp1_net
     volumes:
-      - ./configs/platform.json:/app/config.json
+      - ./configs/review.json:/app/config.json
 
-  platform-counter-1:
-    container_name: platform-counter-1
-    image: platform-counter:latest
+  indie-filter-1:
+    container_name: indie-filter-1
+    image: indie-filter:latest
     environment:
       - worker-id=0
     depends_on:
-      - gateway
+      - rabbitmq
     links:
       - rabbitmq
     networks:
       - tp1_net
     volumes:
-      - ./configs/platform_counter.json:/app/config.json
+      - ./configs/indie.json:/app/config.json
 
-  platform-aggregator-1:
-    container_name: platform-aggregator-1
-    image: platform-counter:latest
+  joiner-top-filter-1:
+    container_name: joiner-top-filter-1
+    image: joiner-top-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - rabbitmq
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/joiner_top.json:/app/config.json
+
+  topn-filter-1:
+    container_name: topn-filter-1
+    image: topn:latest
     environment:
       - worker-id=0
     depends_on:
@@ -62,7 +76,21 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/platform_counter_agg.json:/app/config.json
+      - ./configs/topn.json:/app/config.json
+
+  topn-aggregator-1:
+    container_name: topn-aggregator-1
+    image: topn:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - gateway
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/topn_agg.json:/app/config.json
 
 networks:
   tp1_net:

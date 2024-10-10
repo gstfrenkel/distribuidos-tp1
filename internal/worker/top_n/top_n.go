@@ -41,7 +41,7 @@ func (f *filter) Process(delivery amqp.Delivery) {
 	if messageId == message.EofMsg {
 		f.publish()
 	} else if messageId == message.ScoredReviewID {
-		msg, err := message.ScoredReviewFromBytes(delivery.Body)
+		msg, err := message.ScoredReviewsFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 			return
@@ -53,15 +53,17 @@ func (f *filter) Process(delivery amqp.Delivery) {
 	}
 }
 
-func (f *filter) updateTop(msg message.ScoredReview) {
-	notInTop := f.fixHeap(msg)
+func (f *filter) updateTop(msg message.ScoredReviews) {
+	for _, msg := range msg {
+		notInTop := f.fixHeap(msg)
 
-	if notInTop {
-		if f.top.Len() < f.n {
-			heap.Push(&f.top, &msg)
-		} else if msg.Votes > f.top[0].Votes { //the game has more votes than the lowest in the top N
-			heap.Pop(&f.top)
-			heap.Push(&f.top, &msg)
+		if notInTop {
+			if f.top.Len() < f.n {
+				heap.Push(&f.top, &msg)
+			} else if msg.Votes > f.top[0].Votes { //the game has more votes than the lowest in the top N
+				heap.Pop(&f.top)
+				heap.Push(&f.top, &msg)
+			}
 		}
 	}
 }
@@ -84,6 +86,7 @@ func (f *filter) fixHeap(msg message.ScoredReview) bool {
 func (f *filter) publish() {
 	headers := map[string]any{amqp.MessageIdHeader: uint8(message.ScoredReviewID)}
 	topNScoredReviews := f.getTopNScoredReviews()
+	logs.Logger.Infof("Top %d games with most votes: %v", f.n, topNScoredReviews)
 	bytes, err := topNScoredReviews.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())

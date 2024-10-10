@@ -16,7 +16,7 @@
       "exchange": "indie",
       "name": "indie_q3_%d",
       "key": "%d",
-      "consumers": 2
+      "consumers": 1
     }
   ],
   "exchanges": [
