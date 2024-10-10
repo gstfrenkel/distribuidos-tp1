@@ -98,7 +98,7 @@ func (c *Client) Start() {
 }
 
 func (c *Client) handleSigterm() {
-	logs.Logger.Info("SIGTERM")
+	logs.Logger.Info("Sigterm Signal Received... Shutting down")
 	c.stoppedMutex.Lock()
 	c.stopped = true
 	c.stoppedMutex.Unlock()
