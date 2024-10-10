@@ -82,7 +82,7 @@ func (f *filter) fixHeap(msg message.ScoredReview) bool {
 // Eof msg received, so all msgs were received too.
 // Send the top n games to the broker
 func (f *filter) publish() {
-	headers := map[string]any{amqp.MessageIdHeader: message.ScoredReviewID}
+	headers := map[string]any{amqp.MessageIdHeader: uint8(message.ScoredReviewID)}
 	topNScoredReviews := f.getTopNScoredReviews()
 	bytes, err := topNScoredReviews.ToBytes()
 	if err != nil {
@@ -92,7 +92,7 @@ func (f *filter) publish() {
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, bytes, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
-	logs.Logger.Infof("Top %d games sent", f.n)
+	logs.Logger.Debugf("Top %d games sent", f.n)
 }
 
 func (f *filter) getTopNScoredReviews() message.ScoredReviews {

@@ -5,9 +5,6 @@ import (
 	"net"
 )
 
-const U8Size = 1
-const U64Size = 8
-
 // SendAll Sends all data to a connection socket
 func SendAll(conn net.Conn, data []byte) error {
 	total := len(data)
@@ -22,10 +19,12 @@ func SendAll(conn net.Conn, data []byte) error {
 	return nil
 }
 
-func ReadU8FromSlice(buf []byte) uint8 {
-	return buf[0]
+func ReadU32FromSlice(buf []byte) uint32 {
+	return binary.BigEndian.Uint32(buf)
 }
 
-func ReadU64FromSlice(buf []byte) uint64 {
-	return binary.BigEndian.Uint64(buf)
+// MoveBuff moves the buffer n positions to the left keeping the original capacity
+func MoveBuff(data []byte, n int) []byte {
+	copy(data, data[n:])
+	return data[:len(data)-n]
 }

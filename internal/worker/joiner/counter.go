@@ -107,7 +107,7 @@ func (c *counter) processReview(msg message.ScoredReview) {
 			return
 		}
 
-		if err = c.w.Broker.Publish(c.w.Outputs[0].Exchange, c.w.Outputs[0].Key, b, map[string]any{amqp.MessageIdHeader: message.GameNameID}); err != nil {
+		if err = c.w.Broker.Publish(c.w.Outputs[0].Exchange, c.w.Outputs[0].Key, b, map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID)}); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		} else {
 			c.gameInfoById[msg.GameId] = counterGameInfo{gameName: msg.GameName, votes: info.votes, sent: true}
@@ -125,7 +125,7 @@ func (c *counter) processGame(msg message.GameName, b []byte) {
 	}
 
 	if info.votes >= c.target { // Reviews have been received, and they exceed the target vote count.
-		if err := c.w.Broker.Publish(c.w.Outputs[0].Exchange, c.w.Outputs[0].Key, b, map[string]any{amqp.MessageIdHeader: message.GameNameID}); err != nil {
+		if err := c.w.Broker.Publish(c.w.Outputs[0].Exchange, c.w.Outputs[0].Key, b, map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID)}); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 			return
 		}

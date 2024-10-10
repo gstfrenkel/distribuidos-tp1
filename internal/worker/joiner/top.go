@@ -105,7 +105,7 @@ func (t *top) processReview(msg message.ScoredReview) {
 	b, err := message.ScoredReview{GameId: msg.GameId, GameName: info.gameName, Votes: info.votes + msg.Votes}.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-	} else if err = t.w.Broker.Publish(t.output.Exchange, t.output.Key, b, map[string]any{amqp.MessageIdHeader: message.ScoredReviewID}); err != nil {
+	} else if err = t.w.Broker.Publish(t.output.Exchange, t.output.Key, b, map[string]any{amqp.MessageIdHeader: uint8(message.ScoredReviewID)}); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 }
@@ -122,7 +122,7 @@ func (t *top) processGame(msg message.GameName) {
 	b, err := message.ScoredReview{GameId: msg.GameId, Votes: info.votes, GameName: msg.GameName}.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-	} else if err = t.w.Broker.Publish(t.output.Exchange, t.output.Key, b, map[string]any{amqp.MessageIdHeader: message.GameNameID}); err != nil {
+	} else if err = t.w.Broker.Publish(t.output.Exchange, t.output.Key, b, map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID)}); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 }

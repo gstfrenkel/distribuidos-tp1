@@ -2,13 +2,12 @@ package client
 
 import (
 	"encoding/csv"
-	"fmt"
 	"io"
-	"log"
 	"net"
 	"os"
 	"reflect"
 	"strconv"
+	"tp1/pkg/logs"
 	"tp1/pkg/message"
 )
 
@@ -16,7 +15,7 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 
 	file, err := os.Open(filename)
 	if err != nil {
-		fmt.Println("Error opening CSV file:", err)
+		logs.Logger.Errorf("Error opening CSV file: %s", err)
 		return
 	}
 	defer file.Close()
@@ -24,12 +23,12 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 	reader := csv.NewReader(file)
 
 	// Read and ignore the first line (headers)
-	if _, err := reader.Read(); err != nil {
+	if _, err = reader.Read(); err != nil {
 		if err == io.EOF {
-			fmt.Println("CSV file is empty.")
+			logs.Logger.Error("CSV file is empty.")
 			return
 		}
-		fmt.Println("Error reading CSV file:", err)
+		logs.Logger.Errorf("Error reading CSV file: %s", err)
 		return
 	}
 
@@ -39,7 +38,7 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 			break
 		}
 		if err != nil {
-			fmt.Println("Error reading CSV file:", err)
+			logs.Logger.Errorf("Error reading CSV file: %s", err)
 			return
 		}
 
@@ -70,7 +69,7 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 						field.SetBool(value)
 					}
 				default:
-					log.Printf("Unsupported type: %s", field.Kind())
+					logs.Logger.Infof("Unsupported type: %s", field.Kind())
 				}
 			}
 		}
@@ -84,30 +83,29 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 		}
 
 		if err != nil {
-			fmt.Println("Error encoding data:", err)
+			logs.Logger.Errorf("Error encoding data: %s", err)
 			continue
 		}
 
 		msg := message.ClientMessage{
-			ID:      id,
-			DataLen: uint64(len(dataBuf)),
+			DataLen: uint32(len(dataBuf)),
 			Data:    dataBuf,
 		}
 
-		if err := message.SendMessage(conn, msg); err != nil {
-			fmt.Println("Error sending message:", err)
+		if err = message.SendMessage(conn, msg); err != nil {
+			logs.Logger.Errorf("Error sending message: %s", err.Error())
+			return
 		}
-		log.Printf("Sent message ID: %d with payload size: %d", id, msg.DataLen)
+		//logs.Logger.Infof("Sent message ID: %d with payload size: %d", id, msg.DataLen)
 	}
 
 	// Send EOF message
 	eofMsg := message.ClientMessage{
-		ID:      id,
 		DataLen: 0, // DataLen = 0 for eof message.
 		Data:    nil,
 	}
 	if err := message.SendMessage(conn, eofMsg); err != nil {
-		fmt.Println("Error sending EOF message:", err)
+		logs.Logger.Errorf("Error sending EOF message: %s", err)
 	}
-	log.Printf("Sent EOF for: %v", eofMsg.ID)
+	logs.Logger.Infof("Sent EOF for: %v", id)
 }

@@ -8,8 +8,7 @@ import (
 )
 
 type ClientMessage struct {
-	ID      uint8
-	DataLen uint64
+	DataLen uint32
 	Data    []byte
 }
 
@@ -68,15 +67,10 @@ const msgIdSize = 1
 const payloadSize = 8
 
 func SendMessage(conn net.Conn, msg ClientMessage) error {
-	// Create message
-	finalMessage := make([]byte, 0, msgIdSize+payloadSize+len(msg.Data))
-	// Append ID
-	finalMessage = append(finalMessage, msg.ID)
-	lenBytes := make([]byte, payloadSize)
-	binary.BigEndian.PutUint64(lenBytes, msg.DataLen)
-	// Append length of the payload
+	finalMessage := make([]byte, 0, 4+len(msg.Data))
+	lenBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(lenBytes, msg.DataLen)
 	finalMessage = append(finalMessage, lenBytes...)
-	// Append payload
 	finalMessage = append(finalMessage, msg.Data...)
 	if err := ioutils.SendAll(conn, finalMessage); err != nil {
 		return fmt.Errorf("failed to send message: %v", err)

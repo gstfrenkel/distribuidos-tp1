@@ -8,6 +8,11 @@ import (
 	"tp1/pkg/message"
 )
 
+var (
+	headersEof = map[string]any{amqp.OriginIdHeader: amqp.GameOriginId}
+	headers    = map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID)}
+)
+
 type filter struct {
 	w *worker.Worker
 }
@@ -30,10 +35,9 @@ func (f *filter) Start() {
 
 func (f *filter) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
-	headers := map[string]any{amqp.OriginIdHeader: amqp.GameOriginId}
 
 	if messageId == message.EofMsg {
-		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, headers, f.w.InputEof, f.w.OutputsEof...); err != nil {
+		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, headersEof, f.w.InputEof, f.w.OutputsEof...); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
 	} else if messageId == message.GameIdMsg {
@@ -50,8 +54,6 @@ func (f *filter) Process(delivery amqp.Delivery) {
 }
 
 func (f *filter) publish(msg message.Game) {
-	headers := map[string]any{amqp.MessageIdHeader: message.GameNameID}
-
 	games := msg.ToGameNamesMessage(f.w.Query.(string))
 	for _, game := range games {
 		b, err := game.ToBytes()

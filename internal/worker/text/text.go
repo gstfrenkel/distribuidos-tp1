@@ -80,7 +80,7 @@ func (f *filter) Process(reviewDelivery amqp.Delivery) {
 }
 
 func (f *filter) publish(msg message.TextReviews) {
-	headers := map[string]any{amqp.MessageIdHeader: message.ReviewWithTextID}
+	headers := map[string]any{amqp.MessageIdHeader: uint8(message.ScoredReviewID)}
 
 	for gameId, reviews := range msg {
 		count := 0
