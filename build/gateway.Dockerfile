@@ -10,4 +10,7 @@ COPY cmd/gateway/gateway.go ./main.go
 COPY pkg/ ./pkg/
 COPY internal/ ./internal/
 
-ENTRYPOINT ["go", "run", "main.go"]
+# Compilar la aplicación Go
+RUN go build -o /app/gateway main.go
+
+ENTRYPOINT ["/app/gateway"]

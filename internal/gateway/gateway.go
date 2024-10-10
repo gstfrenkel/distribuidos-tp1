@@ -136,6 +136,7 @@ func (g *Gateway) free(sigs chan os.Signal) {
 }
 
 func (g *Gateway) HandleSIGTERM() {
+	logs.Logger.Info("Received SIGTERM, shutting down")
 	g.finishedMu.Lock()
 	g.finished = true
 	g.finishedMu.Unlock()
