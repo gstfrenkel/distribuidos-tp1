@@ -1,8 +1,10 @@
 {
   "query": 5,
-  "input-queues": [{
-    "name": "joined_top_%d"
-  }],
+  "input-queues": [
+    {
+      "name": "joined_top_%d"
+    }
+  ],
   "output-queues": [
     {
       "exchange": "top",

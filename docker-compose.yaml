@@ -246,6 +246,48 @@ services:
     volumes:
       - ./configs/platform_counter_agg.json:/app/config.json
 
+  topn-playtime-filter-1:
+    container_name: topn-playtime-filter-1
+    image: topn-playtime-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - gateway
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/topn_playtime.json:/app/config.json
+
+  release-date-filter-1:
+    container_name: release-date-filter-1
+    image: release-date-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - gateway
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/release_date.json:/app/config.json
+
+  topn-playtime-aggregator-1:
+    container_name: topn-playtime-aggregator-1
+    image: topn-playtime-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - gateway
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/topn_playtime_agg.json:/app/config.json
+
 networks:
   tp1_net:
     ipam:
