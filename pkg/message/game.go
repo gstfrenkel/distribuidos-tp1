@@ -1,6 +1,9 @@
 package message
 
-import "strings"
+import (
+	"strings"
+	"tp1/pkg/logs"
+)
 
 type Game []game
 
@@ -23,6 +26,7 @@ func GameFromBytes(b []byte) (Game, error) {
 func GameFromClientGame(clientGame []DataCSVGames) ([]byte, error) {
 	gs := make(Game, 0, len(clientGame))
 	for _, g := range clientGame {
+		logs.Logger.Infof("Received Game: %s", g.Name)
 		gs = append(gs, game{
 			GameId:          g.AppID,
 			Name:            g.Name,
@@ -80,9 +84,11 @@ func (g Game) ToPlatformMessage() Platform {
 	for _, h := range g {
 		if h.Windows {
 			result.Windows += 1
-		} else if h.Mac {
+		}
+		if h.Mac {
 			result.Mac += 1
-		} else if h.Linux {
+		}
+		if h.Linux {
 			result.Linux += 1
 		}
 	}

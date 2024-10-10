@@ -3,7 +3,7 @@
   "input-queues": {
     "exchange": "reports",
     "name": "topn_playtime_q2",
-    "key": ""
+    "key": "input"
   },
   "output-queues": [
     {

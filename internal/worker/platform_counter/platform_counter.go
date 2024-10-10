@@ -35,7 +35,7 @@ func (f *filter) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
-		logs.Logger.Infof("Received EOF")
+		logs.Logger.Infof("Received EOF! Sending platform count: %v", f.counter)
 
 		f.publish()
 		f.counter.ResetValues()

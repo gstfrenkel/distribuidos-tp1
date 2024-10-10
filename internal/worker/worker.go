@@ -134,8 +134,6 @@ func (f *Worker) initQueues() error {
 		return err
 	}
 
-	var outputsEof []amqp.DestinationEof
-
 	for _, dst := range f.Outputs {
 		// Queue declaration and binding.
 		_, destination, err := f.initQueue(dst)
@@ -144,7 +142,7 @@ func (f *Worker) initQueues() error {
 		}
 		// EOF Output queue processing.
 		for _, aux := range destination {
-			outputsEof = append(outputsEof, amqp.DestinationEof(aux))
+			f.OutputsEof = append(f.OutputsEof, amqp.DestinationEof(aux))
 		}
 	}
 

@@ -31,10 +31,10 @@ func (c *Client) Start() {
 	logs.Logger.Info("Client running...")
 	address := c.cfg.String("gateway.address", "172.25.125.100")
 
-	gamesPort := c.cfg.String("gateway.games_port", "5050")
+	gamesPort := c.cfg.String("gateway.games_port", "5051")
 	gamesFullAddress := address + ":" + gamesPort
 
-	reviewsPort := c.cfg.String("gateway.reviews_port", "5051")
+	reviewsPort := c.cfg.String("gateway.reviews_port", "5050")
 	reviewsFullAddress := address + ":" + reviewsPort
 
 	gamesConn, err := net.Dial("tcp", gamesFullAddress)

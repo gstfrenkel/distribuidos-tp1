@@ -93,10 +93,13 @@ func (s *ChunkSender) updateReviewsChunk(reviews message.DataCSVReviews, eof boo
 	if !eof {
 		s.reviewsChunk[s.reviewsCount] = reviews
 		s.reviewsCount++
-		s.sendChunk(uint8(message.ReviewIdMsg), s.routingKeys[message.ReviewIdMsg], &s.reviewsCount, s.reviewsChunk, wrapReviewFromClientReview, eof)
+		if s.sendChunk(uint8(message.ReviewIdMsg), s.routingKeys[message.ReviewIdMsg], &s.reviewsCount, s.reviewsChunk, wrapReviewFromClientReview, eof) {
+			s.reviewsChunk = make([]message.DataCSVReviews, s.maxChunkSize)
+		}
 	} else {
 		s.reviewsCount = 0
 		s.sendChunk(uint8(message.EofMsg), s.routingKeys[message.ReviewIdMsg], &s.reviewsCount, nil, wrapReviewFromClientReview, eof)
+
 	}
 }
 
@@ -104,7 +107,9 @@ func (s *ChunkSender) updateGamesChunk(games message.DataCSVGames, eof bool) {
 	if !eof {
 		s.gamesChunk[s.gamesCount] = games
 		s.gamesCount++
-		s.sendChunk(uint8(message.GameIdMsg), s.routingKeys[message.GameIdMsg], &s.gamesCount, s.gamesChunk, wrapGamesFromClientGames, eof)
+		if s.sendChunk(uint8(message.GameIdMsg), s.routingKeys[message.GameIdMsg], &s.gamesCount, s.gamesChunk, wrapGamesFromClientGames, eof) {
+			s.gamesChunk = make([]message.DataCSVGames, s.maxChunkSize)
+		}
 	} else {
 		s.gamesCount = 0
 		s.sendChunk(uint8(message.EofMsg), s.routingKeys[message.GameIdMsg], &s.gamesCount, nil, wrapGamesFromClientGames, eof)
@@ -113,29 +118,32 @@ func (s *ChunkSender) updateGamesChunk(games message.DataCSVGames, eof bool) {
 
 // sendChunk sends a chunk of data to the broker if the chunk is full or the eof flag is true
 // In case eof is true, it sends an EOF message to the broker
-func (s *ChunkSender) sendChunk(msgId uint8, routingKey string, count *uint8, chunk any, mapper ToBytes, eof bool) {
+// Returns true if a chunk was sent
+func (s *ChunkSender) sendChunk(msgId uint8, routingKey string, count *uint8, chunk any, mapper ToBytes, eof bool) bool {
 	if (*count == s.maxChunkSize) || (eof && *count > 0) {
 		bytes, err := mapper(chunk)
 		if err != nil {
 			logs.Logger.Errorf("Error converting chunk to bytes: %s", err.Error())
-			return
+			return false
 		}
 
 		err = s.broker.Publish(s.exchange, routingKey, bytes, map[string]any{amqp.MessageIdHeader: msgId})
 		if err != nil {
 			logs.Logger.Errorf("Error publishing chunk: %s", err.Error())
-			return
+			return false
 		}
 
 		*count = 0
-		chunk = make([]any, s.maxChunkSize)
 		logs.Logger.Debugf("Sent chunk with key %v", routingKey)
+		return true
 	} else if eof {
-		err := s.broker.Publish(s.exchange, routingKey, nil, map[string]any{amqp.MessageIdHeader: msgId})
+		err := s.broker.Publish(s.exchange, routingKey, amqp.EmptyEof, map[string]any{amqp.MessageIdHeader: msgId})
 		if err != nil {
 			logs.Logger.Errorf("Error publishing EOF: %s", err.Error())
-			return
+			return false
 		}
 		logs.Logger.Infof("Sent eof with key %v", routingKey)
+		return true
 	}
+	return false
 }

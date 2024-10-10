@@ -3,7 +3,7 @@
   "input-queues": {
     "exchange": "topn_playtime",
     "name": "release_date",
-    "key": ""
+    "key": "input"
   },
   "output-queues": [
     {

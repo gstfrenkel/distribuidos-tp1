@@ -4,7 +4,7 @@
   "input-queues": {
     "exchange": "release",
     "name": "indie_q2",
-    "key": ""
+    "key": "input"
   },
   "output-queues": [
     {
