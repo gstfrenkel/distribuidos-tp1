@@ -11,8 +11,7 @@ import (
 	"tp1/pkg/message"
 )
 
-func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interface{}) {
-
+func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interface{}, sigChan chan os.Signal) {
 	file, err := os.Open(filename)
 	if err != nil {
 		logs.Logger.Errorf("Error opening CSV file: %s", err)
@@ -32,74 +31,82 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 		return
 	}
 
+	loop:
 	for {
-		record, err := reader.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			logs.Logger.Errorf("Error reading CSV file: %s", err)
-			return
-		}
+		select {
+		case <-sigChan:
+			logs.Logger.Info("Received shutdown signal, terminating readAndSendCSV...")
+			break loop
 
-		// Populate the dataStruct with appropriate type conversion
-		v := reflect.ValueOf(dataStruct).Elem()
-		for i := 0; i < v.NumField(); i++ {
-			if i < len(record) {
-				field := v.Field(i)
+		default:
+			record, err := reader.Read()
+			if err == io.EOF {
+				break loop 
+			}
+			if err != nil {
+				logs.Logger.Errorf("Error reading CSV file: %s", err)
+				return
+			}
 
-				// Convert the string from the CSV to the correct type
-				switch field.Kind() {
-				case reflect.String:
-					field.SetString(record[i])
-				case reflect.Int64:
-					if value, err := strconv.ParseInt(record[i], 10, 64); err == nil {
-						field.SetInt(value)
+			// Populate the dataStruct with appropriate type conversion
+			v := reflect.ValueOf(dataStruct).Elem()
+			for i := 0; i < v.NumField(); i++ {
+				if i < len(record) {
+					field := v.Field(i)
+
+					// Convert the string from the CSV to the correct type
+					switch field.Kind() {
+					case reflect.String:
+						field.SetString(record[i])
+					case reflect.Int64:
+						if value, err := strconv.ParseInt(record[i], 10, 64); err == nil {
+							field.SetInt(value)
+						}
+					case reflect.Int:
+						if value, err := strconv.Atoi(record[i]); err == nil {
+							field.SetInt(int64(value))
+						}
+					case reflect.Float64:
+						if value, err := strconv.ParseFloat(record[i], 64); err == nil {
+							field.SetFloat(value)
+						}
+					case reflect.Bool:
+						if value, err := strconv.ParseBool(record[i]); err == nil {
+							field.SetBool(value)
+						}
+					default:
+						logs.Logger.Infof("Unsupported type: %s", field.Kind())
 					}
-				case reflect.Int:
-					if value, err := strconv.Atoi(record[i]); err == nil {
-						field.SetInt(int64(value))
-					}
-				case reflect.Float64:
-					if value, err := strconv.ParseFloat(record[i], 64); err == nil {
-						field.SetFloat(value)
-					}
-				case reflect.Bool:
-					if value, err := strconv.ParseBool(record[i]); err == nil {
-						field.SetBool(value)
-					}
-				default:
-					logs.Logger.Infof("Unsupported type: %s", field.Kind())
 				}
 			}
-		}
 
-		// Prepare data for sending
-		var dataBuf []byte
-		if id == uint8(message.ReviewIdMsg) {
-			dataBuf, err = message.DataCSVReviews.ToBytes(*dataStruct.(*message.DataCSVReviews))
-		} else {
-			dataBuf, err = message.DataCSVGames.ToBytes(*dataStruct.(*message.DataCSVGames))
-		}
+			// Prepare data for sending
+			var dataBuf []byte
+			if id == uint8(message.ReviewIdMsg) {
+				dataBuf, err = message.DataCSVReviews.ToBytes(*dataStruct.(*message.DataCSVReviews))
+			} else {
+				dataBuf, err = message.DataCSVGames.ToBytes(*dataStruct.(*message.DataCSVGames))
+			}
 
-		if err != nil {
-			logs.Logger.Errorf("Error encoding data: %s", err)
-			continue
-		}
+			if err != nil {
+				logs.Logger.Errorf("Error encoding data: %s", err)
+				continue
+			}
 
-		msg := message.ClientMessage{
-			DataLen: uint32(len(dataBuf)),
-			Data:    dataBuf,
-		}
+			msg := message.ClientMessage{
+				DataLen: uint32(len(dataBuf)),
+				Data:    dataBuf,
+			}
 
-		if err = message.SendMessage(conn, msg); err != nil {
-			logs.Logger.Errorf("Error sending message: %s", err.Error())
-			return
+			if err = message.SendMessage(conn, msg); err != nil {
+				logs.Logger.Errorf("Error sending message: %s", err.Error())
+				return
+			}
+			logs.Logger.Infof("Sent message ID: %d with payload size: %d", id, msg.DataLen)
 		}
-		//logs.Logger.Infof("Sent message ID: %d with payload size: %d", id, msg.DataLen)
 	}
 
-	// Send EOF message
+	// Send EOF message after breaking out of the loop
 	eofMsg := message.ClientMessage{
 		DataLen: 0, // DataLen = 0 for eof message.
 		Data:    nil,

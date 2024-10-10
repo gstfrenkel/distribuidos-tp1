@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
 	"tp1/pkg/logs"
@@ -12,18 +15,22 @@ import (
 )
 
 type Client struct {
-	cfg config.Config
+	cfg     config.Config
+	sigChan chan os.Signal 
 }
 
 func New() (*Client, error) {
-
 	config, err := provider.LoadConfig("config.toml")
 	if err != nil {
 		return nil, err
 	}
 
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT) // Notify on SIGTERM and SIGINT
+
 	return &Client{
-		cfg: config,
+		cfg:     config,
+		sigChan: sigChan,
 	}, nil
 }
 
@@ -59,7 +66,7 @@ func (c *Client) Start() {
 		defer wg.Done()
 		defer gamesConn.Close()
 
-		readAndSendCSV(c.cfg.String("client.games_path", "data/games.csv"), uint8(message.GameIdMsg), gamesConn, &message.DataCSVGames{})
+		readAndSendCSV(c.cfg.String("client.games_path", "data/games.csv"), uint8(message.GameIdMsg), gamesConn, &message.DataCSVGames{}, c.sigChan)
 		header := make([]byte, 32)
 		if _, err = gamesConn.Read(header); err != nil {
 			logs.Logger.Errorf("Failed to read message: %v", err.Error())
@@ -70,12 +77,20 @@ func (c *Client) Start() {
 		defer wg.Done()
 		defer reviewsConn.Close()
 
-		readAndSendCSV(c.cfg.String("client.reviews_path", "data/reviews.csv"), uint8(message.ReviewIdMsg), reviewsConn, &message.DataCSVReviews{})
+		readAndSendCSV(c.cfg.String("client.reviews_path", "data/reviews.csv"), uint8(message.ReviewIdMsg), reviewsConn, &message.DataCSVReviews{}, c.sigChan)
 		header := make([]byte, 32)
 		if _, err = reviewsConn.Read(header); err != nil {
 			logs.Logger.Errorf("Failed to read message: %v", err.Error())
 		}
 	}()
 
+	go func() {
+		<-c.sigChan
+		logs.Logger.Info("Received shutdown signal, terminating...")
+		gamesConn.Close()
+		reviewsConn.Close()
+	}()
+
 	wg.Wait()
 }
+
