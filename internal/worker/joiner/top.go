@@ -79,7 +79,7 @@ func (t *top) processEof(origin uint8) {
 	}
 
 	if t.recvReviewEof && t.recvGameEof {
-		if err := t.w.Broker.HandleEofMessage(t.w.Id, 0, message.Eof{}, nil, t.w.InputEof, amqp.DestinationEof(t.output)); err != nil {
+		if err := t.w.Broker.HandleEofMessage(t.w.Id, 0, amqp.EmptyEof, nil, t.w.InputEof, amqp.DestinationEof(t.output)); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 

@@ -110,7 +110,7 @@ func (b *messageBroker) HandleEofMessage(workerId, peers uint8, msg []byte, head
 	}
 
 	for _, output := range outputs {
-		if err = b.Publish(output.Exchange, output.Key, message.Eof{}, headers); err != nil {
+		if err = b.Publish(output.Exchange, output.Key, amqp.EmptyEof, headers); err != nil {
 			return err
 		}
 	}

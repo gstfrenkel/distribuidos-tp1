@@ -99,7 +99,7 @@ func (p *percentile) processEof(origin uint8) {
 		p.publish(reviews)
 	}
 
-	if err := p.w.Broker.HandleEofMessage(p.w.Id, 0, message.Eof{}, nil, p.w.InputEof, p.w.OutputsEof...); err != nil {
+	if err := p.w.Broker.HandleEofMessage(p.w.Id, 0, amqp.EmptyEof, nil, p.w.InputEof, p.w.OutputsEof...); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 
