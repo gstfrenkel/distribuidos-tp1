@@ -93,7 +93,6 @@ func (c *counter) processEof(origin uint8) {
 
 func (c *counter) processReview(msg message.ScoredReview) {
 	info, ok := c.gameInfoById[msg.GameId]
-	//logs.Logger.Infof("Received Scored Review: %v and had: %v", msg, info)
 	if !ok {
 		c.gameInfoById[msg.GameId] = counterGameInfo{votes: msg.Votes}
 		return

@@ -84,7 +84,7 @@ func (f *filter) fixHeap(msg message.ScoredReview) bool {
 // Eof msg received, so all msgs were received too.
 // Send the top n games to the broker
 func (f *filter) publish() {
-	headers := map[string]any{amqp.MessageIdHeader: uint8(message.ScoredReviewID)}
+	headers := map[string]any{amqp.MessageIdHeader: uint8(message.ScoredReviewID), amqp.OriginIdHeader: amqp.Query3originId}
 	topNScoredReviews := f.getTopNScoredReviews()
 	logs.Logger.Infof("Top %d games with most votes: %v", f.n, topNScoredReviews)
 	bytes, err := topNScoredReviews.ToBytes()

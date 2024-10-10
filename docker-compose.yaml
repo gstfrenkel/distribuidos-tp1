@@ -78,6 +78,20 @@ services:
     volumes:
       - ./configs/percentile.json:/app/config.json
 
+  review-counter-agg:
+    container_name: review-counter-agg
+    image: counter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      - gateway
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/counter_agg.json:/app/config.json
+
 networks:
   tp1_net:
     ipam:

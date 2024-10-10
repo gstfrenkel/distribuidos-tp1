@@ -1,0 +1,21 @@
+{
+  "input-queues": [
+    {
+      "name": "join_counter"
+    }
+  ],
+  "output-queues": [
+    {
+      "exchange": "reports",
+      "name": "reports",
+      "key": ""
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "reports",
+      "kind": "direct"
+    }
+  ],
+  "log-level": "INFO"
+}

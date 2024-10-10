@@ -39,7 +39,6 @@ func (f *filter) Process(delivery amqp.Delivery) {
 		f.publish()
 	} else if messageId == message.ScoredReviewID {
 		msg, err := message.ScoredReviewsFromBytes(delivery.Body)
-		logs.Logger.Infof("Received scored reviews: %v", msg)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 			return
@@ -64,7 +63,7 @@ func (f *filter) publish() {
 		return
 	}
 
-	headers := map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID)}
+	headers := map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID), amqp.OriginIdHeader: amqp.Query5originId}
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, bytes, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
