@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"sync"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
 	"tp1/pkg/logs"
@@ -51,20 +52,30 @@ func (c *Client) Start() {
 	log.Printf("Games conn: %s", gamesFullAddress)
 	log.Printf("Reviews conn: %s", reviewsFullAddress)
 
-	defer gamesConn.Close()
-	defer reviewsConn.Close()
+	wg := sync.WaitGroup{}
+	wg.Add(2)
 
-	go readAndSendCSV(c.cfg.String("client.games_path", "data/games.csv"), uint8(message.GameIdMsg), gamesConn, &message.DataCSVGames{})
-	go readAndSendCSV(c.cfg.String("client.reviews_path", "data/reviews.csv"), uint8(message.ReviewIdMsg), reviewsConn, &message.DataCSVReviews{})
+	go func() {
+		defer wg.Done()
+		defer gamesConn.Close()
 
-	header := make([]byte, 1024)
-	if _, err = gamesConn.Read(header); err != nil {
-		logs.Logger.Errorf("failed to read message: %v", err.Error())
-	}
+		readAndSendCSV(c.cfg.String("client.games_path", "data/games.csv"), uint8(message.GameIdMsg), gamesConn, &message.DataCSVGames{})
+		header := make([]byte, 32)
+		if _, err = gamesConn.Read(header); err != nil {
+			logs.Logger.Errorf("Failed to read message: %v", err.Error())
+		}
+	}()
 
-	if _, err = reviewsConn.Read(header); err != nil {
-		logs.Logger.Errorf("failed to read message: %v", err.Error())
-	}
+	go func() {
+		defer wg.Done()
+		defer reviewsConn.Close()
 
-	// TODO: recibir resultados del gateway
+		readAndSendCSV(c.cfg.String("client.reviews_path", "data/reviews.csv"), uint8(message.ReviewIdMsg), reviewsConn, &message.DataCSVReviews{})
+		header := make([]byte, 32)
+		if _, err = reviewsConn.Read(header); err != nil {
+			logs.Logger.Errorf("Failed to read message: %v", err.Error())
+		}
+	}()
+
+	wg.Wait()
 }
