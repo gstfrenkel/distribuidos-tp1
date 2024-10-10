@@ -1,20 +1,20 @@
 {
   "query": 10,
   "input-queues": {
-    "exchange": "results",
+    "exchange": "reports",
     "name": "topn_playtime_q2",
     "key": ""
   },
   "output-queues": [
     {
-      "exchange": "results",
-      "name": "q2_results",
+      "exchange": "reports",
+      "name": "reports",
       "key": ""
     }
   ],
   "exchanges": [
     {
-      "name": "results",
+      "name": "reports",
       "kind": "direct"
     }
   ],
