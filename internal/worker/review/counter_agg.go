@@ -1,4 +1,4 @@
-package platform_counter
+package review
 
 import (
 	"tp1/internal/errors"
@@ -9,8 +9,8 @@ import (
 )
 
 type filter struct {
-	counter message.Platform
-	w       *worker.Worker
+	w     *worker.Worker
+	games message.GameNames
 }
 
 func New() (worker.Filter, error) {
@@ -19,11 +19,10 @@ func New() (worker.Filter, error) {
 		return nil, err
 	}
 
-	return &filter{w: w}, nil
+	return &filter{w: w, games: nil}, nil
 }
 
 func (f *filter) Init() error {
-	f.counter = message.Platform{Windows: 0, Linux: 0, Mac: 0}
 	return f.w.Init()
 }
 
@@ -35,45 +34,30 @@ func (f *filter) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
-		logs.Logger.Infof("Received EOF! Sending platform count: %v", f.counter)
-
 		f.publish()
-		f.counter.ResetValues()
-
-		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, nil, f.w.InputEof, f.w.OutputsEof...); err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
-		}
-
-	} else if messageId == message.PlatformID {
-		msg, err := message.PlatfromFromBytes(delivery.Body)
+	} else if messageId == message.GameNameID {
+		msg, err := message.GameNameFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 			return
 		}
-		f.counter.Increment(msg)
-		logs.Logger.Infof("New platform count: %v", f.counter)
-
+		f.games = append(f.games, msg)
 	} else {
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
 	}
 }
 
 func (f *filter) publish() {
-
-	platforms := f.counter
-
-	if platforms.IsEmpty() {
+	if f.games == nil {
 		return
 	}
 
-	b, err := platforms.ToBytes()
+	b, err := f.games.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 	}
 
-	headers := map[string]any{amqp.MessageIdHeader: uint8(message.PlatformID), amqp.OriginIdHeader: amqp.Query1originId}
-	logs.Logger.Infof("Sending %v with key %s", platforms, f.w.Outputs[0].Key)
-
+	headers := map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID), amqp.OriginIdHeader: amqp.Query4originId}
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}

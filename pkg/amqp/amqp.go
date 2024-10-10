@@ -13,6 +13,11 @@ const (
 const (
 	ReviewOriginId uint8 = iota
 	GameOriginId
+	Query1originId
+	Query2originId
+	Query3originId
+	Query4originId
+	Query5originId
 )
 
 var EmptyEof, _ = message.Eof{}.ToBytes()
