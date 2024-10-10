@@ -11,7 +11,7 @@
       "exchange": "text_review",
       "name": "reviews_q4_%d",
       "key": "%d",
-      "consumers": 1
+      "consumers": 2
     }
   ],
   "exchanges": [

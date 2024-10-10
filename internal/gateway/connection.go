@@ -59,6 +59,12 @@ func (g *Gateway) handleConnection(c net.Conn, msgId message.ID) {
 	finished := false
 
 	for !finished {
+		g.finishedMu.Lock()
+		if g.finished {
+			g.finishedMu.Unlock()
+			break
+		}
+		g.finishedMu.Unlock()
 		n, err := c.Read(auxBuf)
 		if err != nil {
 			logs.Logger.Errorf("Error reading from listener: %s", err)
@@ -68,6 +74,13 @@ func (g *Gateway) handleConnection(c net.Conn, msgId message.ID) {
 		buf = append(buf, auxBuf[:n]...)
 
 		for !finished {
+			g.finishedMu.Lock()
+			if g.finished {
+				g.finishedMu.Unlock()
+				break
+			}
+			g.finishedMu.Unlock()
+
 			if len(buf) < LenFieldSize {
 				break
 			}
