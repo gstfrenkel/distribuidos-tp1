@@ -22,20 +22,6 @@ services:
     volumes:
       - ./configs/gateway.toml:/app/config.toml
 
-  reviews-filter-1:
-    container_name: reviews-filter-1
-    image: reviews-filter:latest
-    environment:
-      - worker-id=0
-    depends_on:
-      - rabbitmq
-    links:
-      - rabbitmq
-    networks:
-      - tp1_net
-    volumes:
-      - ./configs/review.json:/app/config.json
-
   action-filter-1:
     container_name: action-filter-1
     image: action-filter:latest
@@ -50,9 +36,9 @@ services:
     volumes:
       - ./configs/action.json:/app/config.json
 
-  joiner-percentile-filter-1:
-    container_name: joiner-percentile-filter-1
-    image: joiner-percentile-filter:latest
+  review-text-filter-1:
+    container_name: review-text-filter-1
+    image: review-text-filter:latest
     environment:
       - worker-id=0
     depends_on:
@@ -62,21 +48,22 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/joiner_percentile.json:/app/config.json
+      - ./configs/text.json:/app/config.json
 
-  percentile-filter-1:
-    container_name: percentile-filter-1
-    image: percentile:latest
+  reviews-filter-1:
+    container_name: reviews-filter-1
+    image: reviews-filter:latest
     environment:
       - worker-id=0
     depends_on:
-      - gateway
+      - rabbitmq
     links:
       - rabbitmq
     networks:
       - tp1_net
     volumes:
-      - ./configs/percentile.json:/app/config.json
+      - ./configs/review.json:/app/config.json
+
 
   review-counter-agg:
     container_name: review-counter-agg
