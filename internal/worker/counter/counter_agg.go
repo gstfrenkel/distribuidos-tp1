@@ -1,4 +1,4 @@
-package review
+package counter
 
 import (
 	"tp1/internal/errors"
