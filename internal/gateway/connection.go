@@ -33,7 +33,7 @@ func (g *Gateway) newListener(configKey string) (net.Listener, error) {
 }
 
 func (g *Gateway) listenForNewClients(listener int) error {
-	logs.Logger.Infof("Waiting for new client connections...")
+	logs.Logger.Infof("Waiting for new client connections, listener %d...", listener)
 	for {
 		g.finishedMu.Lock()
 		if g.finished {
@@ -42,7 +42,7 @@ func (g *Gateway) listenForNewClients(listener int) error {
 		}
 		g.finishedMu.Unlock()
 		c, err := g.Listeners[listener].Accept()
-		logs.Logger.Infof("Successfully established new connection!")
+		logs.Logger.Infof("Successfully established new connection! Listener %d...", listener)
 		if err != nil {
 			return err
 		}
@@ -97,10 +97,6 @@ func (g *Gateway) handleConnection(c net.Conn, msgId message.ID) {
 	sendConfirmationToClient(c)
 }
 
-func (g *Gateway) newBuff() []byte {
-	return make([]byte, g.Config.Int("gateway.buffer_size", 1024))
-}
-
 func readPayloadSize(data []byte) (uint32, []byte) {
 	return ioutils.ReadU32FromSlice(data), ioutils.MoveBuff(data, LenFieldSize)
 }
@@ -113,8 +109,6 @@ func (g *Gateway) processPayload(msgId message.ID, payload []byte, payloadSize u
 		g.sendMsgToChunkSender(msgId, nil)
 		return true
 	}
-
-	//logs.Logger.Infof("%d - Sending %d bytes.", msgId, payloadSize)
 
 	g.sendMsgToChunkSender(msgId, payload)
 	return false
