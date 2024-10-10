@@ -42,7 +42,7 @@ func (f *filter) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 	if messageId == message.EofMsg {
 		f.eofsRecv++
-		if f.eofsRecv > f.w.Peers {
+		if f.eofsRecv >= f.w.Peers {
 			f.publish()
 		}
 	} else if messageId == message.ScoredReviewID {

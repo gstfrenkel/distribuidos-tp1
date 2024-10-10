@@ -46,7 +46,6 @@ func (p *percentile) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
-		logs.Logger.Infof("Received EOF")
 		p.processEof(delivery.Headers[amqp.OriginIdHeader].(uint8))
 	} else if messageId == message.ScoredReviewID {
 		msg, err := message.ScoredReviewFromBytes(delivery.Body)

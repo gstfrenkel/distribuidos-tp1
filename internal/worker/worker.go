@@ -55,12 +55,18 @@ func New() (*Worker, error) {
 		return nil, err
 	}
 
+	var peers uint8
+	if err = cfg.Unmarshal("peers", &peers); err != nil {
+		return nil, err
+	}
+
 	return &Worker{
 		config:     cfg,
 		Query:      query,
 		Broker:     b,
 		SignalChan: signalChan,
 		Id:         uint8(id),
+		Peers:      peers,
 	}, nil
 }
 
