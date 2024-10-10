@@ -1,5 +1,14 @@
-# Distribuidos - TP1
+# Steam Analysis
 
-Colocar los archivos CSV en una carpeta "data" ubicada en la raíz del proyecto. El archivo que contiene los datos de los juegos se debe llamar "games.csv" y que el archivo de las reseñas "reviews.csv".
+Instrucciones para correr el trabajo:
 
-Link descarga datasets: https://drive.google.com/drive/folders/1hKhv2PWNQOPwQOAkEBk4JC-XqFutif65
+- Correr docker
+- Descargar los [datasets](https://drive.google.com/drive/u/1/folders/1Y2euZUeggfJ9A4Ob5gyj8Cl-p9n_LlsX) y ubicarlos en una carpeta `data` en la raíz del proyecto
+- Cada comando a ejecutar está en el Makefile. Por ejemplo:
+    - make docker-compose-up
+    - make docker-compose-up-client
+    - make docker-compose-logs
+    - make docker-compose-down-all
+
+En caso de requerir escalar algun nodo, se debe configurar en el docker-compose.yaml.
+Para abrir el manager de RabbitMQ: http://localhost:15672 con usuario y contraseña `guest`
