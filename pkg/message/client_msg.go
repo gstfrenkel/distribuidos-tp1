@@ -63,9 +63,6 @@ type DataCSVReviews struct {
 	ReviewVotes int64
 }
 
-const msgIdSize = 1
-const payloadSize = 8
-
 func SendMessage(conn net.Conn, msg ClientMessage) error {
 	finalMessage := make([]byte, 0, 4+len(msg.Data))
 	lenBytes := make([]byte, 4)

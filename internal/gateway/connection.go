@@ -51,13 +51,6 @@ func (g *Gateway) listenForNewClients(listener int) error {
 	return nil
 }
 
-func matchMessageId(listener int) message.ID {
-	if listener == ReviewsListener {
-		return message.ReviewIdMsg
-	}
-	return message.GameIdMsg
-}
-
 func (g *Gateway) handleConnection(c net.Conn, msgId message.ID) {
 	sends := 0
 
@@ -115,7 +108,18 @@ func (g *Gateway) processPayload(msgId message.ID, payload []byte, payloadSize u
 }
 
 func (g *Gateway) sendMsgToChunkSender(msgId message.ID, payload []byte) {
-	g.ChunkChan <- ChunkItem{msgId, payload}
+	var data any
+	if payload != nil {
+		if msgId == message.ReviewIdMsg {
+			data, _ = message.DataCSVReviewsFromBytes(payload)
+		} else {
+			data, _ = message.DataCSVGamesFromBytes(payload)
+		}
+	} else {
+		data = nil
+	}
+
+	g.ChunkChans[matchListenerId(msgId)] <- ChunkItem{msgId, data}
 }
 
 func isEndOfFile(payloadSize uint32) bool {

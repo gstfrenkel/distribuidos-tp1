@@ -51,6 +51,8 @@ func (f *filter) Process(delivery amqp.Delivery) {
 			return
 		}
 		f.counter.Increment(msg)
+		logs.Logger.Infof("New platform count: %v", f.counter)
+
 	} else {
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
 	}

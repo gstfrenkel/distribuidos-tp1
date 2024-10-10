@@ -23,10 +23,10 @@ func GameFromBytes(b []byte) (Game, error) {
 	return m, fromBytes(b, &m)
 }
 
-func GameFromClientGame(clientGame []DataCSVGames) ([]byte, error) {
+func GamesFromClientGames(clientGame []DataCSVGames) ([]byte, error) {
 	gs := make(Game, 0, len(clientGame))
 	for _, g := range clientGame {
-		logs.Logger.Infof("Received Game: %s", g.Name)
+		logs.Logger.Infof("Received Game: %s w id: %d", g.Name, g.AppID)
 		gs = append(gs, game{
 			GameId:          g.AppID,
 			Name:            g.Name,
