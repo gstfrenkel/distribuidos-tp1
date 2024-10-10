@@ -1,7 +1,7 @@
 {
   "input-queues": [
     {
-      "name": "join_counter"
+      "name": "joined_counted"
     }
   ],
   "output-queues": [
