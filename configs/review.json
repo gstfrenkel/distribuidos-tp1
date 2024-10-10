@@ -1,0 +1,35 @@
+{
+  "query": [1, -1, -1],
+  "peers": 1,
+  "input-queues": [{
+    "exchange": "review",
+    "name": "reviews",
+    "key": "input"
+  }],
+  "output-queues": [
+    {
+      "exchange": "review",
+      "name": "reviews_q3_%d",
+      "key": "q3-%d",
+      "consumers": 2
+    },
+    {
+      "exchange": "review",
+      "name": "reviews_q4",
+      "key": ""
+    },
+    {
+      "exchange": "review",
+      "name": "reviews_q5_%d",
+      "key": "q5-%d",
+      "consumers": 2
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "review",
+      "kind": "direct"
+    }
+  ],
+  "log-level": "INFO"
+}

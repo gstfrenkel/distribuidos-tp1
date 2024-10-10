@@ -9,8 +9,8 @@ import (
 
 func TestLoadConfig(t *testing.T) {
 	cfg, err := LoadConfig("config.toml")
-	assert.NoError(t, err, "LoadConfig should not return an error")
-	assert.NotNil(t, cfg, "Config should be loaded and not nil")
+	assert.NoError(t, err, "LoadConfig should not return an errors")
+	assert.NotNil(t, cfg, "config should be loaded and not nil")
 }
 
 func TestBool(t *testing.T) {
@@ -87,7 +87,7 @@ func TestUnmarshal(t *testing.T) {
 	var dbConfig GatewayConfig
 
 	err = cfg.Unmarshal("gateway", &dbConfig)
-	assert.NoError(t, err, "Unmarshal should not return an error for existing 'gateway' key")
+	assert.NoError(t, err, "Unmarshal should not return an errors for existing 'gateway' key")
 	assert.Equal(t, "127.0.0.1", dbConfig.Host, "gateway.host should be '127.0.0.1'")
 	assert.Equal(t, 9876, dbConfig.Port, "gateway.port should be 9876")
 }

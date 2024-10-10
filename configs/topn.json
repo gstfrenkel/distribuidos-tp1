@@ -1,0 +1,22 @@
+{
+  "query": 5,
+  "input-queues": [
+    {
+      "name": "joined_top_%d"
+    }
+  ],
+  "output-queues": [
+    {
+      "exchange": "top",
+      "name": "top_queue",
+      "key": ""
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "top",
+      "kind": "direct"
+    }
+  ],
+  "log-level": "INFO"
+}

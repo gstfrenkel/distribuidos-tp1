@@ -1,0 +1,22 @@
+{
+  "query": 10,
+  "input-queues": {
+    "exchange": "topn_playtime",
+    "name": "release_date",
+    "key": "input"
+  },
+  "output-queues": [
+    {
+      "exchange": "topn_playtime",
+      "name": "topn_playtime_q2",
+      "key": ""
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "topn_playtime",
+      "kind": "direct"
+    }
+  ],
+  "log-level": "INFO"
+}
