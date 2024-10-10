@@ -51,7 +51,7 @@ func (c *Client) Start() {
 	//log.Printf("test: %s", fullAddress)
 
 	log.Printf("Games conn: %s", gamesFullAddress)
-	log.Printf("Reviews conn: %s", gamesFullAddress)
+	log.Printf("Reviews conn: %s", reviewsFullAddress)
 
 	defer gamesConn.Close()
 	defer reviewsConn.Close()
@@ -74,7 +74,11 @@ func (c *Client) Start() {
 	}()*/
 
 	header := make([]byte, 1024)
-	if _, err := gamesConn.Read(header); err != nil {
+	if _, err = gamesConn.Read(header); err != nil {
+		logs.Logger.Errorf("failed to read message header: %v", err.Error())
+	}
+
+	if _, err = reviewsConn.Read(header); err != nil {
 		logs.Logger.Errorf("failed to read message header: %v", err.Error())
 	}
 

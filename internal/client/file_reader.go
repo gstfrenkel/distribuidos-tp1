@@ -23,7 +23,7 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 	reader := csv.NewReader(file)
 
 	// Read and ignore the first line (headers)
-	if _, err := reader.Read(); err != nil {
+	if _, err = reader.Read(); err != nil {
 		if err == io.EOF {
 			logs.Logger.Error("CSV file is empty.")
 			return
@@ -92,10 +92,11 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 			Data:    dataBuf,
 		}
 
-		if err := message.SendMessage(conn, msg); err != nil {
-			logs.Logger.Errorf("Error sending message: %s", err)
+		if err = message.SendMessage(conn, msg); err != nil {
+			logs.Logger.Errorf("Error sending message: %s", err.Error())
+			return
 		}
-		//log.Printf("Sent message ID: %d with payload size: %d", id, msg.DataLen)
+		//logs.Logger.Infof("Sent message ID: %d with payload size: %d", id, msg.DataLen)
 	}
 
 	// Send EOF message
