@@ -119,6 +119,7 @@ func (f *Worker) consume(filter Filter, signalChan chan os.Signal, deliveryChan 
 	for {
 		chosen, recv, ok := reflect.Select(cases)
 		if !ok || chosen == 0 {
+			logs.Logger.Fatalf("Signal received. Shutting down...")
 			return
 		}
 		filter.Process(recv.Interface().(amqp.Delivery))

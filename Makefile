@@ -39,14 +39,14 @@ docker-compose-down:
 .PHONY: docker-compose-down
 
 docker-compose-down-client:
-	docker compose -f docker-compose-client.yaml stop -t 1
+	docker compose -f docker-compose-client.yaml stop
 	docker compose -f docker-compose-client.yaml down
 .PHONY: docker-compose-down-client
 
 docker-compose-down-all:
-	docker compose -f docker-compose-client.yaml stop -t 1
+	docker compose -f docker-compose-client.yaml stop
 	docker compose -f docker-compose-client.yaml down
-	docker compose -f docker-compose.yaml stop -t 1
+	docker compose -f docker-compose.yaml stop
 	docker compose -f docker-compose.yaml down
 .PHONY: docker-compose-down-all
 

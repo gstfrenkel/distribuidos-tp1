@@ -8,6 +8,7 @@ import (
 func main() {
 	g, err := gateway.New()
 	if err != nil {
+		logs.Logger.Errorf("Failed to create new gateway: %s", err.Error())
 		return
 	}
 	err = logs.InitLogger(g.Config.String("gateway.log_level", "INFO"))
@@ -15,7 +16,6 @@ func main() {
 		logs.Logger.Errorf("Failed to create new gateway: %s", err.Error())
 		return
 	}
-	logs.Logger.Infof("Starting gateway..........")
 
 	g.Start()
 }

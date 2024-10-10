@@ -13,6 +13,6 @@ COPY internal/worker/worker.go ./internal/worker/
 # Update path to desired entrypoint
 COPY internal/worker/indie/indie.go ./internal/worker/indie/
 
-RUN go build -o /app/indie main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o /main
 
-ENTRYPOINT ["/app/gateway"]
+ENTRYPOINT ["/main"]

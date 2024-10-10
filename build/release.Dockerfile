@@ -13,5 +13,6 @@ COPY internal/worker/worker.go ./internal/worker/
 # Update path to desired entrypoint
 COPY internal/worker/release_date/release_date.go ./internal/worker/release_date/
 
+RUN CGO_ENABLED=0 GOOS=linux go build -o /main
 
-ENTRYPOINT ["go", "run", "main.go"]
+ENTRYPOINT ["/main"]

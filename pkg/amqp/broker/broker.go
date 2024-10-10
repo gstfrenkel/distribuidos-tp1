@@ -14,8 +14,19 @@ type messageBroker struct {
 
 // NewBroker creates a new AMQP connection and channel
 func NewBroker() (amqp.MessageBroker, error) {
-	conn, err := amqpgo.Dial("amqp://guest:guest@rabbitmq:5672/")
-	if err != nil {
+	retries := 0
+	var conn *amqpgo.Connection
+	var err error
+
+	for retries < 3 {
+		conn, err = amqpgo.Dial("amqp://guest:guest@rabbitmq:5672/")
+		if err == nil {
+			break
+		}
+		retries++
+	}
+
+	if retries == 3 {
 		return nil, err
 	}
 
