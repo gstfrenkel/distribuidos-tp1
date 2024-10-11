@@ -13,6 +13,7 @@ type filter struct {
 	w             *worker.Worker
 	n             uint8 //percentile value (0-100)
 	scoredReviews message.ScoredReviews
+	batchSize     uint16
 	eofsRecv      uint8
 }
 
@@ -26,7 +27,10 @@ func New() (worker.Filter, error) {
 }
 
 func (f *filter) Init() error {
-	f.n = uint8(f.w.Query.(float64))
+	params := f.w.Query.([]any)
+	f.n = uint8(params[0].(float64))
+	f.batchSize = uint16(params[1].(float64))
+
 	return f.w.Init()
 }
 
@@ -59,16 +63,38 @@ func (f *filter) saveScoredReview(msg message.ScoredReviews) {
 }
 
 func (f *filter) publish() {
-	gamesInPercentile := f.getGamesInPercentile()
-	logs.Logger.Infof("Games in percentile %d: %v", f.n, gamesInPercentile)
-	bytes, err := gamesInPercentile.ToGameNameBytes()
-	if err != nil {
-		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err)
-		return
-	}
+	games := f.getGamesInPercentile()
+	f.sendBatches(games)
+	f.sendRemaining(games)
+}
 
+func (f *filter) sendBatches(games message.ScoredReviews) {
+	for i := 1; i <= len(games); i++ {
+		if i%int(f.batchSize) == 0 {
+			bytes, err := (games[i-int(f.batchSize) : i]).ToGameNameBytes()
+			if err != nil {
+				logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err)
+				return
+			}
+			f.sendBatch(bytes)
+		}
+	}
+}
+
+func (f *filter) sendRemaining(games message.ScoredReviews) {
+	if len(games)%int(f.batchSize) != 0 {
+		bytes, err := (games[len(games)-len(games)%int(f.batchSize):]).ToGameNameBytes()
+		if err != nil {
+			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err)
+			return
+		}
+		f.sendBatch(bytes)
+	}
+}
+
+func (f *filter) sendBatch(bytes []byte) {
 	headers := map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID), amqp.OriginIdHeader: amqp.Query5originId}
-	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, bytes, headers); err != nil {
+	if err := f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, bytes, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 	logs.Logger.Infof("Games in percentile %d published", f.n)
