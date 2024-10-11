@@ -66,6 +66,7 @@ func (f *filter) publish() {
 	games := f.getGamesInPercentile()
 	f.sendBatches(games)
 	f.sendRemaining(games)
+	f.sendEof()
 	f.reset()
 }
 
@@ -124,4 +125,12 @@ func (f *filter) percentileIdx() int {
 func (f *filter) reset() {
 	f.scoredReviews = message.ScoredReviews{}
 	f.eofsRecv = 0
+}
+
+func (f *filter) sendEof() {
+	if err := f.w.Broker.HandleEofMessage(f.w.Id, 0, amqp.EmptyEof, nil, f.w.InputEof, f.w.OutputsEof...); err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
+	}
+
+	logs.Logger.Infof("Eof message sent")
 }
