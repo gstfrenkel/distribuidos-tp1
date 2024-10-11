@@ -66,6 +66,7 @@ func (f *filter) publish() {
 	games := f.getGamesInPercentile()
 	f.sendBatches(games)
 	f.sendRemaining(games)
+	f.reset()
 }
 
 func (f *filter) sendBatches(games message.ScoredReviews) {
@@ -118,4 +119,9 @@ func (f *filter) percentileIdx() int {
 		percentileIndex = length - 1
 	}
 	return percentileIndex
+}
+
+func (f *filter) reset() {
+	f.scoredReviews = message.ScoredReviews{}
+	f.eofsRecv = 0
 }
