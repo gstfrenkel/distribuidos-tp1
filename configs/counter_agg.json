@@ -1,4 +1,5 @@
 {
+  "peers": 2,
   "input-queues": [
     {
       "name": "joined_counted"

@@ -9,8 +9,9 @@ import (
 )
 
 type filter struct {
-	w     *worker.Worker
-	games message.GameNames
+	w        *worker.Worker
+	games    message.GameNames
+	eofsRecv uint8
 }
 
 func New() (worker.Filter, error) {
@@ -34,7 +35,10 @@ func (f *filter) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
-		f.publish()
+		f.eofsRecv++
+		if f.eofsRecv >= f.w.Peers {
+			f.publish()
+		}
 	} else if messageId == message.GameNameID {
 		msg, err := message.GameNameFromBytes(delivery.Body)
 		if err != nil {
@@ -61,4 +65,11 @@ func (f *filter) publish() {
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
+
+	f.reset()
+}
+
+func (f *filter) reset() {
+	f.games = nil
+	f.eofsRecv = 0
 }
