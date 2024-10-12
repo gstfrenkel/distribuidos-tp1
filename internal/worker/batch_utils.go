@@ -5,7 +5,7 @@ import (
 	"tp1/pkg/logs"
 )
 
-func SendBatches(slice []any, batchSize uint16, toBytes func(any) ([]byte, error), sendBatch func([]byte)) {
+func SendBatches(slice []any, batchSize uint16, toBytes func([]any) ([]byte, error), sendBatch func([]byte)) {
 	length := len(slice)
 	for start := 0; start < length; {
 		batch, nextStart := nextBatch(slice, length, batchSize, start)
