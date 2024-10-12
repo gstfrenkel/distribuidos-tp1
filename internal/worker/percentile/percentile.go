@@ -65,33 +65,30 @@ func (f *filter) saveScoredReview(msg message.ScoredReviews) {
 func (f *filter) publish() {
 	games := f.getGamesInPercentile()
 	f.sendBatches(games)
-	f.sendRemaining(games)
 	f.sendEof()
 	f.reset()
 }
 
 func (f *filter) sendBatches(games message.ScoredReviews) {
-	for i := 1; i <= len(games); i++ {
-		if i%int(f.batchSize) == 0 {
-			bytes, err := (games[i-int(f.batchSize) : i]).ToGameNameBytes()
-			if err != nil {
-				logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err)
-				return
-			}
-			f.sendBatch(bytes)
-		}
-	}
-}
-
-func (f *filter) sendRemaining(games message.ScoredReviews) {
-	if len(games)%int(f.batchSize) != 0 {
-		bytes, err := (games[len(games)-len(games)%int(f.batchSize):]).ToGameNameBytes()
+	lenGames := len(games)
+	for start := 0; start < lenGames; {
+		batch, nextStart := f.nextBatch(games, start, lenGames)
+		bytes, err := batch.ToGameNameBytes()
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err)
 			return
 		}
 		f.sendBatch(bytes)
+		start = nextStart
 	}
+}
+
+func (f *filter) nextBatch(games message.ScoredReviews, start int, lenGames int) (message.ScoredReviews, int) {
+	end := start + int(f.batchSize)
+	if end > lenGames {
+		end = lenGames
+	}
+	return games[start:end], end
 }
 
 func (f *filter) sendBatch(bytes []byte) {
