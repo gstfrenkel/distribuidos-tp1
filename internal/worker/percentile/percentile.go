@@ -13,6 +13,7 @@ type filter struct {
 	w             *worker.Worker
 	n             uint8 //percentile value (0-100)
 	scoredReviews message.ScoredReviews
+	batchSize     uint16
 	eofsRecv      uint8
 }
 
@@ -26,7 +27,10 @@ func New() (worker.Filter, error) {
 }
 
 func (f *filter) Init() error {
-	f.n = uint8(f.w.Query.(float64))
+	params := f.w.Query.([]any)
+	f.n = uint8(params[0].(float64))
+	f.batchSize = uint16(params[1].(float64))
+
 	return f.w.Init()
 }
 
@@ -59,16 +63,37 @@ func (f *filter) saveScoredReview(msg message.ScoredReviews) {
 }
 
 func (f *filter) publish() {
-	gamesInPercentile := f.getGamesInPercentile()
-	logs.Logger.Infof("Games in percentile %d: %v", f.n, gamesInPercentile)
-	bytes, err := gamesInPercentile.ToGameNameBytes()
-	if err != nil {
-		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err)
-		return
-	}
+	games := f.getGamesInPercentile()
+	f.sendBatches(games)
+	f.sendEof()
+	f.reset()
+}
 
+func (f *filter) sendBatches(games message.ScoredReviews) {
+	lenGames := len(games)
+	for start := 0; start < lenGames; {
+		batch, nextStart := f.nextBatch(games, start, lenGames)
+		bytes, err := batch.ToGameNameBytes()
+		if err != nil {
+			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err)
+			return
+		}
+		f.sendBatch(bytes)
+		start = nextStart
+	}
+}
+
+func (f *filter) nextBatch(games message.ScoredReviews, start int, lenGames int) (message.ScoredReviews, int) {
+	end := start + int(f.batchSize)
+	if end > lenGames {
+		end = lenGames
+	}
+	return games[start:end], end
+}
+
+func (f *filter) sendBatch(bytes []byte) {
 	headers := map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID), amqp.OriginIdHeader: amqp.Query5originId}
-	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, bytes, headers); err != nil {
+	if err := f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, bytes, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 	logs.Logger.Infof("Games in percentile %d published", f.n)
@@ -92,4 +117,17 @@ func (f *filter) percentileIdx() int {
 		percentileIndex = length - 1
 	}
 	return percentileIndex
+}
+
+func (f *filter) reset() {
+	f.scoredReviews = message.ScoredReviews{}
+	f.eofsRecv = 0
+}
+
+func (f *filter) sendEof() {
+	if err := f.w.Broker.HandleEofMessage(f.w.Id, 0, amqp.EmptyEof, nil, f.w.InputEof, f.w.OutputsEof...); err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
+	}
+
+	logs.Logger.Infof("Eof message sent")
 }

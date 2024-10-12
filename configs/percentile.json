@@ -1,5 +1,5 @@
 {
-  "query": 90,
+  "query": [90, 20],
   "peers": 2,
   "input-queues": [{
     "name": "joined_percentile"
