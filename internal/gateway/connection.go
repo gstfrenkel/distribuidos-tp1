@@ -46,6 +46,13 @@ func (g *Gateway) listenForNewClients(listener int) error {
 		if err != nil {
 			return err
 		}
+
+		if listener == ReviewsListener {
+			go func() {
+				g.HandleResults()
+			}()
+		}
+
 		go g.handleConnection(c, matchMessageId(listener))
 	}
 	return nil
@@ -146,5 +153,24 @@ func sendConfirmationToClient(conn net.Conn) {
 	}
 	if err := message.SendMessage(conn, eofMsg); err != nil {
 		logs.Logger.Error("Error sending confirmation message to client")
+	}
+}
+
+func ListenResults(g *Gateway) {
+
+	reportsQueue := g.Config.String("rabbit_q.reports_q", "reports")
+
+	messages, err := g.broker.Consume(reportsQueue, "", true, false)
+	if err != nil {
+		logs.Logger.Errorf("Failed to start consuming messages from reports_queue: %s", err.Error())
+		return
+	}
+
+	for message := range messages {
+		logs.Logger.Infof("Received message from reports_queue: %s", message.Body)
+		select {
+		case g.resultsChan <- message.Body:
+			logs.Logger.Infof("Sent message to resultsChan: %s", message.Body)
+		}
 	}
 }

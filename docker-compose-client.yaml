@@ -6,7 +6,9 @@ services:
       - ./data:/app/data
       - ./configs/client.toml:/app/config.toml
     networks:
-      - tp1_net
+      tp1_net:
+        ipv4_address: 172.25.125.20
+
 networks:
   tp1_net:
     ipam:

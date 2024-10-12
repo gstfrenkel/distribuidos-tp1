@@ -103,7 +103,7 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 			logs.Logger.Errorf("Error sending message: %s", err.Error())
 			return
 		}
-		logs.Logger.Infof("Sent message ID: %d with payload size: %d", id, msg.DataLen)
+		//logs.Logger.Infof("Sent message ID: %d with payload size: %d", id, msg.DataLen)
 	}
 
 	// Send EOF message after breaking out of the loop

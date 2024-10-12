@@ -18,8 +18,27 @@ func CreateGatewayQueues(b amqp.MessageBroker, cfg config.Config) ([]amqp.Queue,
 	return reviewsAndGamesQ, nil
 }
 
-func CreateGatewayExchange(cfg config.Config, b amqp.MessageBroker) (string, error) {
-	exchangeName := cfg.String("rabbitmq.exchange_name", "gateway")
+// func CreateGatewayExchange(cfg config.Config, b amqp.MessageBroker) (string, error) {
+// 	exchangeName := cfg.String("rabbitmq.exchange_name", "gateway")
+// 	err := b.ExchangeDeclare(amqp.Exchange{Name: exchangeName, Kind: cfg.String("rabbitmq.exchange_kind", "direct")})
+// 	if err != nil {
+// 		b.Close()
+// 		return "", err
+// 	}
+// 	return exchangeName, nil
+// }
+
+// func CreateReportsExchange(cfg config.Config, b amqp.MessageBroker) (string, error) {
+// 	exchangeName := cfg.String("rabbitmq.exchange_name", "gateway")
+// 	err := b.ExchangeDeclare(amqp.Exchange{Name: exchangeName, Kind: cfg.String("rabbitmq.exchange_kind", "direct")})
+// 	if err != nil {
+// 		b.Close()
+// 		return "", err
+// 	}
+// 	return exchangeName, nil
+// }
+
+func CreateExchange(cfg config.Config, b amqp.MessageBroker, exchangeName string) (string, error) {
 	err := b.ExchangeDeclare(amqp.Exchange{Name: exchangeName, Kind: cfg.String("rabbitmq.exchange_kind", "direct")})
 	if err != nil {
 		b.Close()
@@ -45,6 +64,21 @@ func BindGatewayQueuesToExchange(b amqp.MessageBroker, queues []amqp.Queue, cfg 
 	}, amqp.QueueBind{
 		Name:     queues[3].Name,
 		Key:      gamesKey,
+		Exchange: exchangeName,
+	})
+
+	if err != nil {
+		b.Close()
+		return err
+	}
+
+	return nil
+}
+
+func BindReportsQueueToExchange(b amqp.MessageBroker, cfg config.Config, exchangeName string) error {
+	reportsQueue := cfg.String("rabbitmq.reports", "reports")
+	err := b.QueueBind(amqp.QueueBind{
+		Name:     reportsQueue,
 		Exchange: exchangeName,
 	})
 

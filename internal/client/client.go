@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -40,6 +41,15 @@ func New() (*Client, error) {
 
 func (c *Client) Start() {
 	logs.Logger.Info("Client running...")
+
+	wg := sync.WaitGroup{}
+	done := make(chan bool)
+
+	wg.Add(1)
+	go func() {
+		c.startListener(&wg, done)
+	}()
+
 	address := c.cfg.String("gateway.address", "172.25.125.100")
 
 	gamesPort := c.cfg.String("gateway.games_port", "5051")
@@ -63,7 +73,6 @@ func (c *Client) Start() {
 	log.Printf("Games conn: %s", gamesFullAddress)
 	log.Printf("Reviews conn: %s", reviewsFullAddress)
 
-	wg := sync.WaitGroup{}
 	wg.Add(2)
 
 	go func() {
@@ -76,10 +85,10 @@ func (c *Client) Start() {
 		defer gamesConn.Close()
 
 		readAndSendCSV(c.cfg.String("client.games_path", "data/games.csv"), uint8(message.GameIdMsg), gamesConn, &message.DataCSVGames{}, c)
-		header := make([]byte, 32)
-		if _, err = gamesConn.Read(header); err != nil {
-			logs.Logger.Errorf("Failed to read message: %v", err.Error())
-		}
+		// header := make([]byte, 32)
+		// if _, err = gamesConn.Read(header); err != nil {
+		// 	logs.Logger.Errorf("Failed to read message: %v", err.Error())
+		// }
 	}()
 
 	go func() {
@@ -87,13 +96,16 @@ func (c *Client) Start() {
 		defer reviewsConn.Close()
 
 		readAndSendCSV(c.cfg.String("client.reviews_path", "data/reviews.csv"), uint8(message.ReviewIdMsg), reviewsConn, &message.DataCSVReviews{}, c)
-		header := make([]byte, 32)
-		if _, err = reviewsConn.Read(header); err != nil {
-			logs.Logger.Errorf("Failed to read message: %v", err.Error())
-		}
+		// header := make([]byte, 32)
+		// if _, err = reviewsConn.Read(header); err != nil {
+		// 	logs.Logger.Errorf("Failed to read message: %v", err.Error())
+		// }
 	}()
 
 	wg.Wait()
+
+	logs.Logger.Info("Client exit...")
+
 	c.Close(gamesConn, reviewsConn)
 }
 
@@ -108,4 +120,68 @@ func (c *Client) Close(gamesConn net.Conn, reviewsConn net.Conn) {
 	gamesConn.Close()
 	reviewsConn.Close()
 	close(c.sigChan)
+}
+
+func (c *Client) startListener(wg *sync.WaitGroup, done chan bool) {
+	defer wg.Done()
+
+	listenAddress := c.cfg.String("client.address", "172.25.125.20")
+	listenPort := c.cfg.String("client.port", "5050")
+	fullListenAddress := listenAddress + ":" + listenPort
+
+	listener, err := net.Listen("tcp", fullListenAddress)
+	if err != nil {
+		logs.Logger.Errorf("Error starting listener: %s", err)
+		return
+	}
+	defer listener.Close()
+
+	logs.Logger.Infof("Listening for results on: %s", fullListenAddress)
+
+	for {
+		select {
+		case <-done:
+			logs.Logger.Infof("All messages received, shutting down listener")
+			return
+		default:
+			resultConn, err := listener.Accept()
+			if err != nil {
+				logs.Logger.Errorf("Error accepting connection: %s", err)
+				continue
+			}
+
+			go handleResults(resultConn, done, wg)
+		}
+	}
+}
+
+func handleResults(conn net.Conn, done chan bool, wg *sync.WaitGroup) {
+	defer conn.Close()
+	defer wg.Done()
+
+	buffer := make([]byte, 1024)
+	messageCount := 0
+	maxMessages := 5
+
+	for {
+		n, err := conn.Read(buffer)
+		if err != nil {
+			if err == io.EOF {
+				logs.Logger.Infof("Connection closed")
+			} else {
+				logs.Logger.Errorf("Error reading from connection: %s", err)
+			}
+			return
+		}
+
+		if n > 0 {
+			receivedData := string(buffer[:n])
+			logs.Logger.Infof("Received: %s", receivedData)
+			messageCount++
+			if messageCount >= maxMessages {
+				done <- true
+				return
+			}
+		}
+	}
 }
