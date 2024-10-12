@@ -9,9 +9,10 @@ import (
 )
 
 type filter struct {
-	w        *worker.Worker
-	games    message.GameNames
-	eofsRecv uint8
+	w         *worker.Worker
+	games     message.GameNames
+	batchSize uint16
+	eofsRecv  uint8
 }
 
 func New() (worker.Filter, error) {
@@ -24,6 +25,7 @@ func New() (worker.Filter, error) {
 }
 
 func (f *filter) Init() error {
+	f.batchSize = uint16(f.w.Query.(float64))
 	return f.w.Init()
 }
 
@@ -55,18 +57,25 @@ func (f *filter) publish() {
 	if f.games == nil {
 		return
 	}
-	logs.Logger.Infof("Query 4 results: %v", f.games)
-	b, err := f.games.ToBytes()
-	if err != nil {
-		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-	}
 
+	worker.SendBatches(f.games.ToAny(), f.batchSize, message.ToGameNameBytes, f.sendBatch)
+	f.sendEof()
+	f.reset()
+}
+
+func (f *filter) sendBatch(b []byte) {
 	headers := map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID), amqp.OriginIdHeader: amqp.Query4originId}
-	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
+	if err := f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
+	}
+}
+
+func (f *filter) sendEof() {
+	if err := f.w.Broker.HandleEofMessage(f.w.Id, 0, amqp.EmptyEof, nil, f.w.InputEof, f.w.OutputsEof...); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 
-	f.reset()
+	logs.Logger.Infof("Eof message sent")
 }
 
 func (f *filter) reset() {

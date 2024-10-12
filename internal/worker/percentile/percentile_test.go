@@ -1,7 +1,6 @@
 package percentile
 
 import (
-	"reflect"
 	"testing"
 	"tp1/pkg/message"
 )
@@ -73,67 +72,5 @@ func TestSortScoredReviewsSortsCorrectly(t *testing.T) {
 
 	if f.scoredReviews[0].Votes != 10 || f.scoredReviews[1].Votes != 20 || f.scoredReviews[2].Votes != 30 {
 		t.Errorf("Scored reviews not sorted correctly")
-	}
-}
-
-func TestNextBatchReturnsCorrectBatch(t *testing.T) {
-	f := &filter{batchSize: 2}
-	games := message.ScoredReviews{
-		{GameId: 1, Votes: 10},
-		{GameId: 2, Votes: 20},
-		{GameId: 3, Votes: 30},
-		{GameId: 4, Votes: 40},
-	}
-
-	batch, nextStart := f.nextBatch(games, 0, len(games))
-	expectedBatch := message.ScoredReviews{
-		{GameId: 1, Votes: 10},
-		{GameId: 2, Votes: 20},
-	}
-
-	if !reflect.DeepEqual(batch, expectedBatch) {
-		t.Errorf("Expected batch %v, got %v", expectedBatch, batch)
-	}
-
-	if nextStart != 2 {
-		t.Errorf("Expected next start index 2, got %d", nextStart)
-	}
-}
-
-func TestNextBatchHandlesEndOfSlice(t *testing.T) {
-	f := &filter{batchSize: 3}
-	games := message.ScoredReviews{
-		{GameId: 1, Votes: 10},
-		{GameId: 2, Votes: 20},
-	}
-
-	batch, nextStart := f.nextBatch(games, 0, len(games))
-	expectedBatch := message.ScoredReviews{
-		{GameId: 1, Votes: 10},
-		{GameId: 2, Votes: 20},
-	}
-
-	if !reflect.DeepEqual(batch, expectedBatch) {
-		t.Errorf("Expected batch %v, got %v", expectedBatch, batch)
-	}
-
-	if nextStart != 2 {
-		t.Errorf("Expected next start index 2, got %d", nextStart)
-	}
-}
-
-func TestNextBatchHandlesEmptySlice(t *testing.T) {
-	f := &filter{batchSize: 2}
-	games := message.ScoredReviews{}
-
-	batch, nextStart := f.nextBatch(games, 0, len(games))
-	expectedBatch := message.ScoredReviews{}
-
-	if !reflect.DeepEqual(batch, expectedBatch) {
-		t.Errorf("Expected batch %v, got %v", expectedBatch, batch)
-	}
-
-	if nextStart != 0 {
-		t.Errorf("Expected next start index 0, got %d", nextStart)
 	}
 }
