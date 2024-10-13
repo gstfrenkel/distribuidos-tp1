@@ -1,7 +1,9 @@
 package gateway
 
 import (
+	"fmt"
 	"net"
+	"tp1/pkg/amqp"
 	"tp1/pkg/ioutils"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
@@ -157,20 +159,59 @@ func sendConfirmationToClient(conn net.Conn) {
 }
 
 func ListenResults(g *Gateway) {
-
 	reportsQueue := g.Config.String("rabbit_q.reports_q", "reports")
-
 	messages, err := g.broker.Consume(reportsQueue, "", true, false)
 	if err != nil {
 		logs.Logger.Errorf("Failed to start consuming messages from reports_queue: %s", err.Error())
 		return
 	}
 
-	for message := range messages {
-		logs.Logger.Infof("Received message from reports_queue: %s", message.Body)
-		select {
-		case g.resultsChan <- message.Body:
-			logs.Logger.Infof("Sent message to resultsChan: %s", message.Body)
+	for m := range messages {
+		if originID, ok := m.Headers["x-origin-id"]; ok {
+			if originIDUint8, ok := originID.(uint8); ok {
+				result, err := parseMessageBody(originIDUint8, m.Body)
+				if err != nil {
+					logs.Logger.Errorf("Failed to parse message body into Platform struct: %v", err)
+					continue
+				}
+
+				var resultStr string
+				switch originIDUint8 {
+				case amqp.Query1originId:
+					resultStr = result.(message.Platform).ToResultString()
+				case amqp.Query2originId:
+					resultStr = result.(message.DateFilteredReleases).ToResultString()
+				case amqp.Query3originId:
+					resultStr = result.(message.ScoredReviews).ToQ3ResultString()
+				case amqp.Query4originId:
+					resultStr = result.(message.GameNames).ToResultString()
+				case amqp.Query5originId:
+					resultStr = result.(message.ScoredReviews).ToQ5ResultString()
+				default:
+					logs.Logger.Infof("Header x-origin-id does not match any known origin IDs, got: %v", originIDUint8)
+				}
+
+				g.resultsChan <- []byte(resultStr)
+			} else {
+				logs.Logger.Errorf("Header x-origin-id is not a valid uint8 value, got: %v", originID)
+			}
 		}
+	}
+}
+
+func parseMessageBody(originID uint8, body []byte) (interface{}, error) {
+	switch originID {
+	case amqp.Query1originId:
+		return message.PlatfromFromBytes(body)
+	case amqp.Query2originId:
+		return message.DateFilteredReleasesFromBytes(body)
+	case amqp.Query3originId:
+		return message.ScoredReviewsFromBytes(body)
+	case amqp.Query4originId:
+		return message.GameNamesFromBytes(body)
+	case amqp.Query5originId:
+		return message.ScoredReviewsFromBytes(body)
+	default:
+		return nil, fmt.Errorf("unknown origin ID: %v", originID)
 	}
 }

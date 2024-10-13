@@ -1,11 +1,13 @@
 package gateway
 
 import (
+	"encoding/binary"
 	"net"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+	"tp1/pkg/ioutils"
 	"tp1/pkg/message"
 
 	"tp1/internal/gateway/rabbit"
@@ -159,8 +161,8 @@ func (g *Gateway) HandleSIGTERM() {
 
 func (g *Gateway) HandleResults() error {
 
-	logs.Logger.Info("Conectting to client...")
-	clientAddr := g.Config.String("client_addr", "172.25.125.20:5050")
+	//logs.Logger.Info("Conectting to client...")
+	clientAddr := g.Config.String("client_addr", "172.25.125.99:5050")
 	cliConn, err := net.Dial("tcp", clientAddr)
 	if err != nil {
 		logs.Logger.Errorf("Error connecting to client address %s: %s", clientAddr, err)
@@ -168,18 +170,24 @@ func (g *Gateway) HandleResults() error {
 	}
 	defer cliConn.Close()
 
-	// Todo: cerrar conexion despues de enviar los 5 resultados.
 	for {
 		select {
 		case rabbitMsg := <-g.resultsChan:
+			clientMsg := message.ClientMessage{
+				DataLen: uint32(len(rabbitMsg)),
+				Data:    rabbitMsg,
+			}
 
-			// Todo: evitar short write
-			_, err := cliConn.Write(rabbitMsg)
-			if err != nil {
+			data := make([]byte, 4+len(clientMsg.Data))
+			binary.BigEndian.PutUint32(data[:4], clientMsg.DataLen)
+			copy(data[4:], clientMsg.Data)
+
+			if err := ioutils.SendAll(cliConn, data); err != nil {
 				logs.Logger.Errorf("Error sending message to client: %s", err)
 				return err
 			}
-			logs.Logger.Infof("Sent message to client: %s", string(rabbitMsg))
+
+			//logs.Logger.Infof("Sent message to client: %s", string(rabbitMsg))
 		}
 	}
 }

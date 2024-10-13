@@ -15,6 +15,6 @@ exchange_kind = "direct"
 reviews_routing_key = "review"
 games_routing_key = "game"
 reports = "reports"
-client_addr = "172.25.125.20:5050"
+client_addr = "172.25.125.99:5050"
 
 

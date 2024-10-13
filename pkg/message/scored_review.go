@@ -1,5 +1,10 @@
 package message
 
+import (
+	"fmt"
+	"strings"
+)
+
 type ScoredReviews []ScoredReview
 
 type ScoredReview struct {
@@ -36,4 +41,22 @@ func (m ScoredReviews) ToGameNameBytes() ([]byte, error) {
 		return gameNames.ToBytes()
 	}
 	return nil, nil
+}
+
+func (reviews ScoredReviews) ToQ3ResultString() string {
+	header := fmt.Sprintf("Q3: Juegos top 5 del género Indie con más reseñas positivas\n")
+	var reviewsInfo []string
+	for _, review := range reviews {
+		reviewsInfo = append(reviewsInfo, fmt.Sprintf("Juego: [%s], Reseñas positivas: [%d] \n", review.GameName, review.Votes))
+	}
+	return header + strings.Join(reviewsInfo, "")
+}
+
+func (reviews ScoredReviews) ToQ5ResultString() string {
+	header := fmt.Sprintf("Q5:juegos del género Action dentro del percentil 90 en cantidad de reseñas negativas\n")
+	var reviewsInfo []string
+	for _, review := range reviews {
+		reviewsInfo = append(reviewsInfo, fmt.Sprintf("Juego: [%s], Reseñas negativas: [%d] \n", review.GameName, review.Votes))
+	}
+	return header + strings.Join(reviewsInfo, "")
 }

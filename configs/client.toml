@@ -6,6 +6,6 @@ reviews_port = 5050
 [client]
 games_path = "data/fafa_games.csv"
 reviews_path = "data/fafa_reviews.csv"
-address = "172.25.125.20"
+address = "172.25.125.99"
 port = "5050"
 

@@ -1,6 +1,7 @@
 package client
 
 import (
+	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
@@ -20,10 +21,16 @@ type Client struct {
 	sigChan      chan os.Signal
 	stopped      bool
 	stoppedMutex sync.Mutex
+	resultsFile  *os.File
 }
 
 func New() (*Client, error) {
 	config, err := provider.LoadConfig("config.toml")
+	if err != nil {
+		return nil, err
+	}
+
+	file, err := os.OpenFile("results.txt", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		return nil, err
 	}
@@ -36,6 +43,7 @@ func New() (*Client, error) {
 		sigChan:      sigChan,
 		stopped:      false,
 		stoppedMutex: sync.Mutex{},
+		resultsFile:  file,
 	}, nil
 }
 
@@ -119,6 +127,7 @@ func (c *Client) handleSigterm() {
 func (c *Client) Close(gamesConn net.Conn, reviewsConn net.Conn) {
 	gamesConn.Close()
 	reviewsConn.Close()
+	c.resultsFile.Close()
 	close(c.sigChan)
 }
 
@@ -139,49 +148,84 @@ func (c *Client) startListener(wg *sync.WaitGroup, done chan bool) {
 	logs.Logger.Infof("Listening for results on: %s", fullListenAddress)
 
 	for {
+		c.stoppedMutex.Lock()
+		if c.stopped {
+			c.stoppedMutex.Unlock()
+			logs.Logger.Info("Shutting down listener due to stopped signal.")
+			return
+		}
+		c.stoppedMutex.Unlock()
+
 		select {
 		case <-done:
 			logs.Logger.Infof("All messages received, shutting down listener")
 			return
 		default:
 			resultConn, err := listener.Accept()
+
 			if err != nil {
 				logs.Logger.Errorf("Error accepting connection: %s", err)
 				continue
 			}
 
-			go handleResults(resultConn, done, wg)
+			go handleResults(resultConn, c, done, wg)
 		}
 	}
 }
 
-func handleResults(conn net.Conn, done chan bool, wg *sync.WaitGroup) {
+func handleResults(conn net.Conn, client *Client, done chan bool, wg *sync.WaitGroup) {
 	defer conn.Close()
 	defer wg.Done()
 
-	buffer := make([]byte, 1024)
 	messageCount := 0
 	maxMessages := 5
 
 	for {
-		n, err := conn.Read(buffer)
+		client.stoppedMutex.Lock()
+		if client.stopped {
+			client.stoppedMutex.Unlock()
+			return
+		}
+		client.stoppedMutex.Unlock()
+
+		lenBuffer := make([]byte, 4)
+		err := readFull(conn, lenBuffer, 4)
+		dataLen := binary.BigEndian.Uint32(lenBuffer)
+
+		payload := make([]byte, dataLen)
+		err = readFull(conn, payload, int(dataLen))
 		if err != nil {
-			if err == io.EOF {
-				logs.Logger.Infof("Connection closed")
-			} else {
-				logs.Logger.Errorf("Error reading from connection: %s", err)
-			}
+			logs.Logger.Errorf("Error reading payload from connection: %s", err)
 			return
 		}
 
-		if n > 0 {
-			receivedData := string(buffer[:n])
-			logs.Logger.Infof("Received: %s", receivedData)
-			messageCount++
-			if messageCount >= maxMessages {
-				done <- true
-				return
-			}
+		receivedData := string(payload)
+		logs.Logger.Infof("Received: %s", receivedData)
+
+		if _, err := client.resultsFile.WriteString(receivedData + "\n"); err != nil {
+			logs.Logger.Errorf("Error writing to results.txt: %s", err)
+		}
+
+		messageCount++
+		if messageCount >= maxMessages {
+			done <- true
+			return
 		}
 	}
+}
+func readFull(conn net.Conn, buffer []byte, n int) error {
+	totalBytesRead := 0
+
+	for totalBytesRead < n {
+		bytesRead, err := conn.Read(buffer[totalBytesRead:])
+		if err != nil {
+			return err
+		}
+		if bytesRead == 0 {
+			return io.EOF
+		}
+		totalBytesRead += bytesRead
+	}
+
+	return nil
 }
