@@ -30,7 +30,7 @@ func New() (*Client, error) {
 		return nil, err
 	}
 
-	file, err := os.OpenFile("results.txt", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	file, err := os.OpenFile("/app/data/results.txt", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
 	if err != nil {
 		return nil, err
 	}
@@ -131,48 +131,6 @@ func (c *Client) Close(gamesConn net.Conn, reviewsConn net.Conn) {
 	close(c.sigChan)
 }
 
-// func (c *Client) startListener(wg *sync.WaitGroup, done chan bool) {
-// 	defer wg.Done()
-
-// 	listenAddress := c.cfg.String("client.address", "172.25.125.20")
-// 	listenPort := c.cfg.String("client.port", "5050")
-// 	fullListenAddress := listenAddress + ":" + listenPort
-
-// 	listener, err := net.Listen("tcp", fullListenAddress)
-// 	if err != nil {
-// 		logs.Logger.Errorf("Error starting listener: %s", err)
-// 		return
-// 	}
-// 	defer listener.Close()
-
-// 	logs.Logger.Infof("Listening for results on: %s", fullListenAddress)
-
-// 	for {
-// 		c.stoppedMutex.Lock()
-// 		if c.stopped {
-// 			c.stoppedMutex.Unlock()
-// 			logs.Logger.Info("Shutting down listener due to stopped signal.")
-// 			return
-// 		}
-// 		c.stoppedMutex.Unlock()
-
-// 		select {
-// 		case <-done:
-// 			logs.Logger.Infof("All messages received, shutting down listener")
-// 			return
-// 		default:
-// 			resultConn, err := listener.Accept()
-
-// 			if err != nil {
-// 				logs.Logger.Errorf("Error accepting connection: %s", err)
-// 				continue
-// 			}
-
-// 			go handleResults(resultConn, c, done, wg)
-// 		}
-// 	}
-// }
-
 func (c *Client) startResultsListener(wg *sync.WaitGroup, done chan bool) {
 	defer wg.Done()
 
@@ -185,9 +143,13 @@ func (c *Client) startResultsListener(wg *sync.WaitGroup, done chan bool) {
 		logs.Logger.Errorf("Error connecting to results socket: %s", err)
 		return
 	}
+
 	defer resultsConn.Close()
 
 	logs.Logger.Infof("Connected to results on: %s", resultsFullAddress)
+
+	messageCount := 0
+	maxMessages := 5
 
 	for {
 		c.stoppedMutex.Lock()
@@ -198,47 +160,26 @@ func (c *Client) startResultsListener(wg *sync.WaitGroup, done chan bool) {
 		}
 		c.stoppedMutex.Unlock()
 
-		select {
-		case <-done:
-			logs.Logger.Infof("All messages received, shutting down results listener.")
-			return
-		default:
-			go handleResults(resultsConn, c, done, wg)
-		}
-	}
-}
-
-func handleResults(conn net.Conn, client *Client, done chan bool, wg *sync.WaitGroup) {
-	defer conn.Close()
-	defer wg.Done()
-
-	messageCount := 0
-	maxMessages := 5
-
-	for {
-		client.stoppedMutex.Lock()
-		if client.stopped {
-			client.stoppedMutex.Unlock()
-			return
-		}
-		client.stoppedMutex.Unlock()
-
 		lenBuffer := make([]byte, 4)
-		err := readFull(conn, lenBuffer, 4)
-		dataLen := binary.BigEndian.Uint32(lenBuffer)
-
-		payload := make([]byte, dataLen)
-		err = readFull(conn, payload, int(dataLen))
+		err := readFull(resultsConn, lenBuffer, 4)
 		if err != nil {
-			logs.Logger.Errorf("Error reading payload from connection: %s", err)
+			logs.Logger.Errorf("Error reading length of message: %v", err)
+			return
+		}
+
+		dataLen := binary.BigEndian.Uint32(lenBuffer)
+		payload := make([]byte, dataLen)
+		err = readFull(resultsConn, payload, int(dataLen))
+		if err != nil {
+			logs.Logger.Errorf("Error reading payload from connection: %v", err)
 			return
 		}
 
 		receivedData := string(payload)
 		logs.Logger.Infof("Received: %s", receivedData)
 
-		if _, err := client.resultsFile.WriteString(receivedData + "\n"); err != nil {
-			logs.Logger.Errorf("Error writing to results.txt: %s", err)
+		if _, err := c.resultsFile.WriteString(receivedData + "\n\n"); err != nil {
+			logs.Logger.Errorf("Error writing to results.txt: %v", err)
 		}
 
 		messageCount++
@@ -248,6 +189,7 @@ func handleResults(conn net.Conn, client *Client, done chan bool, wg *sync.WaitG
 		}
 	}
 }
+
 func readFull(conn net.Conn, buffer []byte, n int) error {
 	totalBytesRead := 0
 

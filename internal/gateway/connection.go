@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"tp1/pkg/amqp"
@@ -186,36 +187,78 @@ func ListenResults(g *Gateway) {
 		return
 	}
 
+	accumulatedResults := map[uint8][]byte{
+		amqp.Query4originId: {},
+		amqp.Query5originId: {},
+	}
+
 	for m := range messages {
 		if originID, ok := m.Headers["x-origin-id"]; ok {
 			if originIDUint8, ok := originID.(uint8); ok {
-				result, err := parseMessageBody(originIDUint8, m.Body)
-				if err != nil {
-					logs.Logger.Errorf("Failed to parse message body into Platform struct: %v", err)
-					continue
-				}
 
-				var resultStr string
-				switch originIDUint8 {
-				case amqp.Query1originId:
-					resultStr = result.(message.Platform).ToResultString()
-				case amqp.Query2originId:
-					resultStr = result.(message.DateFilteredReleases).ToResultString()
-				case amqp.Query3originId:
-					resultStr = result.(message.ScoredReviews).ToQ3ResultString()
-				case amqp.Query4originId:
-					resultStr = result.(message.GameNames).ToResultString()
-				case amqp.Query5originId:
-					resultStr = result.(message.ScoredReviews).ToQ5ResultString()
-				default:
-					logs.Logger.Infof("Header x-origin-id does not match any known origin IDs, got: %v", originIDUint8)
-				}
+				// Check for EOF
+				if bytes.Equal(m.Body, amqp.EmptyEof) && (originIDUint8 == amqp.Query4originId || originIDUint8 == amqp.Query5originId) {
+					logs.Logger.Infof("Recibido EOF Query: %v", originIDUint8-1)
 
-				g.resultsChan <- []byte(resultStr)
+					result, err := parseAccumulatedMessages(originIDUint8, accumulatedResults[originIDUint8])
+					if err != nil {
+						logs.Logger.Errorf("Failed to parse accumulated messages for origin ID %v: %v", originIDUint8, err)
+						continue
+					}
+
+					var resultStr string
+					switch originIDUint8 {
+					case amqp.Query4originId:
+						resultStr = result.(message.GameNames).ToResultString()
+					case amqp.Query5originId:
+						resultStr = result.(message.ScoredReviews).ToQ5ResultString()
+					}
+
+					g.resultsChan <- []byte(resultStr)
+					accumulatedResults[originIDUint8] = []byte{}
+				} else {
+					if originIDUint8 == amqp.Query4originId || originIDUint8 == amqp.Query5originId {
+						logs.Logger.Infof("Recibido msj (para append) Query: %v", originIDUint8-1)
+						accumulatedResults[originIDUint8] = append(accumulatedResults[originIDUint8], m.Body...)
+					} else {
+						// Handle other queries
+						logs.Logger.Infof("Recibido resultado para Query: %v", originIDUint8-1)
+
+						result, err := parseMessageBody(originIDUint8, m.Body)
+						if err != nil {
+							logs.Logger.Errorf("Failed to parse message body into Platform struct: %v", err)
+							continue
+						}
+
+						var resultStr string
+						switch originIDUint8 {
+						case amqp.Query1originId:
+							resultStr = result.(message.Platform).ToResultString()
+						case amqp.Query2originId:
+							resultStr = result.(message.DateFilteredReleases).ToResultString()
+						case amqp.Query3originId:
+							resultStr = result.(message.ScoredReviews).ToQ3ResultString()
+						default:
+							logs.Logger.Infof("Header x-origin-id does not match any known origin IDs, got: %v", originIDUint8)
+						}
+						g.resultsChan <- []byte(resultStr)
+					}
+				}
 			} else {
 				logs.Logger.Errorf("Header x-origin-id is not a valid uint8 value, got: %v", originID)
 			}
 		}
+	}
+}
+
+func parseAccumulatedMessages(originID uint8, accumulatedBody []byte) (interface{}, error) {
+	switch originID {
+	case amqp.Query4originId:
+		return message.GameNamesFromBytes(accumulatedBody)
+	case amqp.Query5originId:
+		return message.ScoredReviewsFromBytes(accumulatedBody)
+	default:
+		return nil, fmt.Errorf("unknown origin ID for accumulated messages: %v", originID)
 	}
 }
 
@@ -227,10 +270,8 @@ func parseMessageBody(originID uint8, body []byte) (interface{}, error) {
 		return message.DateFilteredReleasesFromBytes(body)
 	case amqp.Query3originId:
 		return message.ScoredReviewsFromBytes(body)
-	case amqp.Query4originId:
-		return message.GameNamesFromBytes(body)
-	case amqp.Query5originId:
-		return message.ScoredReviewsFromBytes(body)
+	case amqp.Query4originId, amqp.Query5originId:
+		return nil, fmt.Errorf("parseMessageBody should not be called for queries 4 and 5")
 	default:
 		return nil, fmt.Errorf("unknown origin ID: %v", originID)
 	}
