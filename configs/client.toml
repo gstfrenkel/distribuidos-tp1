@@ -2,6 +2,7 @@
 address = "172.25.125.100"
 games_port = 5051
 reviews_port = 5050
+results_port = 5052
 
 [client]
 games_path = "data/fafa_games.csv"

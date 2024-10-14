@@ -55,7 +55,7 @@ func (c *Client) Start() {
 
 	wg.Add(1)
 	go func() {
-		c.startListener(&wg, done)
+		c.startResultsListener(&wg, done)
 	}()
 
 	address := c.cfg.String("gateway.address", "172.25.125.100")
@@ -131,44 +131,79 @@ func (c *Client) Close(gamesConn net.Conn, reviewsConn net.Conn) {
 	close(c.sigChan)
 }
 
-func (c *Client) startListener(wg *sync.WaitGroup, done chan bool) {
+// func (c *Client) startListener(wg *sync.WaitGroup, done chan bool) {
+// 	defer wg.Done()
+
+// 	listenAddress := c.cfg.String("client.address", "172.25.125.20")
+// 	listenPort := c.cfg.String("client.port", "5050")
+// 	fullListenAddress := listenAddress + ":" + listenPort
+
+// 	listener, err := net.Listen("tcp", fullListenAddress)
+// 	if err != nil {
+// 		logs.Logger.Errorf("Error starting listener: %s", err)
+// 		return
+// 	}
+// 	defer listener.Close()
+
+// 	logs.Logger.Infof("Listening for results on: %s", fullListenAddress)
+
+// 	for {
+// 		c.stoppedMutex.Lock()
+// 		if c.stopped {
+// 			c.stoppedMutex.Unlock()
+// 			logs.Logger.Info("Shutting down listener due to stopped signal.")
+// 			return
+// 		}
+// 		c.stoppedMutex.Unlock()
+
+// 		select {
+// 		case <-done:
+// 			logs.Logger.Infof("All messages received, shutting down listener")
+// 			return
+// 		default:
+// 			resultConn, err := listener.Accept()
+
+// 			if err != nil {
+// 				logs.Logger.Errorf("Error accepting connection: %s", err)
+// 				continue
+// 			}
+
+// 			go handleResults(resultConn, c, done, wg)
+// 		}
+// 	}
+// }
+
+func (c *Client) startResultsListener(wg *sync.WaitGroup, done chan bool) {
 	defer wg.Done()
 
-	listenAddress := c.cfg.String("client.address", "172.25.125.20")
-	listenPort := c.cfg.String("client.port", "5050")
-	fullListenAddress := listenAddress + ":" + listenPort
+	addr := c.cfg.String("gateway.address", "172.25.125.20")
+	resultsPort := c.cfg.String("gateway.results_port", "5052")
+	resultsFullAddress := addr + ":" + resultsPort
 
-	listener, err := net.Listen("tcp", fullListenAddress)
+	resultsConn, err := net.Dial("tcp", resultsFullAddress)
 	if err != nil {
-		logs.Logger.Errorf("Error starting listener: %s", err)
+		logs.Logger.Errorf("Error connecting to results socket: %s", err)
 		return
 	}
-	defer listener.Close()
+	defer resultsConn.Close()
 
-	logs.Logger.Infof("Listening for results on: %s", fullListenAddress)
+	logs.Logger.Infof("Connected to results on: %s", resultsFullAddress)
 
 	for {
 		c.stoppedMutex.Lock()
 		if c.stopped {
 			c.stoppedMutex.Unlock()
-			logs.Logger.Info("Shutting down listener due to stopped signal.")
+			logs.Logger.Info("Shutting down results listener due to stopped signal.")
 			return
 		}
 		c.stoppedMutex.Unlock()
 
 		select {
 		case <-done:
-			logs.Logger.Infof("All messages received, shutting down listener")
+			logs.Logger.Infof("All messages received, shutting down results listener.")
 			return
 		default:
-			resultConn, err := listener.Accept()
-
-			if err != nil {
-				logs.Logger.Errorf("Error accepting connection: %s", err)
-				continue
-			}
-
-			go handleResults(resultConn, c, done, wg)
+			go handleResults(resultsConn, c, done, wg)
 		}
 	}
 }
