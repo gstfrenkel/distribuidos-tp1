@@ -22,8 +22,14 @@ func (g *Gateway) createGatewaySockets() error {
 		return err
 	}
 
+	resultsListener, err := g.newListener("gateway.results-address")
+	if err != nil {
+		return err
+	}
+
 	g.Listeners[GamesListener] = gamesListener
 	g.Listeners[ReviewsListener] = reviewsListener
+	g.Listeners[ResultsListener] = resultsListener
 	logs.Logger.Infof("Gateway listening games on %s", gamesListener.Addr().String())
 	logs.Logger.Infof("Gateway listening reviews on %s", reviewsListener.Addr().String())
 	return nil
@@ -48,16 +54,30 @@ func (g *Gateway) listenForNewClients(listener int) error {
 		if err != nil {
 			return err
 		}
-
-		if listener == ReviewsListener {
-			go func() {
-				g.HandleResults()
-			}()
-		}
-
 		go g.handleConnection(c, matchMessageId(listener))
 	}
 	return nil
+}
+
+func (g *Gateway) ListenResultsRequests() error {
+
+	logs.Logger.Infof("Waiting for new client connections, listener %d...", ResultsListener)
+	for {
+		g.finishedMu.Lock()
+		if g.finished {
+			g.finishedMu.Unlock()
+			break
+		}
+		g.finishedMu.Unlock()
+		c, err := g.Listeners[ResultsListener].Accept()
+		logs.Logger.Infof("Successfully established new connection! Listener %d...", ResultsListener)
+		if err != nil {
+			return err
+		}
+		go g.HandleResults(c)
+	}
+	return nil
+
 }
 
 func (g *Gateway) handleConnection(c net.Conn, msgId message.ID) {

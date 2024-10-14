@@ -21,7 +21,8 @@ import (
 const configFilePath = "config.toml"
 const GamesListener = 0
 const ReviewsListener = 1
-const connections = 2
+const ResultsListener = 2
+const connections = 3
 
 type Gateway struct {
 	Config      config.Config
@@ -125,6 +126,14 @@ func (g *Gateway) Start() {
 		}
 	}()
 
+	go func() {
+		defer wg.Done()
+		err = g.ListenResultsRequests()
+		if err != nil {
+			logs.Logger.Errorf("Error listening results: %s", err.Error())
+		}
+	}()
+
 	wg.Wait()
 	g.free(sigs)
 }
@@ -159,15 +168,8 @@ func (g *Gateway) HandleSIGTERM() {
 	g.finishedMu.Unlock()
 }
 
-func (g *Gateway) HandleResults() error {
+func (g *Gateway) HandleResults(cliConn net.Conn) error {
 
-	//logs.Logger.Info("Conectting to client...")
-	clientAddr := g.Config.String("client_addr", "172.25.125.99:5050")
-	cliConn, err := net.Dial("tcp", clientAddr)
-	if err != nil {
-		logs.Logger.Errorf("Error connecting to client address %s: %s", clientAddr, err)
-		return err
-	}
 	defer cliConn.Close()
 
 	for {
