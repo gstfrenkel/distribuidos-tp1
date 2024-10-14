@@ -71,7 +71,8 @@ func (f *filter) sendBatch(b []byte) {
 }
 
 func (f *filter) sendEof() {
-	if err := f.w.Broker.HandleEofMessage(f.w.Id, 0, amqp.EmptyEof, nil, f.w.InputEof, f.w.OutputsEof...); err != nil {
+	headers := map[string]any{amqp.OriginIdHeader: amqp.Query4originId}
+	if err := f.w.Broker.HandleEofMessage(f.w.Id, 0, amqp.EmptyEof, headers, f.w.InputEof, f.w.OutputsEof...); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 
