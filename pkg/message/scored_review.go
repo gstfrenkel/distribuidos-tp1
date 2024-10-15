@@ -26,20 +26,12 @@ func (m ScoredReviews) ToBytes() ([]byte, error) {
 	return toBytes(m)
 }
 
-func ToGameNameBytes(m []any) ([]byte, error) {
-	var s ScoredReviews
-	for _, scoredReview := range m {
-		s = append(s, scoredReview.(ScoredReview))
+func ScoredRevFromAnyToBytes(s []any) ([]byte, error) {
+	var m ScoredReviews
+	for _, review := range s {
+		m = append(m, review.(ScoredReview))
 	}
-	var gameNames GameNames
-	for _, scoredReview := range s {
-		gameNames = append(gameNames, GameName{GameId: scoredReview.GameId, GameName: scoredReview.GameName})
-	}
-
-	if gameNames != nil {
-		return gameNames.ToBytes()
-	}
-	return nil, nil
+	return toBytes(m)
 }
 
 func (m ScoredReviews) ToAny() []any {

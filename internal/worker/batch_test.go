@@ -75,7 +75,7 @@ func TestSendBatchesSendsCorrectBatches(t *testing.T) {
 	}
 
 	var sentBatches [][]byte
-	toBytes := func(batch any) ([]byte, error) {
+	toBytes := func(batch []any) ([]byte, error) {
 		return []byte("batch"), nil
 	}
 	sendBatch := func(bytes []byte) {
@@ -99,7 +99,7 @@ func TestSendBatchesSendsScoredRevCorrectBatches(t *testing.T) {
 	}.ToAny()
 
 	var sentBatches [][]byte
-	toBytes := func(batch any) ([]byte, error) {
+	toBytes := func(batch []any) ([]byte, error) {
 		return []byte("batch"), nil
 	}
 	sendBatch := func(bytes []byte) {
@@ -118,7 +118,7 @@ func TestSendBatchesHandlesEmptyData(t *testing.T) {
 	var data []any
 
 	var sentBatches [][]byte
-	toBytes := func(batch any) ([]byte, error) {
+	toBytes := func(batch []any) ([]byte, error) {
 		return []byte("batch"), nil
 	}
 	sendBatch := func(bytes []byte) {
@@ -139,7 +139,7 @@ func TestSendBatchesHandlesToBytesError(t *testing.T) {
 	}
 
 	var sentBatches [][]byte
-	toBytes := func(batch any) ([]byte, error) {
+	toBytes := func(batch []any) ([]byte, error) {
 		return nil, errors.New("toBytes error")
 	}
 	sendBatch := func(bytes []byte) {

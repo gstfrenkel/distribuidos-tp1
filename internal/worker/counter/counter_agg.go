@@ -58,7 +58,7 @@ func (f *filter) publish() {
 		return
 	}
 
-	worker.SendBatches(f.games.ToAny(), f.batchSize, message.ToBytes, f.sendBatch)
+	worker.SendBatches(f.games.ToAny(), f.batchSize, message.GameNameFromAnyToBytes, f.sendBatch)
 	logs.Logger.Infof("Q4 games: %v", f.games)
 	f.sendEof()
 	f.reset()
