@@ -34,5 +34,5 @@ func (p Platform) IsEmpty() bool {
 }
 
 func (p Platform) ToResultString() string {
-	return fmt.Sprintf("Q1: Juegos soportados en cada plataforma\nWindows: [%d], Linux: [%d], Mac: [%d]", p.Windows, p.Linux, p.Mac)
+	return fmt.Sprintf("Q1:\nWindows: [%d], Linux: [%d], Mac: [%d]", p.Windows, p.Linux, p.Mac)
 }

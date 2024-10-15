@@ -40,7 +40,7 @@ func ScoredRevFromAnyToBytes(s []any) ([]byte, error) {
 }
 
 func (reviews ScoredReviews) ToQ3ResultString() string {
-	header := fmt.Sprintf("Q3: Juegos top 5 del género Indie con más reseñas positivas\n")
+	header := fmt.Sprintf("Q3:\n")
 	var reviewsInfo []string
 	for _, review := range reviews {
 		reviewsInfo = append(reviewsInfo, fmt.Sprintf("Juego: [%s], Reseñas positivas: [%d] \n", review.GameName, review.Votes))
@@ -49,7 +49,7 @@ func (reviews ScoredReviews) ToQ3ResultString() string {
 }
 
 func ToQ5ResultString(reviewsInfo string) string {
-	header := fmt.Sprintf("Q5: juegos del género Action dentro del percentil 90 en cantidad de reseñas negativas\n")
+	header := fmt.Sprintf("Q5:\n")
 	return header + reviewsInfo
 }
 

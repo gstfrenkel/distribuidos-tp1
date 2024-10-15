@@ -16,6 +16,8 @@ import (
 	"tp1/pkg/message"
 )
 
+const LenFieldSize = 4
+
 type Client struct {
 	cfg          config.Config
 	sigChan      chan os.Signal
@@ -52,13 +54,13 @@ func (c *Client) Start() {
 
 	wg := sync.WaitGroup{}
 	done := make(chan bool)
+	address := c.cfg.String("gateway.address", "172.25.125.100")
 
 	wg.Add(1)
 	go func() {
-		c.startResultsListener(&wg, done)
+		defer wg.Done()
+		c.startResultsListener(done, address)
 	}()
-
-	address := c.cfg.String("gateway.address", "172.25.125.100")
 
 	gamesPort := c.cfg.String("gateway.games_port", "5051")
 	gamesFullAddress := address + ":" + gamesPort
@@ -93,10 +95,10 @@ func (c *Client) Start() {
 		defer gamesConn.Close()
 
 		readAndSendCSV(c.cfg.String("client.games_path", "data/games.csv"), uint8(message.GameIdMsg), gamesConn, &message.DataCSVGames{}, c)
-		// header := make([]byte, 32)
-		// if _, err = gamesConn.Read(header); err != nil {
-		// 	logs.Logger.Errorf("Failed to read message: %v", err.Error())
-		// }
+		header := make([]byte, 32)
+		if _, err = gamesConn.Read(header); err != nil {
+			logs.Logger.Errorf("Failed to read message: %v", err.Error())
+		}
 	}()
 
 	go func() {
@@ -104,10 +106,10 @@ func (c *Client) Start() {
 		defer reviewsConn.Close()
 
 		readAndSendCSV(c.cfg.String("client.reviews_path", "data/reviews.csv"), uint8(message.ReviewIdMsg), reviewsConn, &message.DataCSVReviews{}, c)
-		// header := make([]byte, 32)
-		// if _, err = reviewsConn.Read(header); err != nil {
-		// 	logs.Logger.Errorf("Failed to read message: %v", err.Error())
-		// }
+		header := make([]byte, 32)
+		if _, err = reviewsConn.Read(header); err != nil {
+			logs.Logger.Errorf("Failed to read message: %v", err.Error())
+		}
 	}()
 
 	wg.Wait()
@@ -131,12 +133,10 @@ func (c *Client) Close(gamesConn net.Conn, reviewsConn net.Conn) {
 	close(c.sigChan)
 }
 
-func (c *Client) startResultsListener(wg *sync.WaitGroup, done chan bool) {
-	defer wg.Done()
+func (c *Client) startResultsListener(done chan bool, address string) {
 
-	addr := c.cfg.String("gateway.address", "172.25.125.20")
 	resultsPort := c.cfg.String("gateway.results_port", "5052")
-	resultsFullAddress := addr + ":" + resultsPort
+	resultsFullAddress := address + ":" + resultsPort
 
 	resultsConn, err := net.Dial("tcp", resultsFullAddress)
 	if err != nil {
@@ -160,8 +160,8 @@ func (c *Client) startResultsListener(wg *sync.WaitGroup, done chan bool) {
 		}
 		c.stoppedMutex.Unlock()
 
-		lenBuffer := make([]byte, 4)
-		err := readFull(resultsConn, lenBuffer, 4)
+		lenBuffer := make([]byte, LenFieldSize)
+		err := readFull(resultsConn, lenBuffer, LenFieldSize)
 		if err != nil {
 			logs.Logger.Errorf("Error reading length of message: %v", err)
 			return

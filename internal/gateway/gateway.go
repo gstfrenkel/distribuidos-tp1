@@ -58,18 +58,13 @@ func New() (*Gateway, error) {
 		return nil, err
 	}
 
-	err = rabbit.BindGatewayQueuesToExchange(b, queues, cfg, GatewayExchangeName)
-	if err != nil {
-		return nil, err
-	}
-
 	// Reports exchange
 	ReportsExchangeName, err := rabbit.CreateExchange(cfg, b, cfg.String("rabbitmq.reports", "reports"))
 	if err != nil {
 		return nil, err
 	}
 
-	err = rabbit.BindReportsQueueToExchange(b, cfg, ReportsExchangeName)
+	err = rabbit.BindGatewayQueuesToExchange(b, queues, cfg, GatewayExchangeName, ReportsExchangeName)
 	if err != nil {
 		return nil, err
 	}
@@ -180,9 +175,9 @@ func (g *Gateway) HandleResults(cliConn net.Conn) error {
 				Data:    rabbitMsg,
 			}
 
-			data := make([]byte, 4+len(clientMsg.Data))
-			binary.BigEndian.PutUint32(data[:4], clientMsg.DataLen)
-			copy(data[4:], clientMsg.Data)
+			data := make([]byte, LenFieldSize+len(clientMsg.Data))
+			binary.BigEndian.PutUint32(data[:LenFieldSize], clientMsg.DataLen)
+			copy(data[LenFieldSize:], clientMsg.Data)
 
 			if err := ioutils.SendAll(cliConn, data); err != nil {
 				logs.Logger.Errorf("Error sending message to client: %s", err)

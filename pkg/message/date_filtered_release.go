@@ -22,7 +22,7 @@ func DateFilteredReleasesFromBytes(b []byte) (DateFilteredReleases, error) {
 }
 
 func (releases DateFilteredReleases) ToResultString() string {
-	header := "Q2: Top 10 juegos del género Indie publicados en la década del 2010 con más tiempo promedio histórico de juego\n"
+	header := "Q2:\n"
 	var gamesInfo []string
 	for _, release := range releases {
 		gamesInfo = append(gamesInfo, fmt.Sprintf("Juego: [%s], AvgPlaytime: [%d] \n", release.GameName, release.AvgPlaytime))
