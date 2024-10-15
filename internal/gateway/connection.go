@@ -187,43 +187,55 @@ func ListenResults(g *Gateway) {
 		return
 	}
 
-	accumulatedResults := map[uint8][]byte{
-		amqp.Query4originId: {},
-		amqp.Query5originId: {},
+	accumulatedResults := map[uint8]string{
+		amqp.Query4originId: "",
+		amqp.Query5originId: "",
 	}
 
 	for m := range messages {
 		if originID, ok := m.Headers["x-origin-id"]; ok {
 			if originIDUint8, ok := originID.(uint8); ok {
 
-				// Check for EOF
+				// Check for EOF in Q4 & Q5
 				if bytes.Equal(m.Body, amqp.EmptyEof) && (originIDUint8 == amqp.Query4originId || originIDUint8 == amqp.Query5originId) {
 					logs.Logger.Infof("Recibido EOF Query: %v", originIDUint8-1)
-
-					result, err := parseAccumulatedMessages(originIDUint8, accumulatedResults[originIDUint8])
-					if err != nil {
-						logs.Logger.Errorf("Failed to parse accumulated messages for origin ID %v: %v", originIDUint8, err)
-						continue
-					}
+					result := accumulatedResults[originIDUint8]
 
 					var resultStr string
 					switch originIDUint8 {
 					case amqp.Query4originId:
-						resultStr = result.(message.GameNames).ToResultString()
+						resultStr = message.ToQ4ResultString(result)
 					case amqp.Query5originId:
-						resultStr = result.(message.ScoredReviews).ToQ5ResultString()
+						resultStr = message.ToQ5ResultString(result)
 					}
 
 					g.resultsChan <- []byte(resultStr)
-					accumulatedResults[originIDUint8] = []byte{}
+
 				} else {
+					// Handle Q4 & Q5 message
 					if originIDUint8 == amqp.Query4originId || originIDUint8 == amqp.Query5originId {
-						logs.Logger.Infof("Recibido msj (para append) Query: %v", originIDUint8-1)
-						accumulatedResults[originIDUint8] = append(accumulatedResults[originIDUint8], m.Body...)
+						logs.Logger.Infof("Recibido msj append Query: %v", originIDUint8-1) // debug
+
+						switch originIDUint8 {
+						case amqp.Query4originId:
+							parsedBody, err := message.GameNamesFromBytes(m.Body)
+							if err != nil {
+								logs.Logger.Errorf("Failed to parse scored reviews: %v", err)
+								continue
+							}
+							accumulatedResults[originIDUint8] = accumulatedResults[originIDUint8] + parsedBody.ToStringAux()
+						case amqp.Query5originId:
+							parsedBody, err := message.ScoredReviewsFromBytes(m.Body)
+							if err != nil {
+								logs.Logger.Errorf("Failed to parse games names: %v", err)
+								continue
+							}
+							accumulatedResults[originIDUint8] = accumulatedResults[originIDUint8] + parsedBody.ToStringAux()
+						}
+
 					} else {
 						// Handle other queries
 						logs.Logger.Infof("Recibido resultado para Query: %v", originIDUint8-1)
-
 						result, err := parseMessageBody(originIDUint8, m.Body)
 						if err != nil {
 							logs.Logger.Errorf("Failed to parse message body into Platform struct: %v", err)
@@ -248,17 +260,6 @@ func ListenResults(g *Gateway) {
 				logs.Logger.Errorf("Header x-origin-id is not a valid uint8 value, got: %v", originID)
 			}
 		}
-	}
-}
-
-func parseAccumulatedMessages(originID uint8, accumulatedBody []byte) (interface{}, error) {
-	switch originID {
-	case amqp.Query4originId:
-		return message.GameNamesFromBytes(accumulatedBody)
-	case amqp.Query5originId:
-		return message.ScoredReviewsFromBytes(accumulatedBody)
-	default:
-		return nil, fmt.Errorf("unknown origin ID for accumulated messages: %v", originID)
 	}
 }
 

@@ -46,11 +46,15 @@ func (g GameNames) ToAny() []any {
 	return dataAny
 }
 
-func (names GameNames) ToResultString() string {
+func ToQ4ResultString(results string) string {
 	header := fmt.Sprintf("Q4: Juegos del género Action con más de 5.000 reseñas negativas en idioma inglés\n")
-	var namesInfo []string
-	for _, name := range names {
-		namesInfo = append(namesInfo, fmt.Sprintf("Juego: [%s] \n", name.GameName))
+	return header + results
+}
+
+func (names GameNames) ToStringAux() string {
+	var gamesInfo []string
+	for _, game := range names {
+		gamesInfo = append(gamesInfo, fmt.Sprintf("Juego: [%s], ID: [%d] \n", game.GameName, game.GameId))
 	}
-	return header + strings.Join(namesInfo, "")
+	return strings.Join(gamesInfo, "")
 }

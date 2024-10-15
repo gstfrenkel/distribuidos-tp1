@@ -48,13 +48,17 @@ func (reviews ScoredReviews) ToQ3ResultString() string {
 	return header + strings.Join(reviewsInfo, "")
 }
 
-func (reviews ScoredReviews) ToQ5ResultString() string {
-	header := fmt.Sprintf("Q5:juegos del género Action dentro del percentil 90 en cantidad de reseñas negativas\n")
+func ToQ5ResultString(reviewsInfo string) string {
+	header := fmt.Sprintf("Q5: juegos del género Action dentro del percentil 90 en cantidad de reseñas negativas\n")
+	return header + reviewsInfo
+}
+
+func (reviews ScoredReviews) ToStringAux() string {
 	var reviewsInfo []string
 	for _, review := range reviews {
 		reviewsInfo = append(reviewsInfo, fmt.Sprintf("Juego: [%s], Reseñas negativas: [%d] \n", review.GameName, review.Votes))
 	}
-	return header + strings.Join(reviewsInfo, "")
+	return strings.Join(reviewsInfo, "")
 }
 
 func (m ScoredReviews) ToAny() []any {
