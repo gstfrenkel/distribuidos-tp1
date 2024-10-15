@@ -16,7 +16,7 @@ func (g GameNames) ToBytes() ([]byte, error) {
 	return toBytes(g)
 }
 
-func ToBytes(m []any) ([]byte, error) {
+func GameNameFromAnyToBytes(m []any) ([]byte, error) {
 	var g GameNames
 	for _, gameName := range m {
 		g = append(g, gameName.(GameName))

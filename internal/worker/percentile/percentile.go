@@ -64,7 +64,7 @@ func (f *filter) saveScoredReview(msg message.ScoredReviews) {
 
 func (f *filter) publish() {
 	games := f.getGamesInPercentile()
-	worker.SendBatches(games.ToAny(), f.batchSize, message.ToGameNameBytes, f.sendBatch)
+	worker.SendBatches(games.ToAny(), f.batchSize, message.ScoredRevFromAnyToBytes, f.sendBatch)
 	f.sendEof()
 	f.reset()
 }
