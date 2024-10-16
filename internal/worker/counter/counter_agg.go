@@ -21,11 +21,12 @@ func New() (worker.Filter, error) {
 		return nil, err
 	}
 
-	return &filter{w: w, games: nil}, nil
+	return &filter{w: w}, nil
 }
 
 func (f *filter) Init() error {
 	f.batchSize = uint16(f.w.Query.(float64))
+	f.games = make(message.GameNames, 0, f.batchSize)
 	return f.w.Init()
 }
 
@@ -56,7 +57,7 @@ func (f *filter) Process(delivery amqp.Delivery) {
 }
 
 func (f *filter) publish(eof bool) {
-	if f.games != nil && (len(f.games) >= int(f.batchSize) || eof) {
+	if len(f.games) > 0 && (len(f.games) >= int(f.batchSize) || eof) {
 		b, err := f.games.ToBytes()
 		logs.Logger.Infof("Publishing batch of %d games", len(f.games))
 		if err != nil {
@@ -65,7 +66,7 @@ func (f *filter) publish(eof bool) {
 		}
 
 		f.sendBatch(b)
-		f.games = nil
+		f.games = f.games[:0]
 	}
 }
 
