@@ -14,6 +14,12 @@ const (
 	query5
 )
 
+var (
+	headersEof    = map[string]any{amqp.OriginIdHeader: amqp.ReviewOriginId, amqp.MessageIdHeader: uint8(message.EofMsg)}
+	headersText   = map[string]any{amqp.MessageIdHeader: uint8(message.ReviewWithTextID)}
+	headersScored = map[string]any{amqp.MessageIdHeader: uint8(message.ScoredReviewID)}
+)
+
 type filter struct {
 	w      *worker.Worker
 	scores [3]int8
@@ -43,10 +49,10 @@ func (f *filter) Start() {
 
 func (f *filter) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
-	headers := map[string]any{amqp.OriginIdHeader: amqp.ReviewOriginId}
 
 	if messageId == message.EofMsg {
-		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, headers, f.w.InputEof, f.w.OutputsEof...); err != nil {
+		headersEof[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
+		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, headersEof, f.w.InputEof, f.w.OutputsEof...); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	} else if messageId == message.ReviewIdMsg {
@@ -56,6 +62,8 @@ func (f *filter) Process(delivery amqp.Delivery) {
 			return
 		}
 
+		headersText[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
+		headersScored[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
 		f.publish(msg)
 	} else {
 		logs.Logger.Infof(errors.InvalidMessageId.Error(), messageId)
@@ -63,11 +71,10 @@ func (f *filter) Process(delivery amqp.Delivery) {
 }
 
 func (f *filter) publish(msg message.Review) {
-	headers := map[string]any{amqp.MessageIdHeader: uint8(message.ReviewWithTextID)}
 	b, err := msg.ToReviewWithTextMessage(f.scores[query4]).ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-	} else if err = f.w.Broker.Publish(f.w.Outputs[query4].Exchange, "", b, headers); err != nil {
+	} else if err = f.w.Broker.Publish(f.w.Outputs[query4].Exchange, "", b, headersText); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 
@@ -81,7 +88,6 @@ func (f *filter) publish(msg message.Review) {
 }
 
 func (f *filter) shardPublish(reviews message.ScoredReviews, output amqp.Destination) {
-	headers := map[string]any{amqp.MessageIdHeader: uint8(message.ScoredReviewID)}
 	for _, rv := range reviews {
 		b, err := rv.ToBytes()
 		if err != nil {
@@ -90,7 +96,7 @@ func (f *filter) shardPublish(reviews message.ScoredReviews, output amqp.Destina
 		}
 
 		k := worker.ShardGameId(rv.GameId, output.Key, output.Consumers)
-		if err = f.w.Broker.Publish(output.Exchange, k, b, headers); err != nil {
+		if err = f.w.Broker.Publish(output.Exchange, k, b, headersScored); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	}

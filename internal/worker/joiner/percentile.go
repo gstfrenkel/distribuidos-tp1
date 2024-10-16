@@ -10,16 +10,11 @@ import (
 	"tp1/pkg/message"
 )
 
-type percentileGameInfo struct {
-	gameName string // If gameName is an empty string, reviews of this game have been received but the game has not yet been identified as the correct genre.
-	votes    uint64
-}
-
 type percentile struct {
 	w             *worker.Worker
 	recvReviewEof bool
 	recvGameEof   bool
-	gameInfoById  map[int64]percentileGameInfo
+	gameInfoById  map[int64]gameInfo
 	batchSize     uint16
 }
 
@@ -29,7 +24,7 @@ func NewPercentile() (worker.Filter, error) {
 		return nil, err
 	}
 
-	return &percentile{w: w, gameInfoById: map[int64]percentileGameInfo{}}, nil
+	return &percentile{w: w, gameInfoById: map[int64]gameInfo{}}, nil
 }
 
 func (p *percentile) Init() error {
@@ -46,6 +41,7 @@ func (p *percentile) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
+		headersEof[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
 		p.processEof(delivery.Headers[amqp.OriginIdHeader].(uint8))
 	} else if messageId == message.ScoredReviewID {
 		msg, err := message.ScoredReviewFromBytes(delivery.Body)
@@ -105,24 +101,24 @@ func (p *percentile) processEof(origin uint8) {
 
 	p.recvReviewEof = false
 	p.recvGameEof = false
-	p.gameInfoById = map[int64]percentileGameInfo{}
+	p.gameInfoById = map[int64]gameInfo{}
 }
 
 func (p *percentile) processReview(msg message.ScoredReview) {
 	info, ok := p.gameInfoById[msg.GameId]
 	if !ok {
-		p.gameInfoById[msg.GameId] = percentileGameInfo{votes: msg.Votes}
+		p.gameInfoById[msg.GameId] = gameInfo{votes: msg.Votes}
 	} else {
-		p.gameInfoById[msg.GameId] = percentileGameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
+		p.gameInfoById[msg.GameId] = gameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
 	}
 }
 
 func (p *percentile) processGame(msg message.GameName) {
 	info, ok := p.gameInfoById[msg.GameId]
 	if !ok { // No reviews have been received for this game.
-		p.gameInfoById[msg.GameId] = percentileGameInfo{gameName: msg.GameName}
+		p.gameInfoById[msg.GameId] = gameInfo{gameName: msg.GameName}
 	} else {
-		p.gameInfoById[msg.GameId] = percentileGameInfo{gameName: msg.GameName, votes: info.votes}
+		p.gameInfoById[msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes}
 	}
 }
 

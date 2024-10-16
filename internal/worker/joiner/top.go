@@ -9,16 +9,11 @@ import (
 	"tp1/pkg/message"
 )
 
-type topGameInfo struct {
-	gameName string // If gameName is an empty string, reviews of this game have been received but the game has not yet been identified as the correct genre.
-	votes    uint64
-}
-
 type top struct {
 	w             *worker.Worker
 	recvReviewEof bool
 	recvGameEof   bool
-	gameInfoById  map[int64]topGameInfo
+	gameInfoById  map[int64]gameInfo
 	output        amqp.Destination
 }
 
@@ -28,7 +23,7 @@ func NewTop() (worker.Filter, error) {
 		return nil, err
 	}
 
-	return &top{w: w, gameInfoById: map[int64]topGameInfo{}}, nil
+	return &top{w: w, gameInfoById: map[int64]gameInfo{}}, nil
 }
 
 func (t *top) Init() error {
@@ -46,6 +41,7 @@ func (t *top) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
+		headersEof[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
 		t.processEof(delivery.Headers[amqp.OriginIdHeader].(uint8))
 	} else if messageId == message.ScoredReviewID {
 		msg, err := message.ScoredReviewFromBytes(delivery.Body)
@@ -84,18 +80,18 @@ func (t *top) processEof(origin uint8) {
 
 		t.recvReviewEof = false
 		t.recvGameEof = false
-		t.gameInfoById = map[int64]topGameInfo{}
+		t.gameInfoById = map[int64]gameInfo{}
 	}
 }
 
 func (t *top) processReview(msg message.ScoredReview) {
 	info, ok := t.gameInfoById[msg.GameId]
 	if !ok {
-		t.gameInfoById[msg.GameId] = topGameInfo{votes: msg.Votes}
+		t.gameInfoById[msg.GameId] = gameInfo{votes: msg.Votes}
 		return
 	}
 
-	t.gameInfoById[msg.GameId] = topGameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
+	t.gameInfoById[msg.GameId] = gameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
 
 	if info.gameName == "" {
 		return
@@ -112,11 +108,11 @@ func (t *top) processReview(msg message.ScoredReview) {
 func (t *top) processGame(msg message.GameName) {
 	info, ok := t.gameInfoById[msg.GameId]
 	if !ok { // No reviews have been received for this game.
-		t.gameInfoById[msg.GameId] = topGameInfo{gameName: msg.GameName}
+		t.gameInfoById[msg.GameId] = gameInfo{gameName: msg.GameName}
 		return
 	}
 
-	t.gameInfoById[msg.GameId] = topGameInfo{gameName: msg.GameName, votes: info.votes}
+	t.gameInfoById[msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes}
 
 	b, err := message.ScoredReviews{{GameId: msg.GameId, Votes: info.votes, GameName: msg.GameName}}.ToBytes()
 	if err != nil {
