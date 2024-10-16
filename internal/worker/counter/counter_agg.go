@@ -39,7 +39,8 @@ func (f *filter) Process(delivery amqp.Delivery) {
 	if messageId == message.EofMsg {
 		f.eofsRecv++
 		if f.eofsRecv >= f.w.Peers {
-			f.publish()
+			f.publish(true)
+			f.sendEof()
 		}
 	} else if messageId == message.GameNameID {
 		msg, err := message.GameNameFromBytes(delivery.Body)
@@ -48,20 +49,31 @@ func (f *filter) Process(delivery amqp.Delivery) {
 			return
 		}
 		f.games = append(f.games, msg)
+		f.publish(false)
 	} else {
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
 	}
 }
 
+<<<<<<< Updated upstream
 func (f *filter) publish() {
 	if f.games == nil {
 		return
 	}
+=======
+func (f *filter) publish(eof bool) {
+	if f.games != nil && (len(f.games) >= int(f.batchSize) || eof) {
+		b, err := f.games.ToBytes()
+		logs.Logger.Infof("Publishing batch of %d games", len(f.games))
+		if err != nil {
+			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+			return
+		}
+>>>>>>> Stashed changes
 
-	worker.SendBatches(f.games.ToAny(), f.batchSize, message.GameNameFromAnyToBytes, f.sendBatch)
-	logs.Logger.Infof("Q4 games: %v", f.games)
-	f.sendEof()
-	f.reset()
+		f.sendBatch(b)
+		f.games = nil
+	}
 }
 
 func (f *filter) sendBatch(b []byte) {
@@ -76,11 +88,7 @@ func (f *filter) sendEof() {
 	if err := f.w.Broker.HandleEofMessage(f.w.Id, 0, amqp.EmptyEof, headers, f.w.InputEof, f.w.OutputsEof...); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
+	f.eofsRecv = 0
 
 	logs.Logger.Infof("Eof message sent")
-}
-
-func (f *filter) reset() {
-	f.games = nil
-	f.eofsRecv = 0
 }

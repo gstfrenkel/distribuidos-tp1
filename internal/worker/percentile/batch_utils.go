@@ -1,4 +1,4 @@
-package worker
+package percentile
 
 import (
 	"tp1/internal/errors"
