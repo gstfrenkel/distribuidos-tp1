@@ -47,7 +47,7 @@ func (g GameNames) ToAny() []any {
 }
 
 func ToQ4ResultString(results string) string {
-	header := fmt.Sprintf("Q4: Juegos del género Action con más de 5.000 reseñas negativas en idioma inglés\n")
+	header := fmt.Sprintf("Q4:\n")
 	return header + results
 }
 
