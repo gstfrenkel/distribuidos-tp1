@@ -55,7 +55,8 @@ func (f *filter) Process(delivery amqp.Delivery) {
 
 func (f *filter) publish() {
 	if f.games == nil {
-		return
+		f.sendEof()
+		f.reset()
 	}
 
 	worker.SendBatches(f.games.ToAny(), f.batchSize, message.GameNameFromAnyToBytes, f.sendBatch)
