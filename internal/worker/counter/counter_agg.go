@@ -55,12 +55,6 @@ func (f *filter) Process(delivery amqp.Delivery) {
 	}
 }
 
-<<<<<<< Updated upstream
-func (f *filter) publish() {
-	if f.games == nil {
-		return
-	}
-=======
 func (f *filter) publish(eof bool) {
 	if f.games != nil && (len(f.games) >= int(f.batchSize) || eof) {
 		b, err := f.games.ToBytes()
@@ -69,7 +63,6 @@ func (f *filter) publish(eof bool) {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 			return
 		}
->>>>>>> Stashed changes
 
 		f.sendBatch(b)
 		f.games = nil
