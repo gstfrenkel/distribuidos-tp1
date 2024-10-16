@@ -25,15 +25,16 @@ const ResultsListener = 2
 const connections = 3
 
 type Gateway struct {
-	Config      config.Config
-	broker      amqp.MessageBroker
-	queues      []amqp.Queue //order: reviews, games_platform, games_action, games_indie
-	exchange    string
-	Listeners   [connections]net.Listener
-	ChunkChans  [connections]chan ChunkItem
-	finished    bool
-	finishedMu  sync.Mutex
-	resultsChan chan []byte
+	Config          config.Config
+	broker          amqp.MessageBroker
+	queues          []amqp.Queue //order: reviews, games_platform, games_action, games_indie
+	exchange        string
+	reportsExchange string
+	Listeners       [connections]net.Listener
+	ChunkChans      [connections]chan ChunkItem
+	finished        bool
+	finishedMu      sync.Mutex
+	resultsChan     chan []byte
 }
 
 func New() (*Gateway, error) {
@@ -70,15 +71,16 @@ func New() (*Gateway, error) {
 	}
 
 	return &Gateway{
-		Config:      cfg,
-		broker:      b,
-		queues:      queues,
-		exchange:    GatewayExchangeName,
-		ChunkChans:  [connections]chan ChunkItem{make(chan ChunkItem), make(chan ChunkItem)},
-		finished:    false,
-		finishedMu:  sync.Mutex{},
-		Listeners:   [connections]net.Listener{},
-		resultsChan: make(chan []byte),
+		Config:          cfg,
+		broker:          b,
+		queues:          queues,
+		exchange:        GatewayExchangeName,
+		reportsExchange: ReportsExchangeName,
+		ChunkChans:      [connections]chan ChunkItem{make(chan ChunkItem), make(chan ChunkItem)},
+		finished:        false,
+		finishedMu:      sync.Mutex{},
+		Listeners:       [connections]net.Listener{},
+		resultsChan:     make(chan []byte),
 	}, nil
 }
 

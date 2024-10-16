@@ -74,8 +74,8 @@ func (c *Client) Start() {
 		return
 	}
 
-	logs.Logger.Info("Games conn: %s", gamesFullAddress)
-	logs.Logger.Info("Reviews conn: %s", reviewsFullAddress)
+	logs.Logger.Infof("Games conn: %s", gamesFullAddress)
+	logs.Logger.Infof("Reviews conn: %s", reviewsFullAddress)
 
 	wg.Add(2)
 

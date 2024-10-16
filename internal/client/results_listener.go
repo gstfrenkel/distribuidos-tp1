@@ -2,8 +2,8 @@ package client
 
 import (
 	"encoding/binary"
-	"io"
 	"net"
+	"tp1/pkg/ioutils"
 	"tp1/pkg/logs"
 )
 
@@ -25,7 +25,7 @@ func (c *Client) startResultsListener(done chan bool, address string) {
 	logs.Logger.Infof("Connected to results on: %s", resultsFullAddress)
 
 	messageCount := 0
-	maxMessages := 5
+	maxMessages := c.cfg.Int("client.max_messages", 5)
 
 	for {
 		c.stoppedMutex.Lock()
@@ -37,7 +37,7 @@ func (c *Client) startResultsListener(done chan bool, address string) {
 		c.stoppedMutex.Unlock()
 
 		lenBuffer := make([]byte, LenFieldSize)
-		err := readFull(resultsConn, lenBuffer, LenFieldSize)
+		err := ioutils.ReadFull(resultsConn, lenBuffer, LenFieldSize)
 		if err != nil {
 			logs.Logger.Errorf("Error reading length of message: %v", err)
 			return
@@ -45,14 +45,13 @@ func (c *Client) startResultsListener(done chan bool, address string) {
 
 		dataLen := binary.BigEndian.Uint32(lenBuffer)
 		payload := make([]byte, dataLen)
-		err = readFull(resultsConn, payload, int(dataLen))
+		err = ioutils.ReadFull(resultsConn, payload, int(dataLen))
 		if err != nil {
 			logs.Logger.Errorf("Error reading payload from connection: %v", err)
 			return
 		}
 
 		receivedData := string(payload)
-		logs.Logger.Infof("Received: %s", receivedData)
 
 		if _, err := c.resultsFile.WriteString(receivedData + "\n\n"); err != nil {
 			logs.Logger.Errorf("Error writing to results.txt: %v", err)
@@ -64,21 +63,4 @@ func (c *Client) startResultsListener(done chan bool, address string) {
 			return
 		}
 	}
-}
-
-func readFull(conn net.Conn, buffer []byte, n int) error {
-	totalBytesRead := 0
-
-	for totalBytesRead < n {
-		bytesRead, err := conn.Read(buffer[totalBytesRead:])
-		if err != nil {
-			return err
-		}
-		if bytesRead == 0 {
-			return io.EOF
-		}
-		totalBytesRead += bytesRead
-	}
-
-	return nil
 }
