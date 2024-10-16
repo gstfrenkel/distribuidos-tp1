@@ -1,10 +1,6 @@
 package client
 
 import (
-	"encoding/binary"
-	"fmt"
-	"io"
-	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -15,8 +11,6 @@ import (
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 )
-
-const LenFieldSize = 4
 
 type Client struct {
 	cfg          config.Config
@@ -70,18 +64,18 @@ func (c *Client) Start() {
 
 	gamesConn, err := net.Dial("tcp", gamesFullAddress)
 	if err != nil {
-		fmt.Println("Games Conn error:", err)
+		logs.Logger.Errorf("Games Conn error:", err)
 		return
 	}
 
 	reviewsConn, err := net.Dial("tcp", reviewsFullAddress)
 	if err != nil {
-		fmt.Println("Reviews Conn error:", err)
+		logs.Logger.Errorf("Reviews Conn error:", err)
 		return
 	}
 
-	log.Printf("Games conn: %s", gamesFullAddress)
-	log.Printf("Reviews conn: %s", reviewsFullAddress)
+	logs.Logger.Info("Games conn: %s", gamesFullAddress)
+	logs.Logger.Info("Reviews conn: %s", reviewsFullAddress)
 
 	wg.Add(2)
 
@@ -93,7 +87,6 @@ func (c *Client) Start() {
 	go func() {
 		defer wg.Done()
 		defer gamesConn.Close()
-
 		readAndSendCSV(c.cfg.String("client.games_path", "data/games.csv"), uint8(message.GameIdMsg), gamesConn, &message.DataCSVGames{}, c)
 		header := make([]byte, 32)
 		if _, err = gamesConn.Read(header); err != nil {
@@ -104,7 +97,6 @@ func (c *Client) Start() {
 	go func() {
 		defer wg.Done()
 		defer reviewsConn.Close()
-
 		readAndSendCSV(c.cfg.String("client.reviews_path", "data/reviews.csv"), uint8(message.ReviewIdMsg), reviewsConn, &message.DataCSVReviews{}, c)
 		header := make([]byte, 32)
 		if _, err = reviewsConn.Read(header); err != nil {
@@ -113,9 +105,7 @@ func (c *Client) Start() {
 	}()
 
 	wg.Wait()
-
 	logs.Logger.Info("Client exit...")
-
 	c.Close(gamesConn, reviewsConn)
 }
 
@@ -131,78 +121,4 @@ func (c *Client) Close(gamesConn net.Conn, reviewsConn net.Conn) {
 	reviewsConn.Close()
 	c.resultsFile.Close()
 	close(c.sigChan)
-}
-
-func (c *Client) startResultsListener(done chan bool, address string) {
-
-	resultsPort := c.cfg.String("gateway.results_port", "5052")
-	resultsFullAddress := address + ":" + resultsPort
-
-	resultsConn, err := net.Dial("tcp", resultsFullAddress)
-	if err != nil {
-		logs.Logger.Errorf("Error connecting to results socket: %s", err)
-		return
-	}
-
-	defer resultsConn.Close()
-
-	logs.Logger.Infof("Connected to results on: %s", resultsFullAddress)
-
-	messageCount := 0
-	maxMessages := 5
-
-	for {
-		c.stoppedMutex.Lock()
-		if c.stopped {
-			c.stoppedMutex.Unlock()
-			logs.Logger.Info("Shutting down results listener due to stopped signal.")
-			return
-		}
-		c.stoppedMutex.Unlock()
-
-		lenBuffer := make([]byte, LenFieldSize)
-		err := readFull(resultsConn, lenBuffer, LenFieldSize)
-		if err != nil {
-			logs.Logger.Errorf("Error reading length of message: %v", err)
-			return
-		}
-
-		dataLen := binary.BigEndian.Uint32(lenBuffer)
-		payload := make([]byte, dataLen)
-		err = readFull(resultsConn, payload, int(dataLen))
-		if err != nil {
-			logs.Logger.Errorf("Error reading payload from connection: %v", err)
-			return
-		}
-
-		receivedData := string(payload)
-		logs.Logger.Infof("Received: %s", receivedData)
-
-		if _, err := c.resultsFile.WriteString(receivedData + "\n\n"); err != nil {
-			logs.Logger.Errorf("Error writing to results.txt: %v", err)
-		}
-
-		messageCount++
-		if messageCount >= maxMessages {
-			done <- true
-			return
-		}
-	}
-}
-
-func readFull(conn net.Conn, buffer []byte, n int) error {
-	totalBytesRead := 0
-
-	for totalBytesRead < n {
-		bytesRead, err := conn.Read(buffer[totalBytesRead:])
-		if err != nil {
-			return err
-		}
-		if bytesRead == 0 {
-			return io.EOF
-		}
-		totalBytesRead += bytesRead
-	}
-
-	return nil
 }

@@ -198,7 +198,6 @@ func ListenResults(g *Gateway) {
 
 				// Check for EOF in Q4 & Q5
 				if bytes.Equal(m.Body, amqp.EmptyEof) && (originIDUint8 == amqp.Query4originId || originIDUint8 == amqp.Query5originId) {
-					logs.Logger.Infof("Recibido EOF Query: %v", originIDUint8-1)
 					result := accumulatedResults[originIDUint8]
 
 					var resultStr string
@@ -214,7 +213,6 @@ func ListenResults(g *Gateway) {
 				} else {
 					// Handle Q4 & Q5 message
 					if originIDUint8 == amqp.Query4originId || originIDUint8 == amqp.Query5originId {
-						logs.Logger.Infof("Recibido msj append Query: %v", originIDUint8-1) // debug
 
 						switch originIDUint8 {
 						case amqp.Query4originId:
@@ -235,7 +233,6 @@ func ListenResults(g *Gateway) {
 
 					} else {
 						// Handle other queries
-						logs.Logger.Infof("Recibido resultado para Query: %v", originIDUint8-1)
 						result, err := parseMessageBody(originIDUint8, m.Body)
 						if err != nil {
 							logs.Logger.Errorf("Failed to parse message body into Platform struct: %v", err)

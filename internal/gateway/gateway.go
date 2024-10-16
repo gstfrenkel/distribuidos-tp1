@@ -183,8 +183,6 @@ func (g *Gateway) HandleResults(cliConn net.Conn) error {
 				logs.Logger.Errorf("Error sending message to client: %s", err)
 				return err
 			}
-
-			//logs.Logger.Infof("Sent message to client: %s", string(rabbitMsg))
 		}
 	}
 }
