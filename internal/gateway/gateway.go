@@ -1,11 +1,13 @@
 package gateway
 
 import (
+	"encoding/binary"
 	"net"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+	"tp1/pkg/ioutils"
 	"tp1/pkg/message"
 
 	"tp1/internal/gateway/rabbit"
@@ -19,17 +21,20 @@ import (
 const configFilePath = "config.toml"
 const GamesListener = 0
 const ReviewsListener = 1
-const connections = 2
+const ResultsListener = 2
+const connections = 3
 
 type Gateway struct {
-	Config     config.Config
-	broker     amqp.MessageBroker
-	queues     []amqp.Queue //order: reviews, games_platform, games_action, games_indie
-	exchange   string
-	Listeners  [connections]net.Listener
-	ChunkChans [connections]chan ChunkItem
-	finished   bool
-	finishedMu sync.Mutex
+	Config          config.Config
+	broker          amqp.MessageBroker
+	queues          []amqp.Queue //order: reviews, games_platform, games_action, games_indie
+	exchange        string
+	reportsExchange string
+	Listeners       [connections]net.Listener
+	ChunkChans      [connections]chan ChunkItem
+	finished        bool
+	finishedMu      sync.Mutex
+	resultsChan     chan []byte
 }
 
 func New() (*Gateway, error) {
@@ -48,25 +53,34 @@ func New() (*Gateway, error) {
 		return nil, err
 	}
 
-	exchangeName, err := rabbit.CreateGatewayExchange(cfg, b)
+	// Gateway exchange
+	GatewayExchangeName, err := rabbit.CreateExchange(cfg, b, cfg.String("rabbitmq.exchange_name", "gateway"))
 	if err != nil {
 		return nil, err
 	}
 
-	err = rabbit.BindGatewayQueuesToExchange(b, queues, cfg, exchangeName)
+	// Reports exchange
+	ReportsExchangeName, err := rabbit.CreateExchange(cfg, b, cfg.String("rabbitmq.reports", "reports"))
+	if err != nil {
+		return nil, err
+	}
+
+	err = rabbit.BindGatewayQueuesToExchange(b, queues, cfg, GatewayExchangeName, ReportsExchangeName)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Gateway{
-		Config:     cfg,
-		broker:     b,
-		queues:     queues,
-		exchange:   exchangeName,
-		ChunkChans: [connections]chan ChunkItem{make(chan ChunkItem), make(chan ChunkItem)},
-		finished:   false,
-		finishedMu: sync.Mutex{},
-		Listeners:  [connections]net.Listener{},
+		Config:          cfg,
+		broker:          b,
+		queues:          queues,
+		exchange:        GatewayExchangeName,
+		reportsExchange: ReportsExchangeName,
+		ChunkChans:      [connections]chan ChunkItem{make(chan ChunkItem), make(chan ChunkItem)},
+		finished:        false,
+		finishedMu:      sync.Mutex{},
+		Listeners:       [connections]net.Listener{},
+		resultsChan:     make(chan []byte),
 	}, nil
 }
 
@@ -88,6 +102,7 @@ func (g *Gateway) Start() {
 
 	go startChunkSender(GamesListener, g.ChunkChans[GamesListener], g.broker, g.exchange, g.Config.Uint8("gateway.chunk_size", 100), g.Config.String("rabbitmq.games_routing_key", "game"))
 	go startChunkSender(ReviewsListener, g.ChunkChans[ReviewsListener], g.broker, g.exchange, g.Config.Uint8("gateway.chunk_size", 100), g.Config.String("rabbitmq.reviews_routing_key", "review"))
+	go ListenResults(g)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(connections)
@@ -105,6 +120,14 @@ func (g *Gateway) Start() {
 		err = g.listenForNewClients(GamesListener)
 		if err != nil {
 			logs.Logger.Errorf("Error listening games: %s", err.Error())
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		err = g.ListenResultsRequests()
+		if err != nil {
+			logs.Logger.Errorf("Error listening results: %s", err.Error())
 		}
 	}()
 
@@ -140,4 +163,28 @@ func (g *Gateway) HandleSIGTERM() {
 	g.finishedMu.Lock()
 	g.finished = true
 	g.finishedMu.Unlock()
+}
+
+func (g *Gateway) HandleResults(cliConn net.Conn) error {
+
+	defer cliConn.Close()
+
+	for {
+		select {
+		case rabbitMsg := <-g.resultsChan:
+			clientMsg := message.ClientMessage{
+				DataLen: uint32(len(rabbitMsg)),
+				Data:    rabbitMsg,
+			}
+
+			data := make([]byte, LenFieldSize+len(clientMsg.Data))
+			binary.BigEndian.PutUint32(data[:LenFieldSize], clientMsg.DataLen)
+			copy(data[LenFieldSize:], clientMsg.Data)
+
+			if err := ioutils.SendAll(cliConn, data); err != nil {
+				logs.Logger.Errorf("Error sending message to client: %s", err)
+				return err
+			}
+		}
+	}
 }

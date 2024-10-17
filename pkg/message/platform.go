@@ -1,5 +1,7 @@
 package message
 
+import "fmt"
+
 type Platform struct {
 	Windows int
 	Linux   int
@@ -29,4 +31,8 @@ func (p *Platform) ResetValues() {
 
 func (p Platform) IsEmpty() bool {
 	return p.Windows == 0 && p.Linux == 0 && p.Mac == 0
+}
+
+func (p Platform) ToResultString() string {
+	return fmt.Sprintf("Q1:\nWindows: [%d], Linux: [%d], Mac: [%d]", p.Windows, p.Linux, p.Mac)
 }
