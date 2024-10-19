@@ -15,9 +15,11 @@ services:
     logging:
       driver: none
 
-  gateway:
-    container_name: gateway
+  gateway-1:
+    container_name: gateway-1
     image: gateway:latest
+    environment:
+      - worker-id=0
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -98,7 +100,7 @@ services:
       rabbitmq:
         condition: service_healthy
     links:
-      - gateway
+      - gateway-1
     networks:
       - tp1_net
     volumes:

@@ -176,6 +176,8 @@ func (g *Gateway) free(sigs chan os.Signal) {
 	g.broker.Close()
 	g.Listeners[ReviewsListener].Close()
 	g.Listeners[GamesListener].Close()
+	g.Listeners[ResultsListener].Close()
+	g.Listeners[ClientIdListener].Close()
 	close(g.ChunkChans[ReviewsListener])
 	close(g.ChunkChans[GamesListener])
 	close(sigs)
