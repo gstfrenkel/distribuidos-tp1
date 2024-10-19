@@ -9,8 +9,10 @@ import (
 )
 
 type filter struct {
-	w     *worker.Worker
-	games message.GameNames
+	w         *worker.Worker
+	games     message.GameNames
+	batchSize uint16
+	eofsRecv  uint8
 }
 
 func New() (worker.Filter, error) {
@@ -19,10 +21,12 @@ func New() (worker.Filter, error) {
 		return nil, err
 	}
 
-	return &filter{w: w, games: nil}, nil
+	return &filter{w: w}, nil
 }
 
 func (f *filter) Init() error {
+	f.batchSize = uint16(f.w.Query.(float64))
+	f.games = make(message.GameNames, 0, f.batchSize)
 	return f.w.Init()
 }
 
@@ -34,7 +38,11 @@ func (f *filter) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
-		f.publish()
+		f.eofsRecv++
+		if f.eofsRecv >= f.w.Peers {
+			f.publish(true)
+			f.sendEof()
+		}
 	} else if messageId == message.GameNameID {
 		msg, err := message.GameNameFromBytes(delivery.Body)
 		if err != nil {
@@ -42,23 +50,39 @@ func (f *filter) Process(delivery amqp.Delivery) {
 			return
 		}
 		f.games = append(f.games, msg)
+		f.publish(false)
 	} else {
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
 	}
 }
 
-func (f *filter) publish() {
-	if f.games == nil {
-		return
-	}
-	logs.Logger.Infof("Query 4 results: %v", f.games)
-	b, err := f.games.ToBytes()
-	if err != nil {
-		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-	}
+func (f *filter) publish(eof bool) {
+	if len(f.games) > 0 && (len(f.games) >= int(f.batchSize) || eof) {
+		b, err := f.games.ToBytes()
+		logs.Logger.Infof("Publishing batch of %d games", len(f.games))
+		if err != nil {
+			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+			return
+		}
 
+		f.sendBatch(b)
+		f.games = f.games[:0]
+	}
+}
+
+func (f *filter) sendBatch(b []byte) {
 	headers := map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID), amqp.OriginIdHeader: amqp.Query4originId}
-	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
+	if err := f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
+}
+
+func (f *filter) sendEof() {
+	headers := map[string]any{amqp.OriginIdHeader: amqp.Query4originId}
+	if err := f.w.Broker.HandleEofMessage(f.w.Id, 0, amqp.EmptyEof, headers, f.w.InputEof, f.w.OutputsEof...); err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
+	}
+	f.eofsRecv = 0
+
+	logs.Logger.Infof("Eof message sent")
 }

@@ -2,6 +2,7 @@ package ioutils
 
 import (
 	"encoding/binary"
+	"io"
 	"net"
 )
 
@@ -16,6 +17,23 @@ func SendAll(conn net.Conn, data []byte) error {
 		data = data[n:]
 		total -= n
 	}
+	return nil
+}
+
+func ReadFull(conn net.Conn, buffer []byte, n int) error {
+	totalBytesRead := 0
+
+	for totalBytesRead < n {
+		bytesRead, err := conn.Read(buffer[totalBytesRead:])
+		if err != nil {
+			return err
+		}
+		if bytesRead == 0 {
+			return io.EOF
+		}
+		totalBytesRead += bytesRead
+	}
+
 	return nil
 }
 

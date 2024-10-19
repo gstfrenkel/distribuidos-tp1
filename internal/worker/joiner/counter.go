@@ -111,8 +111,8 @@ func (c *counter) processReview(msg message.ScoredReview) {
 		} else {
 			c.gameInfoById[msg.GameId] = counterGameInfo{gameName: msg.GameName, votes: info.votes, sent: true}
 		}
-	} else if info.votes < c.target {
-		c.gameInfoById[msg.GameId] = counterGameInfo{votes: info.votes + msg.Votes}
+	} else {
+		c.gameInfoById[msg.GameId] = counterGameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
 	}
 }
 

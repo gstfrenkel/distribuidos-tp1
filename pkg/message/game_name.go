@@ -1,5 +1,10 @@
 package message
 
+import (
+	"fmt"
+	"strings"
+)
+
 type GameNames []GameName
 
 type GameName struct {
@@ -12,10 +17,28 @@ func GameNameFromBytes(b []byte) (GameName, error) {
 	return m, fromBytes(b, &m)
 }
 
+func GameNamesFromBytes(b []byte) (GameNames, error) {
+	var m GameNames
+	return m, fromBytes(b, &m)
+}
+
 func (g GameNames) ToBytes() ([]byte, error) {
 	return toBytes(g)
 }
 
 func (g GameName) ToBytes() ([]byte, error) {
 	return toBytes(g)
+}
+
+func ToQ4ResultString(results string) string {
+	header := fmt.Sprintf("Q4:\n")
+	return header + results
+}
+
+func (names GameNames) ToStringAux() string {
+	var gamesInfo []string
+	for _, game := range names {
+		gamesInfo = append(gamesInfo, fmt.Sprintf("Juego: [%s], ID: [%d] \n", game.GameName, game.GameId))
+	}
+	return strings.Join(gamesInfo, "")
 }

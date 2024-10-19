@@ -1,5 +1,10 @@
 package message
 
+import (
+	"fmt"
+	"strings"
+)
+
 type ScoredReviews []ScoredReview
 
 type ScoredReview struct {
@@ -26,14 +31,40 @@ func (m ScoredReviews) ToBytes() ([]byte, error) {
 	return toBytes(m)
 }
 
-func (m ScoredReviews) ToGameNameBytes() ([]byte, error) {
-	var gameNames GameNames
-	for _, scoredReview := range m {
-		gameNames = append(gameNames, GameName{GameId: scoredReview.GameId, GameName: scoredReview.GameName})
+func ScoredRevFromAnyToBytes(s []any) ([]byte, error) {
+	var m ScoredReviews
+	for _, review := range s {
+		m = append(m, review.(ScoredReview))
 	}
+	return toBytes(m)
+}
 
-	if gameNames != nil {
-		return gameNames.ToBytes()
+func (reviews ScoredReviews) ToQ3ResultString() string {
+	header := fmt.Sprintf("Q3:\n")
+	var reviewsInfo []string
+	for _, review := range reviews {
+		reviewsInfo = append(reviewsInfo, fmt.Sprintf("Juego: [%s], Reseñas positivas: [%d] \n", review.GameName, review.Votes))
 	}
-	return nil, nil
+	return header + strings.Join(reviewsInfo, "")
+}
+
+func ToQ5ResultString(reviewsInfo string) string {
+	header := fmt.Sprintf("Q5:\n")
+	return header + reviewsInfo
+}
+
+func (reviews ScoredReviews) ToStringAux() string {
+	var reviewsInfo []string
+	for _, review := range reviews {
+		reviewsInfo = append(reviewsInfo, fmt.Sprintf("Juego: [%s], Reseñas negativas: [%d] \n", review.GameName, review.Votes))
+	}
+	return strings.Join(reviewsInfo, "")
+}
+
+func (m ScoredReviews) ToAny() []any {
+	var dataAny []any
+	for _, review := range m {
+		dataAny = append(dataAny, review)
+	}
+	return dataAny
 }

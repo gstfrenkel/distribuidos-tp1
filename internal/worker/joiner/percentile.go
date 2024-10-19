@@ -83,7 +83,7 @@ func (p *percentile) processEof(origin uint8) {
 
 	var reviews message.ScoredReviews
 	for id, info := range p.gameInfoById {
-		if info.gameName == "" {
+		if info.gameName == "" || info.votes == 0 {
 			continue
 		}
 
