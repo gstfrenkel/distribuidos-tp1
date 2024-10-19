@@ -4,7 +4,7 @@ import "strconv"
 
 type IdGenerator struct {
 	prefix uint8
-	nextId uint64
+	nextId uint16
 }
 
 func New(prefix uint8) *IdGenerator {

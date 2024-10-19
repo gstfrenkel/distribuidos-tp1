@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"net"
+	"tp1/internal/gateway/id_generator"
 	"tp1/pkg/ioutils"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
@@ -15,6 +16,7 @@ func (g *Gateway) listenForData(listener int) error {
 }
 
 func (g *Gateway) handleDataConnection(c net.Conn, msgId message.ID) {
+	clientId := g.readClientId(c)
 	sends := 0
 
 	auxBuf := make([]byte, g.Config.Int("gateway.buffer_size", 1024))
@@ -57,7 +59,7 @@ func (g *Gateway) handleDataConnection(c net.Conn, msgId message.ID) {
 			_, buf = readPayloadSize(buf)
 
 			sends += 1
-			finished = g.processPayload(msgId, buf[:payloadSize], payloadSize)
+			finished = g.processPayload(msgId, buf[:payloadSize], payloadSize, clientId)
 			buf = ioutils.MoveBuff(buf, int(payloadSize))
 		}
 	}
@@ -66,24 +68,32 @@ func (g *Gateway) handleDataConnection(c net.Conn, msgId message.ID) {
 	sendConfirmationToClient(c)
 }
 
+func (g *Gateway) readClientId(c net.Conn) string {
+	clientId := make([]byte, id_generator.ClientIdLen)
+	if err := ioutils.ReadFull(c, clientId, id_generator.ClientIdLen); err != nil {
+		logs.Logger.Errorf("Error reading client id from client: %s", err)
+	}
+	return id_generator.DecodeClientId(clientId)
+}
+
 func readPayloadSize(data []byte) (uint32, []byte) {
 	return ioutils.ReadU32FromSlice(data), ioutils.MoveBuff(data, LenFieldSize)
 }
 
-// processPayload parses the data received from the client and appends it to the corresponding chunk
+// processPayload parses the data received from the client and appends it to the corresponding chunks
 // Returns true if the end of the file was reached
-func (g *Gateway) processPayload(msgId message.ID, payload []byte, payloadSize uint32) bool {
+func (g *Gateway) processPayload(msgId message.ID, payload []byte, payloadSize uint32, clientId string) bool {
 	if isEndOfFile(payloadSize) {
 		logs.Logger.Infof("End of file received for message ID: %d", msgId)
-		g.sendMsgToChunkSender(msgId, nil)
+		g.sendMsgToChunkSender(msgId, nil, clientId)
 		return true
 	}
 
-	g.sendMsgToChunkSender(msgId, payload)
+	g.sendMsgToChunkSender(msgId, payload, clientId)
 	return false
 }
 
-func (g *Gateway) sendMsgToChunkSender(msgId message.ID, payload []byte) {
+func (g *Gateway) sendMsgToChunkSender(msgId message.ID, payload []byte, clientId string) {
 	var data any
 	if payload != nil {
 		if msgId == message.ReviewIdMsg {
@@ -95,7 +105,7 @@ func (g *Gateway) sendMsgToChunkSender(msgId message.ID, payload []byte) {
 		data = nil
 	}
 
-	g.ChunkChans[matchListenerId(msgId)] <- ChunkItem{msgId, data}
+	g.ChunkChans[matchListenerId(msgId)] <- ChunkItem{data, clientId}
 }
 
 func isEndOfFile(payloadSize uint32) bool {
