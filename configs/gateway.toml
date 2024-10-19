@@ -2,6 +2,7 @@
 reviews-address = "172.25.125.100:5050"
 games-address = "172.25.125.100:5051"
 results-address = "172.25.125.100:5052"
+client-id-address = "172.25.125.100:5053"
 
 buffer_size = 16384
 chunk_size = 100
