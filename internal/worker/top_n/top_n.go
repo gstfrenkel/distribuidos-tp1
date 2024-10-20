@@ -120,7 +120,7 @@ func (f *filter) publish(clientId string) {
 		}
 	}
 
-	f.eofsRecv[clientId] = 0
+	delete(f.eofsRecv, clientId)
 }
 
 func (f *filter) getTopNScoredReviews(clientId string) message.ScoredReviews {
