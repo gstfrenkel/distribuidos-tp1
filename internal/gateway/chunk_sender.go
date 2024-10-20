@@ -80,7 +80,7 @@ func (s *ChunkSender) sendChunk(eof bool, clientId string) {
 			logs.Logger.Errorf("Error publishing EOF: %s", err.Error())
 		}
 		logs.Logger.Infof("Sent eof with key %v", s.routingKey)
-		s.chunks[clientId] = make([]any, 0, s.maxChunkSize)
+		delete(s.chunks, clientId)
 	}
 }
 
