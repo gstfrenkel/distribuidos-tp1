@@ -45,6 +45,7 @@ func (f *filter) Process(delivery amqp.Delivery) {
 		if f.eofsRecv[clientId] >= f.w.Peers {
 			f.publish(clientId, true)
 			f.sendEof(clientId)
+			f.reset(clientId)
 		}
 	} else if messageId == message.GameNameID {
 		msg, err := message.GameNameFromBytes(delivery.Body)
@@ -87,8 +88,12 @@ func (f *filter) sendEof(clientId string) {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 
-	delete(f.eofsRecv, clientId)
 	logs.Logger.Infof("Eof message sent for client %s", clientId)
+}
+
+func (f *filter) reset(clientId string) {
+	delete(f.eofsRecv, clientId)
+	delete(f.games, clientId)
 }
 
 func (f *filter) saveGame(msg message.GameName, clientId string) {
