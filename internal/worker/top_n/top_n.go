@@ -119,6 +119,8 @@ func (f *filter) publish(clientId string) {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	}
+
+	f.eofsRecv[clientId] = 0
 }
 
 func (f *filter) getTopNScoredReviews(clientId string) message.ScoredReviews {
