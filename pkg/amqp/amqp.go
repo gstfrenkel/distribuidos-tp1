@@ -1,13 +1,15 @@
 package amqp
 
 import (
-	amqp "github.com/rabbitmq/amqp091-go"
 	"tp1/pkg/message"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 const (
 	MessageIdHeader = "x-message-id"
 	OriginIdHeader  = "x-origin-id"
+	ClientIdHeader  = "x-client-id"
 )
 
 const (
