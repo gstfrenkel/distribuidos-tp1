@@ -18,15 +18,11 @@ type Client struct {
 	stopped      bool
 	stoppedMutex sync.Mutex
 	resultsFile  *os.File
+	clientId     string
 }
 
 func New() (*Client, error) {
 	config, err := provider.LoadConfig("config.toml")
-	if err != nil {
-		return nil, err
-	}
-
-	file, err := os.OpenFile("/app/data/results.txt", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +35,6 @@ func New() (*Client, error) {
 		sigChan:      sigChan,
 		stopped:      false,
 		stoppedMutex: sync.Mutex{},
-		resultsFile:  file,
 	}, nil
 }
 
@@ -48,6 +43,18 @@ func (c *Client) Start() {
 
 	wg := sync.WaitGroup{}
 	address := c.cfg.String("gateway.address", "172.25.125.100")
+
+	err := fetchClientID(c, address)
+	if err != nil {
+		logs.Logger.Errorf("Error fetching client ID: %v", err)
+		return
+	}
+
+	err = openResultsFile(c)
+	if err != nil {
+		logs.Logger.Errorf("Error opening results file: %v", err)
+		return
+	}
 
 	wg.Add(1)
 	go func() {
@@ -106,18 +113,4 @@ func (c *Client) Start() {
 	wg.Wait()
 	logs.Logger.Info("Client exit...")
 	c.Close(gamesConn, reviewsConn)
-}
-
-func (c *Client) handleSigterm() {
-	logs.Logger.Info("Sigterm Signal Received... Shutting down")
-	c.stoppedMutex.Lock()
-	c.stopped = true
-	c.stoppedMutex.Unlock()
-}
-
-func (c *Client) Close(gamesConn net.Conn, reviewsConn net.Conn) {
-	gamesConn.Close()
-	reviewsConn.Close()
-	c.resultsFile.Close()
-	close(c.sigChan)
 }

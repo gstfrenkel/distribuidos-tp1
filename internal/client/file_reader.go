@@ -12,6 +12,13 @@ import (
 )
 
 func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interface{}, c *Client) {
+
+	err := sendClientID(c, conn)
+	if err != nil {
+		logs.Logger.Errorf("Error sending client ID: %s", err)
+		return
+	}
+
 	file, err := os.Open(filename)
 	if err != nil {
 		logs.Logger.Errorf("Error opening CSV file: %s", err)
