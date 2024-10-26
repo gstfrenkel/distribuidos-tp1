@@ -21,3 +21,8 @@ type gameInfo struct {
 	gameName string // If gameName is an empty string, reviews of this game have been received but the game has not yet been identified as the correct genre.
 	votes    uint64
 }
+
+type recvEofs struct {
+	review bool
+	game   bool
+}

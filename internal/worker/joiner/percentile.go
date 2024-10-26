@@ -1,8 +1,6 @@
 package joiner
 
 import (
-	"fmt"
-
 	"tp1/internal/errors"
 	"tp1/internal/worker"
 	"tp1/pkg/amqp"
@@ -11,11 +9,10 @@ import (
 )
 
 type percentile struct {
-	w             *worker.Worker
-	recvReviewEof bool
-	recvGameEof   bool
-	gameInfoById  map[string]map[int64]gameInfo
-	batchSize     uint16
+	w            *worker.Worker
+	eofsByClient map[string]recvEofs
+	gameInfoById map[string]map[int64]gameInfo
+	batchSize    uint16
 }
 
 func NewPercentile() (worker.Filter, error) {
@@ -65,31 +62,30 @@ func (p *percentile) Process(delivery amqp.Delivery) {
 }
 
 func (p *percentile) processEof(clientId string, origin uint8) {
-	if origin == amqp.GameOriginId {
-		p.recvGameEof = true
-	} else if origin == amqp.ReviewOriginId {
-		p.recvReviewEof = true
-	} else {
-		logs.Logger.Errorf(fmt.Sprintf("Unknown message origin ID received: %d", origin))
+	recv, ok := p.eofsByClient[clientId]
+	if !ok {
+		p.eofsByClient[clientId] = recvEofs{}
 	}
 
-	if !p.recvReviewEof || !p.recvGameEof {
-		return
+	p.eofsByClient[clientId] = recvEofs{
+		review: origin == amqp.ReviewOriginId || recv.review,
+		game:   origin == amqp.GameOriginId || recv.game,
 	}
 
-	userInfo, ok := p.gameInfoById[clientId]
-	if ok {
-		p.processBatch(clientId, userInfo)
-	}
+	if p.eofsByClient[clientId].review && p.eofsByClient[clientId].game {
+		userInfo, ok := p.gameInfoById[clientId]
+		if ok {
+			p.processBatch(clientId, userInfo)
+		}
 
-	headersEof[amqp.ClientIdHeader] = clientId
-	if err := p.w.Broker.HandleEofMessage(p.w.Id, 0, amqp.EmptyEof, headersEof, p.w.InputEof, p.w.OutputsEof...); err != nil {
-		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
-	}
+		headersEof[amqp.ClientIdHeader] = clientId
+		if err := p.w.Broker.HandleEofMessage(p.w.Id, 0, amqp.EmptyEof, headersEof, p.w.InputEof, p.w.OutputsEof...); err != nil {
+			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
+		}
 
-	p.recvReviewEof = false
-	p.recvGameEof = false
-	delete(p.gameInfoById, clientId)
+		delete(p.gameInfoById, clientId)
+		delete(p.eofsByClient, clientId)
+	}
 }
 
 func (p *percentile) processBatch(clientId string, userInfo map[int64]gameInfo) {

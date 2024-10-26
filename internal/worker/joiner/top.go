@@ -10,11 +10,10 @@ import (
 )
 
 type top struct {
-	w             *worker.Worker
-	recvReviewEof bool
-	recvGameEof   bool
-	gameInfoById  map[int64]gameInfo
-	output        amqp.Destination
+	w            *worker.Worker
+	eofsByClient map[string]recvEofs
+	gameInfoById map[string]map[int64]gameInfo
+	output       amqp.Destination
 }
 
 func NewTop() (worker.Filter, error) {
@@ -23,7 +22,7 @@ func NewTop() (worker.Filter, error) {
 		return nil, err
 	}
 
-	return &top{w: w, gameInfoById: map[int64]gameInfo{}}, nil
+	return &top{w: w, gameInfoById: map[string]map[int64]gameInfo{}}, nil
 }
 
 func (t *top) Init() error {
@@ -39,10 +38,11 @@ func (t *top) Start() {
 
 func (t *top) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
+	clientId := delivery.Headers[amqp.ClientIdHeader].(string)
 
 	if messageId == message.EofMsg {
 		headersEof[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
-		t.processEof(delivery.Headers[amqp.OriginIdHeader].(uint8))
+		t.processEof(clientId, delivery.Headers[amqp.OriginIdHeader].(uint8))
 	} else if messageId == message.ScoredReviewID {
 		msg, err := message.ScoredReviewFromBytes(delivery.Body)
 		if err != nil {
@@ -50,7 +50,7 @@ func (t *top) Process(delivery amqp.Delivery) {
 			return
 		}
 
-		t.processReview(msg)
+		t.processReview(clientId, msg)
 	} else if messageId == message.GameNameID {
 		msg, err := message.GameNameFromBytes(delivery.Body)
 		if err != nil {
@@ -58,40 +58,48 @@ func (t *top) Process(delivery amqp.Delivery) {
 			return
 		}
 
-		t.processGame(msg)
+		t.processGame(clientId, msg)
 	} else {
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
 	}
 }
 
-func (t *top) processEof(origin uint8) {
-	if origin == amqp.GameOriginId {
-		t.recvGameEof = true
-	} else if origin == amqp.ReviewOriginId {
-		t.recvReviewEof = true
-	} else {
-		logs.Logger.Errorf(fmt.Sprintf("Unknown message origin ID received: %d", origin))
+func (t *top) processEof(clientId string, origin uint8) {
+	recv, ok := t.eofsByClient[clientId]
+	if !ok {
+		t.eofsByClient[clientId] = recvEofs{}
 	}
 
-	if t.recvReviewEof && t.recvGameEof {
-		if err := t.w.Broker.HandleEofMessage(t.w.Id, 0, amqp.EmptyEof, nil, t.w.InputEof, amqp.DestinationEof(t.output)); err != nil {
+	t.eofsByClient[clientId] = recvEofs{
+		review: origin == amqp.ReviewOriginId || recv.review,
+		game:   origin == amqp.GameOriginId || recv.game,
+	}
+
+	if t.eofsByClient[clientId].review && t.eofsByClient[clientId].game {
+		headersEof[amqp.ClientIdHeader] = clientId
+		if err := t.w.Broker.HandleEofMessage(t.w.Id, 0, amqp.EmptyEof, headersEof, t.w.InputEof, amqp.DestinationEof(t.output)); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 
-		t.recvReviewEof = false
-		t.recvGameEof = false
-		t.gameInfoById = map[int64]gameInfo{}
+		delete(t.eofsByClient, clientId)
+		delete(t.gameInfoById, clientId)
 	}
 }
 
-func (t *top) processReview(msg message.ScoredReview) {
-	info, ok := t.gameInfoById[msg.GameId]
+func (t *top) processReview(clientId string, msg message.ScoredReview) {
+	userInfo, ok := t.gameInfoById[clientId]
 	if !ok {
-		t.gameInfoById[msg.GameId] = gameInfo{votes: msg.Votes}
+		t.gameInfoById[clientId] = map[int64]gameInfo{msg.GameId: {votes: msg.Votes}}
 		return
 	}
 
-	t.gameInfoById[msg.GameId] = gameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
+	info, ok := userInfo[msg.GameId]
+	if !ok {
+		t.gameInfoById[clientId][msg.GameId] = gameInfo{votes: msg.Votes}
+		return
+	}
+
+	t.gameInfoById[clientId][msg.GameId] = gameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
 
 	if info.gameName == "" {
 		return
@@ -100,24 +108,36 @@ func (t *top) processReview(msg message.ScoredReview) {
 	b, err := message.ScoredReviews{{GameId: msg.GameId, GameName: info.gameName, Votes: info.votes + msg.Votes}}.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-	} else if err = t.w.Broker.Publish(t.output.Exchange, t.output.Key, b, map[string]any{amqp.MessageIdHeader: uint8(message.ScoredReviewID)}); err != nil {
+	}
+
+	headersReview[amqp.ClientIdHeader] = clientId
+	if err = t.w.Broker.Publish(t.output.Exchange, t.output.Key, b, headersReview); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 }
 
-func (t *top) processGame(msg message.GameName) {
-	info, ok := t.gameInfoById[msg.GameId]
-	if !ok { // No reviews have been received for this game.
-		t.gameInfoById[msg.GameId] = gameInfo{gameName: msg.GameName}
+func (t *top) processGame(clientId string, msg message.GameName) {
+	userInfo, ok := t.gameInfoById[clientId]
+	if !ok {
+		t.gameInfoById[clientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
 		return
 	}
 
-	t.gameInfoById[msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes}
+	info, ok := userInfo[msg.GameId]
+	if !ok { // No reviews have been received for this game.
+		t.gameInfoById[clientId][msg.GameId] = gameInfo{gameName: msg.GameName}
+		return
+	}
+
+	t.gameInfoById[clientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes}
 
 	b, err := message.ScoredReviews{{GameId: msg.GameId, Votes: info.votes, GameName: msg.GameName}}.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-	} else if err = t.w.Broker.Publish(t.output.Exchange, t.output.Key, b, map[string]any{amqp.MessageIdHeader: uint8(message.ScoredReviewID)}); err != nil {
+	}
+
+	headersReview[amqp.ClientIdHeader] = clientId
+	if err = t.w.Broker.Publish(t.output.Exchange, t.output.Key, b, headersReview); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 }
