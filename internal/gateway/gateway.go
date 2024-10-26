@@ -27,20 +27,19 @@ const connections = 4
 const chunkChans = 2
 
 type Gateway struct {
-	Config          config.Config
-	broker          amqp.MessageBroker
-	queues          []amqp.Queue //order: reviews, games_platform, games_action, games_indie
-	exchange        string
-	reportsExchange string
-	Listeners       [connections]net.Listener
-	ChunkChans      [chunkChans]chan ChunkItem
-	finished        bool
-	finishedMu      sync.Mutex
-	resultsChan     chan []byte
-	IdGenerator     *id_generator.IdGenerator
-	IdGeneratorMu   sync.Mutex
-	Clients         map[string]any //TODO ver q guardar aca. Bytes? o cualquier msg de reports?
-	ClientsMu       sync.Mutex
+	Config           config.Config
+	broker           amqp.MessageBroker
+	queues           []amqp.Queue //order: reviews, games_platform, games_action, games_indie
+	exchange         string
+	reportsExchange  string
+	Listeners        [connections]net.Listener
+	ChunkChans       [chunkChans]chan ChunkItem
+	finished         bool
+	finishedMu       sync.Mutex
+	IdGenerator      *id_generator.IdGenerator
+	IdGeneratorMu    sync.Mutex
+	clientChannels   map[string]chan []byte
+	clientChannelsMu sync.Mutex
 }
 
 func New() (*Gateway, error) {
@@ -82,20 +81,19 @@ func New() (*Gateway, error) {
 	}
 
 	return &Gateway{
-		Config:          cfg,
-		broker:          b,
-		queues:          queues,
-		exchange:        GatewayExchangeName,
-		reportsExchange: ReportsExchangeName,
-		ChunkChans:      [chunkChans]chan ChunkItem{make(chan ChunkItem), make(chan ChunkItem)},
-		finished:        false,
-		finishedMu:      sync.Mutex{},
-		Listeners:       [connections]net.Listener{},
-		resultsChan:     make(chan []byte),
-		IdGenerator:     id_generator.New(uint8(gId)),
-		IdGeneratorMu:   sync.Mutex{},
-		Clients:         make(map[string]any),
-		ClientsMu:       sync.Mutex{},
+		Config:           cfg,
+		broker:           b,
+		queues:           queues,
+		exchange:         GatewayExchangeName,
+		reportsExchange:  ReportsExchangeName,
+		ChunkChans:       [chunkChans]chan ChunkItem{make(chan ChunkItem), make(chan ChunkItem)},
+		finished:         false,
+		finishedMu:       sync.Mutex{},
+		Listeners:        [connections]net.Listener{},
+		IdGenerator:      id_generator.New(uint8(gId)),
+		IdGeneratorMu:    sync.Mutex{},
+		clientChannels:   make(map[string]chan []byte),
+		clientChannelsMu: sync.Mutex{},
 	}, nil
 }
 
