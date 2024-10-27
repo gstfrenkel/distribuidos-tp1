@@ -21,7 +21,11 @@ func NewPercentile() (worker.Filter, error) {
 		return nil, err
 	}
 
-	return &percentile{w: w, gameInfoById: map[string]map[int64]gameInfo{}}, nil
+	return &percentile{
+		w:            w,
+		eofsByClient: map[string]recvEofs{},
+		gameInfoById: map[string]map[int64]gameInfo{},
+	}, nil
 }
 
 func (p *percentile) Init() error {
@@ -39,7 +43,13 @@ func (p *percentile) Process(delivery amqp.Delivery) {
 	clientId := delivery.Headers[amqp.ClientIdHeader].(string)
 
 	if messageId == message.EofMsg {
-		p.processEof(clientId, delivery.Headers[amqp.OriginIdHeader].(uint8))
+		processEof(
+			clientId,
+			delivery.Headers[amqp.OriginIdHeader].(uint8),
+			p.eofsByClient,
+			p.gameInfoById,
+			p.processEof,
+		)
 	} else if messageId == message.ScoredReviewID {
 		msg, err := message.ScoredReviewFromBytes(delivery.Body)
 		if err != nil {
@@ -61,30 +71,14 @@ func (p *percentile) Process(delivery amqp.Delivery) {
 	}
 }
 
-func (p *percentile) processEof(clientId string, origin uint8) {
-	recv, ok := p.eofsByClient[clientId]
-	if !ok {
-		p.eofsByClient[clientId] = recvEofs{}
+func (p *percentile) processEof(clientId string) {
+	userInfo, ok := p.gameInfoById[clientId]
+	if ok {
+		p.processBatch(clientId, userInfo)
 	}
 
-	p.eofsByClient[clientId] = recvEofs{
-		review: origin == amqp.ReviewOriginId || recv.review,
-		game:   origin == amqp.GameOriginId || recv.game,
-	}
-
-	if p.eofsByClient[clientId].review && p.eofsByClient[clientId].game {
-		userInfo, ok := p.gameInfoById[clientId]
-		if ok {
-			p.processBatch(clientId, userInfo)
-		}
-
-		headersEof[amqp.ClientIdHeader] = clientId
-		if err := p.w.Broker.HandleEofMessage(p.w.Id, 0, amqp.EmptyEof, headersEof, p.w.InputEof, p.w.OutputsEof...); err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
-		}
-
-		delete(p.gameInfoById, clientId)
-		delete(p.eofsByClient, clientId)
+	if err := p.w.Broker.HandleEofMessage(p.w.Id, 0, amqp.EmptyEof, headersEof, p.w.InputEof, p.w.OutputsEof...); err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 }
 

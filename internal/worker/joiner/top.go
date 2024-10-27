@@ -22,7 +22,11 @@ func NewTop() (worker.Filter, error) {
 		return nil, err
 	}
 
-	return &top{w: w, gameInfoById: map[string]map[int64]gameInfo{}}, nil
+	return &top{
+		w:            w,
+		eofsByClient: map[string]recvEofs{},
+		gameInfoById: map[string]map[int64]gameInfo{},
+	}, nil
 }
 
 func (t *top) Init() error {
@@ -41,8 +45,13 @@ func (t *top) Process(delivery amqp.Delivery) {
 	clientId := delivery.Headers[amqp.ClientIdHeader].(string)
 
 	if messageId == message.EofMsg {
-		headersEof[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
-		t.processEof(clientId, delivery.Headers[amqp.OriginIdHeader].(uint8))
+		processEof(
+			clientId,
+			delivery.Headers[amqp.OriginIdHeader].(uint8),
+			t.eofsByClient,
+			t.gameInfoById,
+			t.processEof,
+		)
 	} else if messageId == message.ScoredReviewID {
 		msg, err := message.ScoredReviewFromBytes(delivery.Body)
 		if err != nil {
@@ -64,25 +73,9 @@ func (t *top) Process(delivery amqp.Delivery) {
 	}
 }
 
-func (t *top) processEof(clientId string, origin uint8) {
-	recv, ok := t.eofsByClient[clientId]
-	if !ok {
-		t.eofsByClient[clientId] = recvEofs{}
-	}
-
-	t.eofsByClient[clientId] = recvEofs{
-		review: origin == amqp.ReviewOriginId || recv.review,
-		game:   origin == amqp.GameOriginId || recv.game,
-	}
-
-	if t.eofsByClient[clientId].review && t.eofsByClient[clientId].game {
-		headersEof[amqp.ClientIdHeader] = clientId
-		if err := t.w.Broker.HandleEofMessage(t.w.Id, 0, amqp.EmptyEof, headersEof, t.w.InputEof, amqp.DestinationEof(t.output)); err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
-		}
-
-		delete(t.eofsByClient, clientId)
-		delete(t.gameInfoById, clientId)
+func (t *top) processEof(clientId string) {
+	if err := t.w.Broker.HandleEofMessage(t.w.Id, 0, amqp.EmptyEof, headersEof, t.w.InputEof, amqp.DestinationEof(t.output)); err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 }
 

@@ -1,8 +1,6 @@
 package joiner
 
 import (
-	"fmt"
-
 	"tp1/internal/errors"
 	"tp1/internal/worker"
 	"tp1/pkg/amqp"
@@ -11,11 +9,10 @@ import (
 )
 
 type counter struct {
-	w             *worker.Worker
-	recvReviewEof bool
-	recvGameEof   bool
-	target        uint64
-	gameInfoById  map[int64]counterGameInfo
+	w            *worker.Worker
+	eofsByClient map[string]recvEofs
+	gameInfoById map[string]map[int64]gameInfo
+	target       uint64
 }
 
 func NewCounter() (worker.Filter, error) {
@@ -24,23 +21,35 @@ func NewCounter() (worker.Filter, error) {
 		return nil, err
 	}
 
-	return &counter{w: w, gameInfoById: map[int64]counterGameInfo{}}, nil
+	return &counter{
+		w:            w,
+		eofsByClient: map[string]recvEofs{},
+		gameInfoById: map[string]map[int64]gameInfo{},
+	}, nil
 }
 
 func (c *counter) Init() error {
+	c.target = uint64(c.w.Query.(float64))
+
 	return c.w.Init()
 }
 
 func (c *counter) Start() {
-	c.target = uint64(c.w.Query.(float64))
 	c.w.Start(c)
 }
 
 func (c *counter) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
+	clientId := delivery.Headers[amqp.ClientIdHeader].(string)
 
 	if messageId == message.EofMsg {
-		c.processEof(delivery.Headers[amqp.OriginIdHeader].(uint8))
+		processEof(
+			clientId,
+			delivery.Headers[amqp.OriginIdHeader].(uint8),
+			c.eofsByClient,
+			c.gameInfoById,
+			c.processEof,
+		)
 	} else if messageId == message.ScoredReviewID {
 		msg, err := message.ScoredReviewFromBytes(delivery.Body)
 		if err != nil {
@@ -48,7 +57,7 @@ func (c *counter) Process(delivery amqp.Delivery) {
 			return
 		}
 
-		c.processReview(msg)
+		c.processReview(clientId, msg)
 	} else if messageId == message.GameNameID {
 		msg, err := message.GameNameFromBytes(delivery.Body)
 		if err != nil {
@@ -56,38 +65,28 @@ func (c *counter) Process(delivery amqp.Delivery) {
 			return
 		}
 
-		c.processGame(msg, delivery.Body)
+		c.processGame(clientId, msg, delivery.Body)
 	} else {
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
 	}
 }
 
-func (c *counter) processEof(origin uint8) {
-	if origin == amqp.GameOriginId {
-		c.recvGameEof = true
-	} else if origin == amqp.ReviewOriginId {
-		c.recvReviewEof = true
-	} else {
-		logs.Logger.Errorf(fmt.Sprintf("Unknown message origin ID received: %d", origin))
-	}
-
-	if c.recvReviewEof && c.recvGameEof {
-		headers := map[string]any{amqp.OriginIdHeader: amqp.GameOriginId}
-
-		if err := c.w.Broker.HandleEofMessage(c.w.Id, 0, amqp.EmptyEof, headers, c.w.InputEof, c.w.OutputsEof...); err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
-		}
-
-		c.recvReviewEof = false
-		c.recvGameEof = false
-		c.gameInfoById = map[int64]counterGameInfo{}
+func (c *counter) processEof(clientId string) {
+	if err := c.w.Broker.HandleEofMessage(c.w.Id, 0, amqp.EmptyEof, headersEof, c.w.InputEof, c.w.OutputsEof...); err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 }
 
-func (c *counter) processReview(msg message.ScoredReview) {
-	info, ok := c.gameInfoById[msg.GameId]
+func (c *counter) processReview(clientId string, msg message.ScoredReview) {
+	userInfo, ok := c.gameInfoById[clientId]
 	if !ok {
-		c.gameInfoById[msg.GameId] = counterGameInfo{votes: msg.Votes}
+		c.gameInfoById[clientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
+		return
+	}
+
+	info, ok := userInfo[msg.GameId]
+	if !ok {
+		c.gameInfoById[clientId][msg.GameId] = gameInfo{votes: msg.Votes}
 		return
 	} else if info.sent {
 		return
@@ -100,31 +99,39 @@ func (c *counter) processReview(msg message.ScoredReview) {
 			return
 		}
 
-		if err = c.w.Broker.Publish(c.w.Outputs[0].Exchange, c.w.Outputs[0].Key, b, map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID)}); err != nil {
+		headersGame[amqp.ClientIdHeader] = clientId
+		if err = c.w.Broker.Publish(c.w.Outputs[0].Exchange, c.w.Outputs[0].Key, b, headersGame); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		} else {
-			c.gameInfoById[msg.GameId] = counterGameInfo{gameName: msg.GameName, votes: info.votes, sent: true}
+			c.gameInfoById[clientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes, sent: true}
 		}
 	} else {
-		c.gameInfoById[msg.GameId] = counterGameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
+		c.gameInfoById[clientId][msg.GameId] = gameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
 	}
 }
 
-func (c *counter) processGame(msg message.GameName, b []byte) {
-	info, ok := c.gameInfoById[msg.GameId]
+func (c *counter) processGame(clientId string, msg message.GameName, b []byte) {
+	userInfo, ok := c.gameInfoById[clientId]
+	if !ok {
+		c.gameInfoById[clientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
+		return
+	}
+
+	info, ok := userInfo[msg.GameId]
 	if !ok { // No reviews have been received for this game.
-		c.gameInfoById[msg.GameId] = counterGameInfo{gameName: msg.GameName}
+		c.gameInfoById[clientId][msg.GameId] = gameInfo{gameName: msg.GameName}
 		return
 	}
 
 	if info.votes >= c.target { // Reviews have been received, and they exceed the target vote count.
-		if err := c.w.Broker.Publish(c.w.Outputs[0].Exchange, c.w.Outputs[0].Key, b, map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID)}); err != nil {
+		headersGame[amqp.ClientIdHeader] = clientId
+		if err := c.w.Broker.Publish(c.w.Outputs[0].Exchange, c.w.Outputs[0].Key, b, headersGame); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 			return
 		}
 
-		c.gameInfoById[msg.GameId] = counterGameInfo{gameName: msg.GameName, votes: info.votes, sent: true}
+		c.gameInfoById[clientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes, sent: true}
 	} else { // Reviews have been received, but they do not exceed the target vote count.
-		c.gameInfoById[msg.GameId] = counterGameInfo{gameName: msg.GameName, votes: info.votes}
+		c.gameInfoById[clientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes}
 	}
 }
