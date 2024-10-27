@@ -21,14 +21,15 @@ func New() (worker.Filter, error) {
 		return nil, err
 	}
 
-	return &filter{w: w}, nil
+	return &filter{
+		w:        w,
+		games:    make(map[string]message.GameNames),
+		eofsRecv: make(map[string]uint8),
+	}, nil
 }
 
 func (f *filter) Init() error {
 	f.batchSize = uint16(f.w.Query.(float64))
-	f.games = make(map[string]message.GameNames)
-	f.eofsRecv = make(map[string]uint8)
-
 	return f.w.Init()
 }
 
