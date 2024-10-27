@@ -11,14 +11,14 @@ type ChunkSender struct {
 	channel      <-chan ChunkItem
 	broker       amqp.MessageBroker
 	exchange     string
-	chunk        []any
 	maxChunkSize uint8
+	chunks       map[string][]any
 	routingKey   string
 }
 
 type ChunkItem struct {
-	MsgId message.ID
-	Msg   any //DataCSVGames or DataCSVReviews
+	Msg      any //DataCSVGames or DataCSVReviews
+	ClientId string
 }
 
 func newChunkSender(id int, channel <-chan ChunkItem, broker amqp.MessageBroker, exchange string, chunkMaxSize uint8, routingKey string) *ChunkSender {
@@ -27,7 +27,7 @@ func newChunkSender(id int, channel <-chan ChunkItem, broker amqp.MessageBroker,
 		channel:      channel,
 		broker:       broker,
 		exchange:     exchange,
-		chunk:        make([]any, 0, chunkMaxSize),
+		chunks:       make(map[string][]any),
 		maxChunkSize: chunkMaxSize,
 		routingKey:   routingKey,
 	}
@@ -37,43 +37,50 @@ func startChunkSender(id int, channel <-chan ChunkItem, broker amqp.MessageBroke
 	s := newChunkSender(id, channel, broker, exchange, chunkMaxSize, routingKey)
 	for {
 		item := <-channel
-		s.updateChunk(item.Msg, item.Msg == nil)
+		s.updateChunk(item, item.Msg == nil)
 	}
 }
 
-func (s *ChunkSender) updateChunk(data any, eof bool) {
+func (s *ChunkSender) updateChunk(item ChunkItem, eof bool) {
+	clientId := item.ClientId
 	if !eof {
-		s.chunk = append(s.chunk, data)
+		if _, ok := s.chunks[clientId]; !ok {
+			s.chunks[clientId] = make([]any, 0, s.maxChunkSize)
+		}
+		s.chunks[clientId] = append(s.chunks[clientId], item)
 	}
 
-	s.sendChunk(eof)
+	s.sendChunk(eof, clientId)
 }
 
-// sendChunk sends a chunk of data to the broker if the chunk is full or the eof flag is true
+// sendChunk sends a chunks of data to the broker if the chunks is full or the eof flag is true
 // In case eof is true, it sends an EOF message to the broker
-// if a chunk was sent restarts count
-func (s *ChunkSender) sendChunk(eof bool) {
+// if a chunks was sent restarts count
+func (s *ChunkSender) sendChunk(eof bool, clientId string) {
 	messageId := matchMessageId(s.id)
-	if len(s.chunk) > 0 && (len(s.chunk) >= int(s.maxChunkSize) || eof) {
-		bytes, err := toBytes(messageId, s.chunk)
+	chunk := s.chunks[clientId]
+
+	if len(chunk) > 0 && (len(s.chunks) >= int(s.maxChunkSize) || eof) {
+		bytes, err := toBytes(messageId, chunk)
 		if err != nil {
-			logs.Logger.Errorf("Error converting chunk to bytes: %s", err.Error())
+			logs.Logger.Errorf("Error converting chunks to bytes: %s", err.Error())
 		}
 
-		err = s.broker.Publish(s.exchange, s.routingKey, bytes, map[string]any{amqp.MessageIdHeader: uint8(messageId)})
+		err = s.broker.Publish(s.exchange, s.routingKey, bytes, map[string]any{amqp.MessageIdHeader: uint8(messageId), amqp.ClientIdHeader: clientId})
 		if err != nil {
-			logs.Logger.Errorf("Error publishing chunk: %s", err.Error())
+			logs.Logger.Errorf("Error publishing chunks: %s", err.Error())
 		}
 
-		s.chunk = make([]any, 0, s.maxChunkSize)
+		s.chunks[clientId] = make([]any, 0, s.maxChunkSize)
 	}
+
 	if eof {
-		err := s.broker.Publish(s.exchange, s.routingKey, amqp.EmptyEof, map[string]any{amqp.MessageIdHeader: uint8(message.EofMsg)})
+		err := s.broker.Publish(s.exchange, s.routingKey, amqp.EmptyEof, map[string]any{amqp.MessageIdHeader: uint8(message.EofMsg), amqp.ClientIdHeader: clientId})
 		if err != nil {
 			logs.Logger.Errorf("Error publishing EOF: %s", err.Error())
 		}
 		logs.Logger.Infof("Sent eof with key %v", s.routingKey)
-		s.chunk = make([]any, 0, s.maxChunkSize)
+		delete(s.chunks, clientId)
 	}
 }
 
