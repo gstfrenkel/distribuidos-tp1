@@ -8,6 +8,7 @@ import (
 const (
 	MessageIdHeader = "x-message-id"
 	OriginIdHeader  = "x-origin-id"
+	ClientIdHeader  = "x-client-id" //a string that identifies the client and its gateway
 )
 
 const (
