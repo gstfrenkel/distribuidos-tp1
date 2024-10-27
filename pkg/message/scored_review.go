@@ -1,5 +1,10 @@
 package message
 
+import (
+	"fmt"
+	"strings"
+)
+
 type ScoredReviews []ScoredReview
 
 type ScoredReview struct {
@@ -32,6 +37,28 @@ func ScoredRevFromAnyToBytes(s []any) ([]byte, error) {
 		m = append(m, review.(ScoredReview))
 	}
 	return toBytes(m)
+}
+
+func (reviews ScoredReviews) ToQ3ResultString() string {
+	header := fmt.Sprintf("Q3:\n")
+	var reviewsInfo []string
+	for _, review := range reviews {
+		reviewsInfo = append(reviewsInfo, fmt.Sprintf("Juego: [%s], Reseñas positivas: [%d] \n", review.GameName, review.Votes))
+	}
+	return header + strings.Join(reviewsInfo, "")
+}
+
+func ToQ5ResultString(reviewsInfo string) string {
+	header := fmt.Sprintf("Q5:\n")
+	return header + reviewsInfo
+}
+
+func (reviews ScoredReviews) ToStringAux() string {
+	var reviewsInfo []string
+	for _, review := range reviews {
+		reviewsInfo = append(reviewsInfo, fmt.Sprintf("Juego: [%s], Reseñas negativas: [%d] \n", review.GameName, review.Votes))
+	}
+	return strings.Join(reviewsInfo, "")
 }
 
 func (m ScoredReviews) ToAny() []any {

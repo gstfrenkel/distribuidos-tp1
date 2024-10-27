@@ -86,7 +86,7 @@ func (p *percentile) processBatch(clientId string, userInfo map[int64]gameInfo) 
 	var reviews message.ScoredReviews
 
 	for id, info := range userInfo {
-		if info.gameName == "" {
+		if info.gameName == "" || info.votes == 0 {
 			continue
 		}
 

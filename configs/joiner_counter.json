@@ -1,9 +1,6 @@
 {
   "query": 5000,
-  "input-queues": [
-    {"name": "reviews_q4_%d"},
-    {"name": "action_q4_%d"}
-  ],
+  "input-queues": [{ "name": "reviews_q4_%d" }, { "name": "action_q4_%d" }],
   "output-queues": [
     {
       "exchange": "join_counter",
