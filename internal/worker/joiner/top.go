@@ -10,10 +10,10 @@ import (
 )
 
 type top struct {
-	w            *worker.Worker
-	eofsByClient map[string]recvEofs
-	gameInfoById map[string]map[int64]gameInfo
-	output       amqp.Destination
+	w                *worker.Worker
+	eofsByClient     map[string]recvEofs
+	gameInfoByClient map[string]map[int64]gameInfo
+	output           amqp.Destination
 }
 
 func NewTop() (worker.Filter, error) {
@@ -23,9 +23,9 @@ func NewTop() (worker.Filter, error) {
 	}
 
 	return &top{
-		w:            w,
-		eofsByClient: map[string]recvEofs{},
-		gameInfoById: map[string]map[int64]gameInfo{},
+		w:                w,
+		eofsByClient:     map[string]recvEofs{},
+		gameInfoByClient: map[string]map[int64]gameInfo{},
 	}, nil
 }
 
@@ -49,7 +49,7 @@ func (t *top) Process(delivery amqp.Delivery) {
 			clientId,
 			delivery.Headers[amqp.OriginIdHeader].(uint8),
 			t.eofsByClient,
-			t.gameInfoById,
+			t.gameInfoByClient,
 			t.processEof,
 		)
 	} else if messageId == message.ScoredReviewID {
@@ -80,19 +80,19 @@ func (t *top) processEof(clientId string) {
 }
 
 func (t *top) processReview(clientId string, msg message.ScoredReview) {
-	userInfo, ok := t.gameInfoById[clientId]
+	userInfo, ok := t.gameInfoByClient[clientId]
 	if !ok {
-		t.gameInfoById[clientId] = map[int64]gameInfo{msg.GameId: {votes: msg.Votes}}
+		t.gameInfoByClient[clientId] = map[int64]gameInfo{msg.GameId: {votes: msg.Votes}}
 		return
 	}
 
 	info, ok := userInfo[msg.GameId]
 	if !ok {
-		t.gameInfoById[clientId][msg.GameId] = gameInfo{votes: msg.Votes}
+		t.gameInfoByClient[clientId][msg.GameId] = gameInfo{votes: msg.Votes}
 		return
 	}
 
-	t.gameInfoById[clientId][msg.GameId] = gameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
+	t.gameInfoByClient[clientId][msg.GameId] = gameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
 
 	if info.gameName == "" {
 		return
@@ -110,19 +110,19 @@ func (t *top) processReview(clientId string, msg message.ScoredReview) {
 }
 
 func (t *top) processGame(clientId string, msg message.GameName) {
-	userInfo, ok := t.gameInfoById[clientId]
+	userInfo, ok := t.gameInfoByClient[clientId]
 	if !ok {
-		t.gameInfoById[clientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
+		t.gameInfoByClient[clientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
 		return
 	}
 
 	info, ok := userInfo[msg.GameId]
 	if !ok { // No reviews have been received for this game.
-		t.gameInfoById[clientId][msg.GameId] = gameInfo{gameName: msg.GameName}
+		t.gameInfoByClient[clientId][msg.GameId] = gameInfo{gameName: msg.GameName}
 		return
 	}
 
-	t.gameInfoById[clientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes}
+	t.gameInfoByClient[clientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes}
 
 	b, err := message.ScoredReviews{{GameId: msg.GameId, Votes: info.votes, GameName: msg.GameName}}.ToBytes()
 	if err != nil {

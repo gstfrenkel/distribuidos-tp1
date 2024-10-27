@@ -9,10 +9,10 @@ import (
 )
 
 type counter struct {
-	w            *worker.Worker
-	eofsByClient map[string]recvEofs
-	gameInfoById map[string]map[int64]gameInfo
-	target       uint64
+	w                *worker.Worker
+	eofsByClient     map[string]recvEofs
+	gameInfoByClient map[string]map[int64]gameInfo
+	target           uint64
 }
 
 func NewCounter() (worker.Filter, error) {
@@ -22,9 +22,9 @@ func NewCounter() (worker.Filter, error) {
 	}
 
 	return &counter{
-		w:            w,
-		eofsByClient: map[string]recvEofs{},
-		gameInfoById: map[string]map[int64]gameInfo{},
+		w:                w,
+		eofsByClient:     map[string]recvEofs{},
+		gameInfoByClient: map[string]map[int64]gameInfo{},
 	}, nil
 }
 
@@ -47,7 +47,7 @@ func (c *counter) Process(delivery amqp.Delivery) {
 			clientId,
 			delivery.Headers[amqp.OriginIdHeader].(uint8),
 			c.eofsByClient,
-			c.gameInfoById,
+			c.gameInfoByClient,
 			c.processEof,
 		)
 	} else if messageId == message.ScoredReviewID {
@@ -78,15 +78,15 @@ func (c *counter) processEof(clientId string) {
 }
 
 func (c *counter) processReview(clientId string, msg message.ScoredReview) {
-	userInfo, ok := c.gameInfoById[clientId]
+	userInfo, ok := c.gameInfoByClient[clientId]
 	if !ok {
-		c.gameInfoById[clientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
+		c.gameInfoByClient[clientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
 		return
 	}
 
 	info, ok := userInfo[msg.GameId]
 	if !ok {
-		c.gameInfoById[clientId][msg.GameId] = gameInfo{votes: msg.Votes}
+		c.gameInfoByClient[clientId][msg.GameId] = gameInfo{votes: msg.Votes}
 		return
 	} else if info.sent {
 		return
@@ -103,23 +103,23 @@ func (c *counter) processReview(clientId string, msg message.ScoredReview) {
 		if err = c.w.Broker.Publish(c.w.Outputs[0].Exchange, c.w.Outputs[0].Key, b, headersGame); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		} else {
-			c.gameInfoById[clientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes, sent: true}
+			c.gameInfoByClient[clientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes, sent: true}
 		}
 	} else {
-		c.gameInfoById[clientId][msg.GameId] = gameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
+		c.gameInfoByClient[clientId][msg.GameId] = gameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
 	}
 }
 
 func (c *counter) processGame(clientId string, msg message.GameName, b []byte) {
-	userInfo, ok := c.gameInfoById[clientId]
+	userInfo, ok := c.gameInfoByClient[clientId]
 	if !ok {
-		c.gameInfoById[clientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
+		c.gameInfoByClient[clientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
 		return
 	}
 
 	info, ok := userInfo[msg.GameId]
 	if !ok { // No reviews have been received for this game.
-		c.gameInfoById[clientId][msg.GameId] = gameInfo{gameName: msg.GameName}
+		c.gameInfoByClient[clientId][msg.GameId] = gameInfo{gameName: msg.GameName}
 		return
 	}
 
@@ -130,8 +130,8 @@ func (c *counter) processGame(clientId string, msg message.GameName, b []byte) {
 			return
 		}
 
-		c.gameInfoById[clientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes, sent: true}
+		c.gameInfoByClient[clientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes, sent: true}
 	} else { // Reviews have been received, but they do not exceed the target vote count.
-		c.gameInfoById[clientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes}
+		c.gameInfoByClient[clientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes}
 	}
 }

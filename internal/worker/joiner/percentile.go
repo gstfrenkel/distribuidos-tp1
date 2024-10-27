@@ -9,10 +9,10 @@ import (
 )
 
 type percentile struct {
-	w            *worker.Worker
-	eofsByClient map[string]recvEofs
-	gameInfoById map[string]map[int64]gameInfo
-	batchSize    uint16
+	w                *worker.Worker
+	eofsByClient     map[string]recvEofs
+	gameInfoByClient map[string]map[int64]gameInfo
+	batchSize        uint16
 }
 
 func NewPercentile() (worker.Filter, error) {
@@ -22,9 +22,9 @@ func NewPercentile() (worker.Filter, error) {
 	}
 
 	return &percentile{
-		w:            w,
-		eofsByClient: map[string]recvEofs{},
-		gameInfoById: map[string]map[int64]gameInfo{},
+		w:                w,
+		eofsByClient:     map[string]recvEofs{},
+		gameInfoByClient: map[string]map[int64]gameInfo{},
 	}, nil
 }
 
@@ -47,7 +47,7 @@ func (p *percentile) Process(delivery amqp.Delivery) {
 			clientId,
 			delivery.Headers[amqp.OriginIdHeader].(uint8),
 			p.eofsByClient,
-			p.gameInfoById,
+			p.gameInfoByClient,
 			p.processEof,
 		)
 	} else if messageId == message.ScoredReviewID {
@@ -72,7 +72,7 @@ func (p *percentile) Process(delivery amqp.Delivery) {
 }
 
 func (p *percentile) processEof(clientId string) {
-	userInfo, ok := p.gameInfoById[clientId]
+	userInfo, ok := p.gameInfoByClient[clientId]
 	if ok {
 		p.processBatch(clientId, userInfo)
 	}
@@ -104,32 +104,32 @@ func (p *percentile) processBatch(clientId string, userInfo map[int64]gameInfo) 
 }
 
 func (p *percentile) processReview(clientId string, msg message.ScoredReview) {
-	userInfo, ok := p.gameInfoById[clientId]
+	userInfo, ok := p.gameInfoByClient[clientId]
 	if !ok { // First message for this clientId
-		p.gameInfoById[clientId] = map[int64]gameInfo{msg.GameId: {votes: msg.Votes}}
+		p.gameInfoByClient[clientId] = map[int64]gameInfo{msg.GameId: {votes: msg.Votes}}
 		return
 	}
 
 	info, ok := userInfo[msg.GameId]
 	if !ok { // First message for this gameId
-		p.gameInfoById[clientId][msg.GameId] = gameInfo{votes: msg.Votes}
+		p.gameInfoByClient[clientId][msg.GameId] = gameInfo{votes: msg.Votes}
 	} else {
-		p.gameInfoById[clientId][msg.GameId] = gameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
+		p.gameInfoByClient[clientId][msg.GameId] = gameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
 	}
 }
 
 func (p *percentile) processGame(clientId string, msg message.GameName) {
-	userInfo, ok := p.gameInfoById[clientId]
+	userInfo, ok := p.gameInfoByClient[clientId]
 	if !ok { // First message for this clientId
-		p.gameInfoById[clientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
+		p.gameInfoByClient[clientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
 		return
 	}
 
 	info, ok := userInfo[msg.GameId]
 	if !ok { // First message for this gameId
-		p.gameInfoById[clientId][msg.GameId] = gameInfo{gameName: msg.GameName}
+		p.gameInfoByClient[clientId][msg.GameId] = gameInfo{gameName: msg.GameName}
 	} else {
-		p.gameInfoById[clientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes}
+		p.gameInfoByClient[clientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes}
 	}
 }
 
