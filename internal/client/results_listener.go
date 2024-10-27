@@ -9,7 +9,7 @@ import (
 
 const LenFieldSize = 4
 
-func (c *Client) startResultsListener(done chan bool, address string) {
+func (c *Client) startResultsListener(address string) {
 
 	resultsPort := c.cfg.String("gateway.results_port", "5052")
 	resultsFullAddress := address + ":" + resultsPort
@@ -59,7 +59,6 @@ func (c *Client) startResultsListener(done chan bool, address string) {
 
 		messageCount++
 		if messageCount >= maxMessages {
-			done <- true
 			return
 		}
 	}

@@ -47,13 +47,12 @@ func (c *Client) Start() {
 	logs.Logger.Info("Client running...")
 
 	wg := sync.WaitGroup{}
-	done := make(chan bool)
 	address := c.cfg.String("gateway.address", "172.25.125.100")
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		c.startResultsListener(done, address)
+		c.startResultsListener(address)
 	}()
 
 	gamesPort := c.cfg.String("gateway.games_port", "5051")
