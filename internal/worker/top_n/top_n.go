@@ -24,13 +24,16 @@ func New() (worker.Filter, error) {
 		return nil, err
 	}
 
-	return &filter{w: w}, nil
+	return &filter{
+			w:        w,
+			top:      make(map[string]PriorityQueue),
+			eofsRecv: make(map[string]uint8),
+		},
+		nil
 }
 
 func (f *filter) Init() error {
 	f.n = int(f.w.Query.(float64))
-	f.top = make(map[string]PriorityQueue)
-	f.eofsRecv = make(map[string]uint8)
 	return f.w.Init()
 }
 
