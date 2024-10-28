@@ -8,7 +8,7 @@ RUN go mod download
 # Update path to desired entrypoint
 COPY cmd/gateway/gateway.go ./main.go
 COPY pkg/ ./pkg/
-COPY internal/ ./internal/
+COPY internal/gateway ./internal/gateway/
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /main
 
