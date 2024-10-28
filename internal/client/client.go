@@ -63,13 +63,13 @@ func (c *Client) Start() {
 
 	gamesConn, err := net.Dial("tcp", gamesFullAddress)
 	if err != nil {
-		logs.Logger.Errorf("Games Conn error:", err)
+		logs.Logger.Errorf("Games Conn error: %v", err)
 		return
 	}
 
 	reviewsConn, err := net.Dial("tcp", reviewsFullAddress)
 	if err != nil {
-		logs.Logger.Errorf("Reviews Conn error:", err)
+		logs.Logger.Errorf("Reviews Conn error: %v", err)
 		return
 	}
 
