@@ -36,11 +36,9 @@ type Gateway struct {
 	ChunkChans      [chunkChans]chan ChunkItem
 	finished        bool
 	finishedMu      sync.Mutex
-	resultsChan     chan []byte
 	IdGenerator     *id_generator.IdGenerator
 	IdGeneratorMu   sync.Mutex
-	Clients         map[string]any //TODO ver q guardar aca. Bytes? o cualquier msg de reports?
-	ClientsMu       sync.Mutex
+	clientChannels  sync.Map
 }
 
 func New() (*Gateway, error) {
@@ -91,11 +89,9 @@ func New() (*Gateway, error) {
 		finished:        false,
 		finishedMu:      sync.Mutex{},
 		Listeners:       [connections]net.Listener{},
-		resultsChan:     make(chan []byte),
 		IdGenerator:     id_generator.New(uint8(gId)),
 		IdGeneratorMu:   sync.Mutex{},
-		Clients:         make(map[string]any),
-		ClientsMu:       sync.Mutex{},
+		clientChannels:  sync.Map{},
 	}, nil
 }
 
