@@ -20,13 +20,13 @@ func (c *Client) startResultsListener(address string) {
 		return
 	}
 
+	defer resultsConn.Close()
+
 	err = c.sendClientID(resultsConn)
 	if err != nil {
 		logs.Logger.Errorf("Error sending client ID: %s", err)
 		return
 	}
-
-	defer resultsConn.Close()
 
 	logs.Logger.Infof("Connected to results on: %s", resultsFullAddress)
 
