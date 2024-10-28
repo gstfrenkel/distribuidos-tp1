@@ -98,7 +98,11 @@ func (f *filter) getGamesInPercentile(clientId string) message.ScoredReviews {
 
 func (f *filter) sortScoredReviews(clientId string) {
 	sort.Slice(f.scoredReviews[clientId], func(i, j int) bool {
-		return f.scoredReviews[clientId][i].Votes < f.scoredReviews[clientId][j].Votes
+		if f.scoredReviews[clientId][i].Votes != f.scoredReviews[clientId][j].Votes {
+			return f.scoredReviews[clientId][i].Votes < f.scoredReviews[clientId][j].Votes
+		}
+
+		return f.scoredReviews[clientId][i].GameId < f.scoredReviews[clientId][j].GameId
 	})
 }
 
