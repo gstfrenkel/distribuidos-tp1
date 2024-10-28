@@ -9,8 +9,9 @@ import (
 const (
 	MessageIdHeader = "x-message-id"
 	OriginIdHeader  = "x-origin-id"
-	ClientIdHeader  = "x-client-id" //a string that identifies the client and its gateway
+	ClientIdHeader  = "x-client-id"
 )
+
 const (
 	ReviewOriginId uint8 = iota
 	GameOriginId
