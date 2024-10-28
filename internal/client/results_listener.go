@@ -20,7 +20,7 @@ func (c *Client) startResultsListener(address string) {
 		return
 	}
 
-	err = sendClientID(c, resultsConn)
+	err = c.sendClientID(resultsConn)
 	if err != nil {
 		logs.Logger.Errorf("Error sending client ID: %s", err)
 		return

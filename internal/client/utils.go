@@ -9,7 +9,7 @@ import (
 	"tp1/pkg/logs"
 )
 
-func openResultsFile(c *Client) error {
+func (c *Client) openResultsFile() error {
 	fileName := fmt.Sprintf("/app/data/results_%s.txt", c.clientId)
 	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
 	if err != nil {
@@ -21,7 +21,7 @@ func openResultsFile(c *Client) error {
 	return nil
 }
 
-func fetchClientID(c *Client, address string) error {
+func (c *Client) fetchClientID(address string) error {
 	idsPort := c.cfg.String("gateway.ids_port", "5053")
 	idsFullAddress := address + ":" + idsPort
 	idConn, err := net.Dial("tcp", idsFullAddress)
@@ -55,7 +55,7 @@ func (c *Client) Close(gamesConn net.Conn, reviewsConn net.Conn) {
 	close(c.sigChan)
 }
 
-func sendClientID(c *Client, conn net.Conn) error {
+func (c *Client) sendClientID(conn net.Conn) error {
 	clientIdBuf := id_generator.EncodeClientId(c.clientId)
 	if err := ioutils.SendAll(conn, clientIdBuf); err != nil {
 		logs.Logger.Errorf("Error sending client ID: %s", err)

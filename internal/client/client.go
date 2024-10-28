@@ -42,15 +42,15 @@ func (c *Client) Start() {
 	logs.Logger.Info("Client running...")
 
 	wg := sync.WaitGroup{}
-	address := c.cfg.String("gateway.address", "172.25.125.100")
+	gatewayAddress := c.cfg.String("gateway.address", "172.25.125.100")
 
-	err := fetchClientID(c, address)
+	err := c.fetchClientID(gatewayAddress)
 	if err != nil {
 		logs.Logger.Errorf("Error fetching client ID: %v", err)
 		return
 	}
 
-	err = openResultsFile(c)
+	err = c.openResultsFile()
 	if err != nil {
 		logs.Logger.Errorf("Error opening results file: %v", err)
 		return
@@ -59,14 +59,14 @@ func (c *Client) Start() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		c.startResultsListener(address)
+		c.startResultsListener(gatewayAddress)
 	}()
 
 	gamesPort := c.cfg.String("gateway.games_port", "5051")
-	gamesFullAddress := address + ":" + gamesPort
+	gamesFullAddress := gatewayAddress + ":" + gamesPort
 
 	reviewsPort := c.cfg.String("gateway.reviews_port", "5050")
-	reviewsFullAddress := address + ":" + reviewsPort
+	reviewsFullAddress := gatewayAddress + ":" + reviewsPort
 
 	gamesConn, err := net.Dial("tcp", gamesFullAddress)
 	if err != nil {
