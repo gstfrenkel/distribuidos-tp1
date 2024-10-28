@@ -34,6 +34,7 @@ func (f *filter) Start() {
 }
 
 func (f *filter) Process(delivery amqp.Delivery) {
+
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 	clientId := delivery.Headers[amqp.ClientIdHeader].(string)
 
@@ -46,9 +47,10 @@ func (f *filter) Process(delivery amqp.Delivery) {
 		logs.Logger.Infof("Received EOF for client %s! Sending platform count: %v", clientId, clientCounter)
 
 		f.publish(clientId)
-		clientCounter.ResetValues()
+		delete(f.counters, clientId)
 
-		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, nil, f.w.InputEof, f.w.OutputsEof...); err != nil {
+		headers := map[string]any{amqp.ClientIdHeader: clientId}
+		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, headers, f.w.InputEof, f.w.OutputsEof...); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
 
