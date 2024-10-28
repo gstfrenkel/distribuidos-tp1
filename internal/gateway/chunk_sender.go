@@ -60,7 +60,7 @@ func (s *ChunkSender) sendChunk(eof bool, clientId string) {
 	messageId := matchMessageId(s.id)
 	chunk := s.chunks[clientId]
 
-	if len(chunk) > 0 && (len(s.chunks) >= int(s.maxChunkSize) || eof) {
+	if len(chunk) >= int(s.maxChunkSize) || eof {
 		bytes, err := toBytes(messageId, chunk)
 		if err != nil {
 			logs.Logger.Errorf("Error converting chunks to bytes: %s", err.Error())
@@ -88,13 +88,13 @@ func toBytes(msgId message.ID, chunk []any) ([]byte, error) {
 	if msgId == message.ReviewIdMsg {
 		reviews := make([]message.DataCSVReviews, 0, len(chunk))
 		for _, v := range chunk {
-			reviews = append(reviews, v.(message.DataCSVReviews))
+			reviews = append(reviews, v.(ChunkItem).Msg.(message.DataCSVReviews))
 		}
 		return message.ReviewsFromClientReviews(reviews)
 	}
 	games := make([]message.DataCSVGames, 0, len(chunk))
 	for _, v := range chunk {
-		games = append(games, v.(message.DataCSVGames))
+		games = append(games, v.(ChunkItem).Msg.(message.DataCSVGames))
 	}
 	return message.GamesFromClientGames(games)
 }

@@ -68,7 +68,7 @@ func (f *filter) Process(delivery amqp.Delivery) {
 
 	if messageId == message.EofMsg {
 		headersEof[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
-		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, headers, f.w.InputEof, f.w.OutputsEof...); err != nil {
+		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, headersEof, f.w.InputEof, f.w.OutputsEof...); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	} else if messageId == message.ReviewWithTextID {

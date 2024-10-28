@@ -38,7 +38,7 @@ func (f *filter) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
-		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, nil, f.w.InputEof, f.w.OutputsEof...); err != nil {
+		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, map[string]any{amqp.ClientIdHeader: clientId}, f.w.InputEof, f.w.OutputsEof...); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
 	} else if messageId == message.GameReleaseID {

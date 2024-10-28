@@ -61,6 +61,6 @@ func (c *Client) sendClientID(conn net.Conn) error {
 		logs.Logger.Errorf("Error sending client ID: %s", err)
 		return err
 	}
-	logs.Logger.Infof("Client ID %d sent", c.clientId)
+	logs.Logger.Infof("Client ID %s sent", c.clientId)
 	return nil
 }

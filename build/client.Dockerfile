@@ -9,6 +9,7 @@ RUN go mod download
 COPY cmd/client/client.go ./main.go
 COPY pkg/ ./pkg/
 COPY internal/client/ ./internal/client/
+COPY internal/gateway/id_generator/ ./internal/gateway/id_generator/
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /main
 
