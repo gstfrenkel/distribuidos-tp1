@@ -18,18 +18,13 @@ func (g *Gateway) listenResultsRequests() error {
 
 // SendResults gets reports from the result chan and sends them to the client
 func (g *Gateway) SendResults(cliConn net.Conn) {
-
 	clientId := g.readClientId(cliConn)
 
 	clientChan := make(chan []byte)
-	g.clientChannelsMu.Lock()
-	g.clientChannels[clientId] = clientChan
-	g.clientChannelsMu.Unlock()
+	g.clientChannels.Store(clientId, clientChan)
 
 	defer func() {
-		g.clientChannelsMu.Lock()
-		delete(g.clientChannels, clientId)
-		g.clientChannelsMu.Unlock()
+		g.clientChannels.Delete(clientId)
 		close(clientChan)
 		cliConn.Close()
 	}()
@@ -74,13 +69,13 @@ func (g *Gateway) ListenResults() {
 
 func (g *Gateway) handleMessage(m amqp.Delivery, clientAccumulatedResults map[string]map[uint8]string) {
 
-	clientID, clientIDPresent := m.Headers["x-client-id"].(string)
+	clientID, clientIDPresent := m.Headers[amqp.ClientIdHeader].(string)
 	if !clientIDPresent {
 		logs.Logger.Errorf("Missing or invalid 'x-client-id' in message headers.")
 		return
 	}
 
-	originID, ok := m.Headers["x-origin-id"]
+	originID, ok := m.Headers[amqp.OriginIdHeader]
 	if ok {
 		if originIDUint8, ok := originID.(uint8); ok {
 			// Handle EOF or message content
@@ -165,13 +160,12 @@ func (g *Gateway) handleEof(clientID string, accumulatedResults map[uint8]string
 }
 
 func sendResultThroughChannel(g *Gateway, clientID string, resultStr string) {
-	g.clientChannelsMu.Lock()
-	if clientChan, exists := g.clientChannels[clientID]; exists {
+	if clientChanI, exists := g.clientChannels.Load(clientID); exists {
+		clientChan := clientChanI.(chan []byte)
 		clientChan <- []byte(resultStr)
 	} else {
 		logs.Logger.Errorf("No client channel found for clientID %v", clientID)
 	}
-	g.clientChannelsMu.Unlock()
 }
 
 func parseMessageBody(originID uint8, body []byte) (interface{}, error) {
