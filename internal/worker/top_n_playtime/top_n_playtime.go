@@ -26,7 +26,6 @@ func New() (worker.Filter, error) {
 }
 
 func (f *filter) Init() error {
-	f.clientHeaps = make(map[string]*MinHeapPlaytime)
 	return f.w.Init()
 }
 
@@ -51,7 +50,9 @@ func (f *filter) Process(delivery amqp.Delivery) {
 			delete(f.clientHeaps, clientId)
 		}
 
-		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, nil, f.w.InputEof, f.w.OutputsEof...); err != nil {
+		headers := map[string]any{amqp.ClientIdHeader: clientId}
+
+		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, headers, f.w.InputEof, f.w.OutputsEof...); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
 
