@@ -1,8 +1,9 @@
 package amqp
 
 import (
-	amqp "github.com/rabbitmq/amqp091-go"
 	"tp1/pkg/message"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 const (
@@ -10,7 +11,6 @@ const (
 	OriginIdHeader  = "x-origin-id"
 	ClientIdHeader  = "x-client-id" //a string that identifies the client and its gateway
 )
-
 const (
 	ReviewOriginId uint8 = iota
 	GameOriginId
