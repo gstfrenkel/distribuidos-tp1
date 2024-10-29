@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ -z "$1" ]; then
-  echo "Uso: $0 <numero_de_clientes>"
+  echo "Error! Usage: $0 <number_of_clients>"
   exit 1
 fi
 
@@ -36,4 +36,4 @@ networks:
         - subnet: 172.25.125.0/24
 EOL
 
-echo "Archivo docker-compose-client.yaml generado con $NUM_CLIENTS clientes."
+echo "docker-compose-client.yaml with $NUM_CLIENTS clients generated"
