@@ -10,5 +10,11 @@ Instrucciones para correr el trabajo:
     - make docker-compose-logs
     - make docker-compose-down-all
 
-En caso de requerir escalar algun nodo, se debe configurar en el docker-compose.yaml.
+En caso de requerir escalar algun nodo, se debe configurar en el docker-compose.yaml. Para correr con más de un cliente, ejecutar:
+    
+```bash
+./client-generator.sh <número de clientes>
+```
+esto generará un docker compose con el número de clientes especificado.
+
 Para abrir el manager de RabbitMQ: http://localhost:15672 con usuario y contraseña `guest`
