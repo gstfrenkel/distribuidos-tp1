@@ -26,8 +26,7 @@ services:
     links:
       - rabbitmq
     networks:
-      tp1_net:
-        ipv4_address: 172.25.125.100
+      - tp1_net
     volumes:
       - ./configs/gateway.toml:/app/config.toml
 
@@ -348,7 +347,4 @@ services:
 
 networks:
   tp1_net:
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.25.125.0/24
+    external: false
