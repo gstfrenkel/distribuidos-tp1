@@ -84,7 +84,7 @@ func (f *filter) publish(clientId string) {
 		amqp.OriginIdHeader:  amqp.Query1originId,
 		amqp.ClientIdHeader:  clientId,
 	}
-	logs.Logger.Infof("Sending %v for client %s with key %s", platforms, clientId, f.w.Outputs[0].Key)
+	logs.Logger.Infof("Sending %v for client %s with key %s", *platforms, clientId, f.w.Outputs[0].Key)
 
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)

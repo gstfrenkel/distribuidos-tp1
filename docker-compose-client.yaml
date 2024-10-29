@@ -1,6 +1,6 @@
 services:
-  client:
-    container_name: client
+  client-1:
+    container_name: client-1
     image: client:latest
     volumes:
       - ./data:/app/data
