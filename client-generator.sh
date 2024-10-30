@@ -30,10 +30,7 @@ done
 cat >> $OUTPUT_FILE <<EOL
 networks:
   tp1_net:
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.25.125.0/24
+    external: false
 EOL
 
 echo "docker-compose-client.yaml with $NUM_CLIENTS clients generated"
