@@ -1,5 +1,5 @@
 [gateway]
-address = "172.25.125.100"
+address = "gateway-1"
 reviews_port = 5050
 games_port = 5051
 results_port = 5052
