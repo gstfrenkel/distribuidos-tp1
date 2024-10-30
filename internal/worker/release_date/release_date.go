@@ -67,7 +67,6 @@ func (f *filter) publish(msg message.Releases, clientId string) {
 		amqp.MessageIdHeader: uint8(message.GameWithPlaytimeID),
 		amqp.ClientIdHeader:  clientId,
 	}
-	logs.Logger.Infof("Sending filtered data for client %s with key %s", clientId, f.w.Outputs[0].Key)
 
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
