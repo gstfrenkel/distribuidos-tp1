@@ -18,10 +18,10 @@ def parse_file(filename):
             continue
 
         q_key = match.group(1)
-        parsed_data[q_key] = []
-
-        items = section.splitlines()[1:]
-        parsed_data[q_key].extend(sorted(items))
+        entries = sorted(
+            line.strip() for line in section.splitlines()[1:] if line.strip()
+        )
+        parsed_data[q_key] = entries
 
     return parsed_data
 
@@ -38,28 +38,22 @@ def compare_files(file_list):
         if filename == reference_filename:
             continue
 
-        for q_key, ref_entries in reference_data.items():
-            entries = parsed_data.get(q_key)
-            if entries is None:
-                print(f"File '{filename}' is missing section {q_key}.")
+        for q_key in sorted(set(reference_data.keys()).union(parsed_data.keys())):
+            ref_entries = reference_data.get(q_key, [])
+            entries = parsed_data.get(q_key, [])
+
+            if ref_entries != entries:
                 all_files_match = False
-            elif ref_entries != entries:
-                print(f"Difference in section {q_key} of file '{filename}':")
+                print(f"  Difference in section {q_key} of file '{filename}':")
 
                 ref_set, file_set = set(ref_entries), set(entries)
                 missing_in_file = sorted(ref_set - file_set)
                 extra_in_file = sorted(file_set - ref_set)
 
                 if missing_in_file:
-                    print(f"  Missing entries in '{filename}': {missing_in_file}")
+                    print(f"    Missing entries in '{filename}': {missing_in_file}")
                 if extra_in_file:
-                    print(f"  Extra entries in '{filename}': {extra_in_file}")
-
-                all_files_match = False
-
-        for q_key in parsed_data.keys() - reference_data.keys():
-            print(f"File '{filename}' has extra section {q_key}.")
-            all_files_match = False
+                    print(f"    Extra entries in '{filename}': {extra_in_file}")
 
     return all_files_match
 
