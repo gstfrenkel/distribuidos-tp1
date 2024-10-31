@@ -10,6 +10,11 @@ import (
 	"github.com/pemistahl/lingua-go"
 )
 
+var (
+	headersEof = map[string]any{amqp.OriginIdHeader: amqp.ReviewOriginId, amqp.MessageIdHeader: uint8(message.EofMsg)}
+	headers    = map[string]any{amqp.MessageIdHeader: uint8(message.ScoredReviewID)}
+)
+
 var languages = map[string]lingua.Language{
 	"arabic":     lingua.Arabic,
 	"chinese":    lingua.Chinese,
@@ -58,21 +63,22 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(reviewDelivery amqp.Delivery) {
-	messageId := message.ID(reviewDelivery.Headers[amqp.MessageIdHeader].(uint8))
-	headers := map[string]any{amqp.OriginIdHeader: amqp.ReviewOriginId}
+func (f *filter) Process(delivery amqp.Delivery) {
+	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
-		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, reviewDelivery.Body, headers, f.w.InputEof, f.w.OutputsEof...); err != nil {
+		headersEof[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
+		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, headersEof, f.w.InputEof, f.w.OutputsEof...); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	} else if messageId == message.ReviewWithTextID {
-		msg, err := message.TextReviewFromBytes(reviewDelivery.Body)
+		msg, err := message.TextReviewFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 			return
 		}
 
+		headers[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
 		f.publish(msg)
 	} else {
 		logs.Logger.Infof(errors.InvalidMessageId.Error(), messageId)
@@ -80,8 +86,6 @@ func (f *filter) Process(reviewDelivery amqp.Delivery) {
 }
 
 func (f *filter) publish(msg message.TextReviews) {
-	headers := map[string]any{amqp.MessageIdHeader: uint8(message.ScoredReviewID)}
-
 	for gameId, reviews := range msg {
 		count := 0
 

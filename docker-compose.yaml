@@ -15,17 +15,18 @@ services:
     logging:
       driver: none
 
-  gateway:
-    container_name: gateway
+  gateway-1:
+    container_name: gateway-1
     image: gateway:latest
+    environment:
+      - worker-id=0
     depends_on:
       rabbitmq:
         condition: service_healthy
     links:
       - rabbitmq
     networks:
-      tp1_net:
-        ipv4_address: 172.25.125.100
+      - tp1_net
     volumes:
       - ./configs/gateway.toml:/app/config.toml
 
@@ -98,7 +99,7 @@ services:
       rabbitmq:
         condition: service_healthy
     links:
-      - gateway
+      - gateway-1
     networks:
       - tp1_net
     volumes:
@@ -346,7 +347,4 @@ services:
 
 networks:
   tp1_net:
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.25.125.0/24
+    external: false

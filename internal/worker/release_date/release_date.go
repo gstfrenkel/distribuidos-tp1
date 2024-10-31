@@ -34,10 +34,11 @@ func (f *filter) Start() {
 }
 
 func (f *filter) Process(delivery amqp.Delivery) {
+	clientId := delivery.Headers[amqp.ClientIdHeader].(string)
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
-		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, nil, f.w.InputEof, f.w.OutputsEof...); err != nil {
+		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, map[string]any{amqp.ClientIdHeader: clientId}, f.w.InputEof, f.w.OutputsEof...); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
 	} else if messageId == message.GameReleaseID {
@@ -47,20 +48,26 @@ func (f *filter) Process(delivery amqp.Delivery) {
 			return
 		}
 
-		f.publish(msg)
+		f.publish(msg, clientId)
 	} else {
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
 	}
 }
 
-func (f *filter) publish(msg message.Releases) {
+func (f *filter) publish(msg message.Releases, clientId string) {
 	dateFilteredGames := msg.ToPlaytimeMessage(f.startYear, f.endYear)
+
 	b, err := dateFilteredGames.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+		return
 	}
 
-	headers := map[string]any{amqp.MessageIdHeader: uint8(message.GameWithPlaytimeID)}
+	headers := map[string]any{
+		amqp.MessageIdHeader: uint8(message.GameWithPlaytimeID),
+		amqp.ClientIdHeader:  clientId,
+	}
+
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}

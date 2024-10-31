@@ -37,6 +37,7 @@ func (f *filter) Process(delivery amqp.Delivery) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
+		headersEof[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
 		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, headersEof, f.w.InputEof, f.w.OutputsEof...); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
@@ -47,6 +48,7 @@ func (f *filter) Process(delivery amqp.Delivery) {
 			return
 		}
 
+		headers[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
 		f.publish(msg)
 	} else {
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)

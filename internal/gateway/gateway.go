@@ -1,13 +1,13 @@
 package gateway
 
 import (
-	"encoding/binary"
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"syscall"
-	"tp1/pkg/ioutils"
+	"tp1/internal/gateway/id_generator"
 	"tp1/pkg/message"
 
 	"tp1/internal/gateway/rabbit"
@@ -22,7 +22,9 @@ const configFilePath = "config.toml"
 const GamesListener = 0
 const ReviewsListener = 1
 const ResultsListener = 2
-const connections = 3
+const ClientIdListener = 3
+const connections = 4
+const chunkChans = 2
 
 type Gateway struct {
 	Config          config.Config
@@ -31,10 +33,12 @@ type Gateway struct {
 	exchange        string
 	reportsExchange string
 	Listeners       [connections]net.Listener
-	ChunkChans      [connections]chan ChunkItem
+	ChunkChans      [chunkChans]chan ChunkItem
 	finished        bool
 	finishedMu      sync.Mutex
-	resultsChan     chan []byte
+	IdGenerator     *id_generator.IdGenerator
+	IdGeneratorMu   sync.Mutex
+	clientChannels  sync.Map
 }
 
 func New() (*Gateway, error) {
@@ -70,17 +74,24 @@ func New() (*Gateway, error) {
 		return nil, err
 	}
 
+	gId, err := strconv.Atoi(os.Getenv("worker-id"))
+	if err != nil {
+		return nil, err
+	}
+
 	return &Gateway{
 		Config:          cfg,
 		broker:          b,
 		queues:          queues,
 		exchange:        GatewayExchangeName,
 		reportsExchange: ReportsExchangeName,
-		ChunkChans:      [connections]chan ChunkItem{make(chan ChunkItem), make(chan ChunkItem)},
+		ChunkChans:      [chunkChans]chan ChunkItem{make(chan ChunkItem), make(chan ChunkItem)},
 		finished:        false,
 		finishedMu:      sync.Mutex{},
 		Listeners:       [connections]net.Listener{},
-		resultsChan:     make(chan []byte),
+		IdGenerator:     id_generator.New(uint8(gId)),
+		IdGeneratorMu:   sync.Mutex{},
+		clientChannels:  sync.Map{},
 	}, nil
 }
 
@@ -102,14 +113,14 @@ func (g *Gateway) Start() {
 
 	go startChunkSender(GamesListener, g.ChunkChans[GamesListener], g.broker, g.exchange, g.Config.Uint8("gateway.chunk_size", 100), g.Config.String("rabbitmq.games_routing_key", "game"))
 	go startChunkSender(ReviewsListener, g.ChunkChans[ReviewsListener], g.broker, g.exchange, g.Config.Uint8("gateway.chunk_size", 100), g.Config.String("rabbitmq.reviews_routing_key", "review"))
-	go ListenResults(g)
+	go g.ListenResults()
 
 	wg := &sync.WaitGroup{}
 	wg.Add(connections)
 
 	go func() {
 		defer wg.Done()
-		err = g.listenForNewClients(ReviewsListener)
+		err = g.listenForNewClient()
 		if err != nil {
 			logs.Logger.Errorf("Error listening reviews: %s", err.Error())
 		}
@@ -117,7 +128,15 @@ func (g *Gateway) Start() {
 
 	go func() {
 		defer wg.Done()
-		err = g.listenForNewClients(GamesListener)
+		err = g.listenForData(ReviewsListener)
+		if err != nil {
+			logs.Logger.Errorf("Error listening reviews: %s", err.Error())
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		err = g.listenForData(GamesListener)
 		if err != nil {
 			logs.Logger.Errorf("Error listening games: %s", err.Error())
 		}
@@ -125,7 +144,7 @@ func (g *Gateway) Start() {
 
 	go func() {
 		defer wg.Done()
-		err = g.ListenResultsRequests()
+		err = g.listenResultsRequests()
 		if err != nil {
 			logs.Logger.Errorf("Error listening results: %s", err.Error())
 		}
@@ -153,6 +172,8 @@ func (g *Gateway) free(sigs chan os.Signal) {
 	g.broker.Close()
 	g.Listeners[ReviewsListener].Close()
 	g.Listeners[GamesListener].Close()
+	g.Listeners[ResultsListener].Close()
+	g.Listeners[ClientIdListener].Close()
 	close(g.ChunkChans[ReviewsListener])
 	close(g.ChunkChans[GamesListener])
 	close(sigs)
@@ -163,28 +184,4 @@ func (g *Gateway) HandleSIGTERM() {
 	g.finishedMu.Lock()
 	g.finished = true
 	g.finishedMu.Unlock()
-}
-
-func (g *Gateway) HandleResults(cliConn net.Conn) error {
-
-	defer cliConn.Close()
-
-	for {
-		select {
-		case rabbitMsg := <-g.resultsChan:
-			clientMsg := message.ClientMessage{
-				DataLen: uint32(len(rabbitMsg)),
-				Data:    rabbitMsg,
-			}
-
-			data := make([]byte, LenFieldSize+len(clientMsg.Data))
-			binary.BigEndian.PutUint32(data[:LenFieldSize], clientMsg.DataLen)
-			copy(data[LenFieldSize:], clientMsg.Data)
-
-			if err := ioutils.SendAll(cliConn, data); err != nil {
-				logs.Logger.Errorf("Error sending message to client: %s", err)
-				return err
-			}
-		}
-	}
 }

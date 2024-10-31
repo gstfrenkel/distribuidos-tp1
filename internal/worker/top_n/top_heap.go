@@ -11,7 +11,11 @@ type PriorityQueue []*message.ScoredReview
 func (pq *PriorityQueue) Len() int { return len(*pq) }
 
 func (pq *PriorityQueue) Less(i, j int) bool {
-	return (*pq)[i].Votes < (*pq)[j].Votes
+	if (*pq)[i].Votes != (*pq)[j].Votes {
+		return (*pq)[i].Votes < (*pq)[j].Votes
+	}
+
+	return (*pq)[i].GameId < (*pq)[j].GameId
 }
 
 func (pq *PriorityQueue) Swap(i, j int) {
