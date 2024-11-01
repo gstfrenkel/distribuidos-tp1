@@ -2,7 +2,6 @@ import sys
 
 
 def generate_docker_compose(
-    gateway_count,
     reviews_count,
     review_text_count,
     action_count,
@@ -367,7 +366,6 @@ if __name__ == "__main__":
         )
         sys.exit(1)
 
-    gateway_count = 1
     reviews_count = int(sys.argv[1])
     review_text_count = int(sys.argv[2])
     action_count = int(sys.argv[3])
@@ -383,7 +381,6 @@ if __name__ == "__main__":
     release_date_count = int(sys.argv[13])
 
     docker_compose = generate_docker_compose(
-        gateway_count,
         reviews_count,
         review_text_count,
         action_count,
