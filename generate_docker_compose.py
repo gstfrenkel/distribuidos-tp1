@@ -395,8 +395,7 @@ if __name__ == "__main__":
         release_date_count,
     )
 
-    # Test file
-    with open("compose.yaml", "w") as f:
+    with open("docker-compose.yaml", "w") as f:
         f.write(docker_compose)
 
-    print("Docker Compose configuration saved to compose.yaml")
+    print("Docker Compose configuration saved to docker-compose.yaml")
