@@ -11,6 +11,7 @@ const filepath = "recovery.csv"
 // File is a structure that encapsulates a CSV reader and the associated file.
 type File struct {
 	r    *csv.Reader
+	w    *csv.Writer
 	file *os.File
 }
 
@@ -21,12 +22,18 @@ func NewFile() (*File, error) {
 	}
 	return &File{
 		r:    csv.NewReader(file),
+		w:    csv.NewWriter(file),
 		file: file,
 	}, nil
 }
 
-func (r *File) ReadNext() ([]string, error) {
+func (r *File) Read() ([]string, error) {
 	return r.r.Read()
+}
+
+func (r *File) Write(record []string) error {
+	defer r.w.Flush()
+	return r.w.Write(record)
 }
 
 // Close closes the underlying file associated with the File and logs an error if the file cannot be closed.

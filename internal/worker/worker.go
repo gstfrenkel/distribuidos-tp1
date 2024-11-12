@@ -13,7 +13,9 @@ import (
 	"tp1/pkg/amqp/broker"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
+	"tp1/pkg/dup"
 	"tp1/pkg/logs"
+	"tp1/pkg/recovery"
 
 	"github.com/pierrec/xxHash/xxHash32"
 )
@@ -32,6 +34,8 @@ type Worker struct {
 	OutputsEof []amqp.DestinationEof
 	Outputs    []amqp.Destination
 	SignalChan chan os.Signal
+	Recovery   recovery.Handler
+	Dup        dup.Handler
 	Id         uint8
 	Peers      uint8
 }
@@ -60,12 +64,19 @@ func New() (*Worker, error) {
 		return nil, err
 	}
 
+	recoveryHandler, err := recovery.NewHandler()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Worker{
 		config:     cfg,
 		Query:      query,
 		Broker:     b,
 		SignalChan: signalChan,
 		Id:         uint8(id),
+		Recovery:   recoveryHandler,
+		Dup:        dup.NewHandler(),
 		Peers:      peers,
 	}, nil
 }
