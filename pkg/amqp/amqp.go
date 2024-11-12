@@ -7,9 +7,10 @@ import (
 )
 
 const (
-	MessageIdHeader = "x-message-id"
-	OriginIdHeader  = "x-origin-id"
-	ClientIdHeader  = "x-client-id"
+	MessageIdHeader  = "x-message-id"
+	OriginIdHeader   = "x-origin-id"
+	ClientIdHeader   = "x-client-id"
+	SequenceIdHeader = "x-sequence-id"
 )
 
 const (

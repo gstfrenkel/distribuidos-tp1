@@ -97,7 +97,7 @@ func (f *Worker) Start(filter Filter) {
 		if _, err = f.Broker.QueueDeclare(queueName); err != nil {
 			logs.Logger.Errorf("error declaring queue %s: %s", queueName, err.Error())
 		}
-		ch, err := f.Broker.Consume(queueName, "", true, false)
+		ch, err := f.Broker.Consume(queueName, "", false, false)
 		if err != nil {
 			logs.Logger.Errorf("error consuming from input-queue: %s", err.Error())
 			return
@@ -122,7 +122,11 @@ func (f *Worker) consume(filter Filter, signalChan chan os.Signal, deliveryChan 
 			logs.Logger.Criticalf("Signal received. Shutting down...")
 			return
 		}
-		filter.Process(recv.Interface().(amqp.Delivery))
+		delivery := recv.Interface().(amqp.Delivery)
+		filter.Process(delivery)
+		if err := delivery.Ack(false); err != nil {
+			logs.Logger.Errorf("Failed to acknowledge message: %s", err.Error())
+		}
 	}
 }
 
