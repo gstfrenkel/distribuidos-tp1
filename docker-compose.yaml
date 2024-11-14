@@ -352,6 +352,8 @@ services:
       ./configs/health-checker-1.env
     networks:
       - tp1_net
+    dns_search:
+      - gateway-1
     volumes:
       - ./configs/health_checker.toml:/app/config.toml
 

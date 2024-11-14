@@ -43,7 +43,6 @@ func (h *Service) handleHealthChecker(conn net.Conn) {
 	buf := make([]byte, msgBytes)
 	for { //todo: check sigterm to stop
 		err := ioutils.ReadFull(conn, buf, msgBytes)
-		logs.Logger.Infof("Health checker message: %s", buf)
 		if err != nil {
 			logs.Logger.Errorf("Health checker down: %s", err)
 			_ = conn.Close()
