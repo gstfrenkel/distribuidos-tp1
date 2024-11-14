@@ -27,12 +27,12 @@ func NewHcService() (*Service, error) {
 // Listen listens for incoming health checker connections.
 // There should be only ONE health checker trying to connect to a node, that's why we don't need to handle multiple connections.
 func (h *Service) Listen() error {
+	logs.Logger.Infof("Health checker listening on: %s", h.listener.Addr().String())
 	for {
 		conn, err := h.listener.Accept()
 		if err != nil {
 			return err
 		}
-
 		h.handleHealthChecker(conn)
 	}
 }
