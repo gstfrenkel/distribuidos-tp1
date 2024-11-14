@@ -49,10 +49,6 @@ func MoveBuff(data []byte, n int) []byte {
 }
 
 // ExecCommand executes a command in the shell
-func ExecCommand(command string) error {
-	err := exec.Command("sh", "-c", command).Run()
-	if err != nil {
-		return err
-	}
-	return nil
+func ExecCommand(command []string) error {
+	return exec.Command(command[0], command[1:]...).Run()
 }
