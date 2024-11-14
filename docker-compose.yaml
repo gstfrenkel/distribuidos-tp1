@@ -345,6 +345,16 @@ services:
     volumes:
       - ./configs/counter_agg.json:/app/config.json
 
+  health-checker-1:
+    container_name: health-checker-1
+    image: healthchecker:latest
+    env_file:
+      ./configs/health-checker-1.env
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/health_checker.toml:/app/config.toml
+
 networks:
   tp1_net:
     external: false

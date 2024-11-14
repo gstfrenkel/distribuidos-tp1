@@ -19,6 +19,7 @@ build:
 	docker build -f ./build/release.Dockerfile -t "release-date-filter:latest" .
 	docker build -f ./build/topnplaytime.Dockerfile -t "topn-playtime-filter:latest" .
 	docker build -f ./build/counter.Dockerfile -t "counter:latest" .
+	docker build -f ./build/healthchecker.Dockerfile -t "healthchecker:latest" .
 .PHONY: build
 
 build-client:
