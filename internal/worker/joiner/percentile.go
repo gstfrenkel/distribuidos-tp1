@@ -38,7 +38,7 @@ func (p *percentile) Start() {
 	p.w.Start(p)
 }
 
-func (p *percentile) Process(delivery amqp.Delivery) {
+func (p *percentile) Process(delivery amqp.Delivery, _ amqp.Header) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 	clientId := delivery.Headers[amqp.ClientIdHeader].(string)
 

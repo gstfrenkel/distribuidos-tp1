@@ -38,7 +38,7 @@ func (c *counter) Start() {
 	c.w.Start(c)
 }
 
-func (c *counter) Process(delivery amqp.Delivery) {
+func (c *counter) Process(delivery amqp.Delivery, _ amqp.Header) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 	clientId := delivery.Headers[amqp.ClientIdHeader].(string)
 

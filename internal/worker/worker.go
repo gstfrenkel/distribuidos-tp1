@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"tp1/pkg/sequence"
 
 	"tp1/pkg/amqp"
 	"tp1/pkg/amqp/broker"
@@ -23,21 +24,22 @@ import (
 type Filter interface {
 	Init() error
 	Start()
-	Process(delivery amqp.Delivery)
+	Process(delivery amqp.Delivery, header amqp.Header)
 }
 
 type Worker struct {
-	config     config.Config
-	Query      any
-	Broker     amqp.MessageBroker
-	InputEof   amqp.DestinationEof
-	OutputsEof []amqp.DestinationEof
-	Outputs    []amqp.Destination
-	SignalChan chan os.Signal
-	Recovery   recovery.Handler
-	Dup        dup.Handler
-	Id         uint8
-	Peers      uint8
+	config      config.Config
+	Query       any
+	Broker      amqp.MessageBroker
+	InputEof    amqp.DestinationEof
+	OutputsEof  []amqp.DestinationEof
+	Outputs     []amqp.Destination
+	SignalChan  chan os.Signal
+	Recovery    recovery.Handler
+	Dup         dup.Handler
+	SequenceIds map[string]uint64
+	Id          uint8
+	Peers       uint8
 }
 
 func New() (*Worker, error) {
@@ -70,14 +72,15 @@ func New() (*Worker, error) {
 	}
 
 	return &Worker{
-		config:     cfg,
-		Query:      query,
-		Broker:     b,
-		SignalChan: signalChan,
-		Id:         uint8(id),
-		Recovery:   recoveryHandler,
-		Dup:        dup.NewHandler(),
-		Peers:      peers,
+		config:      cfg,
+		Query:       query,
+		Broker:      b,
+		SignalChan:  signalChan,
+		Id:          uint8(id),
+		Recovery:    recoveryHandler,
+		Dup:         dup.NewHandler(),
+		SequenceIds: make(map[string]uint64),
+		Peers:       peers,
 	}, nil
 }
 
@@ -119,6 +122,16 @@ func (f *Worker) Start(filter Filter) {
 	f.consume(filter, f.SignalChan, channels...)
 }
 
+func (f *Worker) NextSequenceId(key string) uint64 {
+	sequenceId, ok := f.SequenceIds[key]
+	if !ok {
+		f.SequenceIds[key] = 1
+	} else {
+		f.SequenceIds[key]++
+	}
+	return sequenceId
+}
+
 func (f *Worker) consume(filter Filter, signalChan chan os.Signal, deliveryChan ...<-chan amqp.Delivery) {
 	cases := make([]reflect.SelectCase, 0, len(deliveryChan)+1)
 	cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(signalChan)})
@@ -129,13 +142,26 @@ func (f *Worker) consume(filter Filter, signalChan chan os.Signal, deliveryChan 
 
 	for {
 		chosen, recv, ok := reflect.Select(cases)
-		if !ok || chosen == 0 {
+		if !ok || chosen == 0 { // Signal channel chosen for consumption
 			logs.Logger.Criticalf("Signal received. Shutting down...")
 			return
 		}
+
 		delivery := recv.Interface().(amqp.Delivery)
-		filter.Process(delivery)
-		if err := delivery.Ack(false); err != nil {
+		header := amqp.HeadersFromDelivery(delivery)
+		srcSequenceId, err := sequence.SrcFromString(header.SequenceId)
+		if err != nil {
+			logs.Logger.Errorf("error getting source sequence id: %s", err.Error())
+			continue
+		}
+
+		// Filter and only process non-duplicate messages
+		if !f.Dup.IsDuplicate(*srcSequenceId) {
+			filter.Process(delivery, header)
+		}
+
+		// Acknowledge all duplicate and processed messages
+		if err = delivery.Ack(false); err != nil {
 			logs.Logger.Errorf("Failed to acknowledge message: %s", err.Error())
 		}
 	}

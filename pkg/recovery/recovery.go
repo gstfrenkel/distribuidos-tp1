@@ -1,12 +1,13 @@
 package recovery
 
 import (
+	"io"
 	"tp1/pkg/ioutils"
 )
 
 type Handler interface {
-	RecoverNextLine(parse func([]string) (any, error)) (any, error)
-	Log(record []string) error
+	Recover(ch chan<- []string)
+	Log(record Record) error
 	Close()
 }
 
@@ -25,17 +26,24 @@ func NewHandler() (Handler, error) {
 	}, nil
 }
 
-func (h *handler) RecoverNextLine(parse func([]string) (any, error)) (any, error) {
-	line, err := h.file.Read()
-	if err != nil {
-		return nil, err
-	}
+func (h *handler) Recover(ch chan<- []string) {
+	defer close(ch)
 
-	return parse(line)
+	for {
+		line, err := h.file.Read()
+		if err != nil {
+			if err == io.EOF {
+				break
+			} else {
+				continue
+			}
+		}
+		ch <- line
+	}
 }
 
-func (h *handler) Log(record []string) error {
-	return h.file.Write(record)
+func (h *handler) Log(record Record) error {
+	return h.file.Write(record.toString())
 }
 
 func (h *handler) Close() {

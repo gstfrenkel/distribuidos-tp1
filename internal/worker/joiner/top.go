@@ -40,7 +40,7 @@ func (t *top) Start() {
 	t.w.Start(t)
 }
 
-func (t *top) Process(delivery amqp.Delivery) {
+func (t *top) Process(delivery amqp.Delivery, _ amqp.Header) {
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 	clientId := delivery.Headers[amqp.ClientIdHeader].(string)
 

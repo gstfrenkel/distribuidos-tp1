@@ -6,6 +6,8 @@ import (
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/recovery"
+	"tp1/pkg/sequence"
 )
 
 var (
@@ -26,22 +28,31 @@ func New() (worker.Filter, error) {
 }
 
 func (f *filter) Init() error {
-	return f.w.Init()
+	if err := f.w.Init(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery) {
-	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
+func (f *filter) Process(delivery amqp.Delivery, header amqp.Header) {
+	var sequenceIds []sequence.Destination
 
-	if messageId == message.EofMsg {
-		headersEof[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
+	switch header.MessageId {
+	case message.EofMsg:
+		headersEof[amqp.ClientIdHeader] = header.ClientId
+		//headersEof[amqp.OriginIdHeader] = f.w.NextSequenceId()
+
 		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, headersEof, f.w.InputEof, f.w.OutputsEof...); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
-	} else if messageId == message.GameIdMsg {
+
+		//f.w.Recovery.Log(recovery.NewRecord(header))
+	case message.GameIdMsg:
 		msg, err := message.GameFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
@@ -49,14 +60,20 @@ func (f *filter) Process(delivery amqp.Delivery) {
 		}
 
 		headers[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
-		f.publish(msg)
-	} else {
-		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
+		sequenceIds = f.publish(msg)
+	default:
+		logs.Logger.Errorf(errors.InvalidMessageId.Error(), header.MessageId)
+	}
+
+	if err := f.w.Recovery.Log(recovery.NewRecord(header, sequenceIds, []string{})); err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToLog.Error(), err)
 	}
 }
 
-func (f *filter) publish(msg message.Game) {
+func (f *filter) publish(msg message.Game) []sequence.Destination {
 	games := msg.ToGameNamesMessage(f.w.Query.(string))
+	sequenceIds := make([]sequence.Destination, 0, len(games)*len(f.w.Outputs))
+
 	for _, game := range games {
 		b, err := game.ToBytes()
 		if err != nil {
@@ -65,10 +82,28 @@ func (f *filter) publish(msg message.Game) {
 		}
 
 		for _, output := range f.w.Outputs {
-			k := worker.ShardGameId(game.GameId, output.Key, output.Consumers)
-			if err = f.w.Broker.Publish(output.Exchange, k, b, headers); err != nil {
+			key := worker.ShardGameId(game.GameId, output.Key, output.Consumers)
+			sequenceId := f.w.NextSequenceId(key)
+			sequenceIds = append(sequenceIds, sequence.DstNew(key, sequenceId))
+			headers[amqp.SequenceIdHeader] = sequence.SrcNew(f.w.Id, sequenceId).ToString()
+
+			if err = f.w.Broker.Publish(output.Exchange, key, b, headers); err != nil {
 				logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 			}
 		}
 	}
+
+	return sequenceIds
 }
+
+/*func (f *filter) recover() {
+	ch := make(chan []string)
+	go f.w.Recovery.Recover(ch)
+
+	for _, l := range <-ch {
+
+	}
+
+	return nil
+}
+*/
