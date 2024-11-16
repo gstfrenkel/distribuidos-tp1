@@ -1,4 +1,4 @@
-package healthcheck
+package health_check
 
 import (
 	"fmt"
@@ -30,9 +30,8 @@ const configFilePath = "config.toml"
 const sleepSecs = 10
 const maxErrors = 3
 const hcMsg = 1
-const dockerStart = "docker start "
-const dockerStop = "docker stop "
-const timeoutSecs = 5
+const dockerRestart = "docker restart "
+const timeoutSecs = 3
 
 type HealthChecker struct {
 	hcAddr     string
@@ -88,8 +87,7 @@ func (hc *HealthChecker) Start() {
 // Check checks if the node is alive and restarts it if it is not.
 // nodeIp is the container name of the node
 func (hc *HealthChecker) Check(nodeIp string) {
-	finished := false //TODO sigterm
-	for !finished {
+	for {
 		nodeAddr := nodeIp + ":" + hc.serverPort
 		conn, err := hc.connect(nodeAddr)
 		if err != nil {
@@ -112,7 +110,7 @@ func (hc *HealthChecker) Check(nodeIp string) {
 func (hc *HealthChecker) sendHcMsg(conn *net.UDPConn) int {
 	errCount := 0
 	buffer := make([]byte, msgBytes)
-	for errCount < maxErrors { //TODO sigterm
+	for errCount < maxErrors {
 		_, err := conn.Write([]byte{hcMsg})
 		if err != nil {
 			errCount++
@@ -130,8 +128,9 @@ func (hc *HealthChecker) sendHcMsg(conn *net.UDPConn) int {
 		if err != nil {
 			errCount++
 			logs.Logger.Errorf("Error recv health check ack: %v. Error count: %d", err, errCount)
+		} else {
+			logs.Logger.Infof("Received health check ack from %v", conn.RemoteAddr())
 		}
-		logs.Logger.Infof("Received health check ack from %v", conn.RemoteAddr())
 
 		time.Sleep(sleepSecs * time.Second)
 	}
@@ -168,12 +167,7 @@ func (hc *HealthChecker) connect(nodeAddr string) (*net.UDPConn, error) {
 func (hc *HealthChecker) restartNode(containerName string) {
 	logs.Logger.Errorf("Node %s is down", containerName)
 
-	err := ioutils.ExecCommand(dockerStop + containerName)
-	if err != nil {
-		logs.Logger.Errorf("Error stopping node: %s", err)
-	}
-
-	err = ioutils.ExecCommand(dockerStart + containerName)
+	err := ioutils.ExecCommand(dockerRestart + containerName)
 	if err != nil {
 		logs.Logger.Errorf("Error restarting node: %s", err)
 		return

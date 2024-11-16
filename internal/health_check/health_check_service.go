@@ -1,4 +1,4 @@
-package healthcheck
+package health_check
 
 import (
 	"fmt"
@@ -10,6 +10,7 @@ const port = 9290
 const transportProtocol = "udp"
 const msgBytes = 1
 const ackMsg = 2
+const maxError = 3
 
 type Service struct {
 	listener *net.UDPConn
@@ -34,20 +35,22 @@ func NewHcService() (*Service, error) {
 // If it fails to read (timeout occurred), it means the health checker is down.
 func (h *Service) Listen() {
 	buf := make([]byte, msgBytes)
-	for { //todo: check sigterm to stop?
+	i := 0
+	for i < maxError {
 		_, addr, err := h.listener.ReadFromUDP(buf)
 		if err != nil {
-			logs.Logger.Errorf("Error reading health check message: %v", err)
+			logs.Logger.Warningf("Error reading health check message: %v", err)
+			i++
 			continue
 		}
-
-		logs.Logger.Infof("Received health check message from: %s", addr)
 
 		_, err = h.listener.WriteToUDP([]byte{ackMsg}, addr)
 		if err != nil {
 			logs.Logger.Errorf("Error sending health check ack: %v", err)
 		}
 	}
+
+	logs.Logger.Infof("Closing hc conn")
 }
 
 func (h *Service) Close() error {

@@ -1,9 +1,9 @@
 services:
   health-checker-1:
     container_name: health-checker-1
-    image: healthchecker:latest
+    image: health-checker:latest
     env_file:
-      ./configs/health-checker-1.env
+      ./configs/env/health-checker-1.env
     networks:
       - tp1_net
     volumes:

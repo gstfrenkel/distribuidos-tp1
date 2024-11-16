@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y netcat-openbsd
 COPY cmd/gateway/gateway.go ./main.go
 COPY pkg/ ./pkg/
 COPY internal/gateway ./internal/gateway/
-COPY internal/healthcheck ./internal/healthcheck/
+COPY internal/health_check/health_check_service.go ./internal/health_check/health_check_service.go
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /main
 

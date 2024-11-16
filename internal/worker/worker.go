@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"tp1/internal/healthcheck"
+	"tp1/internal/health_check"
 
 	"tp1/pkg/amqp"
 	"tp1/pkg/amqp/broker"
@@ -35,7 +35,7 @@ type Worker struct {
 	SignalChan         chan os.Signal
 	Id                 uint8
 	Peers              uint8
-	HealthCheckService *healthcheck.Service
+	HealthCheckService *health_check.Service
 }
 
 func New() (*Worker, error) {
@@ -62,7 +62,7 @@ func New() (*Worker, error) {
 		return nil, err
 	}
 
-	hc, err := healthcheck.NewHcService()
+	hc, err := health_check.NewHcService()
 	if err != nil {
 		return nil, err
 	}
