@@ -89,8 +89,7 @@ func (f *Worker) Start(filter Filter) {
 	defer f.Broker.Close()
 	defer close(f.SignalChan)
 
-	f.listenHc() //todo sigterm
-	defer f.HealthCheckService.Close()
+	f.listenHc()
 
 	var inputQ []amqp.Destination
 	err := f.config.Unmarshal("input-queues", &inputQ)

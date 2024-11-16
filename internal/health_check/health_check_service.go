@@ -51,6 +51,7 @@ func (h *Service) Listen() {
 	}
 
 	logs.Logger.Infof("Closing hc conn")
+	h.Close()
 }
 
 func (h *Service) Close() error {
