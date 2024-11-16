@@ -85,7 +85,8 @@ func (f *filter) sendBatch(b []byte, clientId string) {
 
 func (f *filter) sendEof(clientId string) {
 	headers := map[string]any{amqp.OriginIdHeader: amqp.Query4originId, amqp.ClientIdHeader: clientId}
-	if err := f.w.Broker.HandleEofMessage(f.w.Id, 0, amqp.EmptyEof, headers, f.w.InputEof, f.w.OutputsEof...); err != nil {
+	_, err := f.w.HandleEofMessage(amqp.EmptyEof, headers)
+	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 

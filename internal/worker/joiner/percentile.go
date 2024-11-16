@@ -77,8 +77,9 @@ func (p *percentile) processEof(clientId string) {
 		p.processBatch(clientId, userInfo)
 	}
 
-	if err := p.w.Broker.HandleEofMessage(p.w.Id, 0, amqp.EmptyEof, headersEof, p.w.InputEof, p.w.OutputsEof...); err != nil {
-		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
+	_, err := p.w.HandleEofMessage(amqp.EmptyEof, headersEof)
+	if err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 }
 

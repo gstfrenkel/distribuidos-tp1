@@ -6,7 +6,6 @@ import (
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
-	"tp1/pkg/recovery"
 	"tp1/pkg/sequence"
 )
 
@@ -39,38 +38,35 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery, header amqp.Header) {
+func (f *filter) Process(delivery amqp.Delivery, header amqp.Header) ([]sequence.Destination, []string) {
 	var sequenceIds []sequence.Destination
+	var err error
 
 	switch header.MessageId {
 	case message.EofMsg:
 		headersEof[amqp.ClientIdHeader] = header.ClientId
-		//headersEof[amqp.OriginIdHeader] = f.w.NextSequenceId()
 
-		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, headersEof, f.w.InputEof, f.w.OutputsEof...); err != nil {
+		sequenceIds, err = f.w.HandleEofMessage(delivery.Body, headersEof)
+		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
-
-		//f.w.Recovery.Log(recovery.NewRecord(header))
 	case message.GameIdMsg:
 		msg, err := message.GameFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return
+		} else {
+			sequenceIds = f.publish(header, msg)
 		}
-
-		headers[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
-		sequenceIds = f.publish(msg)
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), header.MessageId)
 	}
 
-	if err := f.w.Recovery.Log(recovery.NewRecord(header, sequenceIds, []string{})); err != nil {
-		logs.Logger.Errorf("%s: %s", errors.FailedToLog.Error(), err)
-	}
+	return sequenceIds, nil
 }
 
-func (f *filter) publish(msg message.Game) []sequence.Destination {
+func (f *filter) publish(header amqp.Header, msg message.Game) []sequence.Destination {
+	headers[amqp.ClientIdHeader] = header.ClientId
+
 	games := msg.ToGameNamesMessage(f.w.Query.(string))
 	sequenceIds := make([]sequence.Destination, 0, len(games)*len(f.w.Outputs))
 
@@ -98,7 +94,7 @@ func (f *filter) publish(msg message.Game) []sequence.Destination {
 
 /*func (f *filter) recover() {
 	ch := make(chan []string)
-	go f.w.Recovery.Recover(ch)
+	go f.w.recoveryt.Recover(ch)
 
 	for _, l := range <-ch {
 

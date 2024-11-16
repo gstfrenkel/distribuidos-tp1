@@ -72,8 +72,9 @@ func (c *counter) Process(delivery amqp.Delivery, _ amqp.Header) {
 }
 
 func (c *counter) processEof(clientId string) {
-	if err := c.w.Broker.HandleEofMessage(c.w.Id, 0, amqp.EmptyEof, headersEof, c.w.InputEof, c.w.OutputsEof...); err != nil {
-		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
+	_, err := c.w.HandleEofMessage(amqp.EmptyEof, headersEof)
+	if err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 }
 

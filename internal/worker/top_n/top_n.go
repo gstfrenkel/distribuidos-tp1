@@ -118,7 +118,8 @@ func (f *filter) publish(clientId string) {
 	delete(f.top, clientId)
 
 	if f.w.Peers == 0 { //it is not an aggregator
-		if err := f.w.Broker.HandleEofMessage(f.w.Id, 0, amqp.EmptyEof, map[string]any{amqp.ClientIdHeader: clientId}, f.w.InputEof, amqp.DestinationEof(f.w.Outputs[0])); err != nil {
+		_, err = f.w.HandleEofMessage(amqp.EmptyEof, map[string]any{amqp.ClientIdHeader: clientId}, amqp.DestinationEof(f.w.Outputs[0]))
+		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	}

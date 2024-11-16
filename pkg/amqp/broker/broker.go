@@ -2,7 +2,6 @@ package broker
 
 import (
 	"tp1/pkg/amqp"
-	"tp1/pkg/message"
 
 	amqpgo "github.com/rabbitmq/amqp091-go"
 )
@@ -94,38 +93,6 @@ func (b *messageBroker) Publish(exchange, key string, msg []byte, headers map[st
 
 func (b *messageBroker) Consume(queue, consumer string, autoAck, exclusive bool) (<-chan amqp.Delivery, error) {
 	return b.ch.Consume(queue, consumer, autoAck, exclusive, false, false, nil)
-}
-
-func (b *messageBroker) HandleEofMessage(workerId, peers uint8, msg []byte, headers map[string]any, input amqp.DestinationEof, outputs ...amqp.DestinationEof) error {
-	workersVisited, err := message.EofFromBytes(msg)
-	if err != nil {
-		return err
-	}
-
-	if !workersVisited.Contains(workerId) {
-		workersVisited = append(workersVisited, workerId)
-	}
-
-	if headers == nil {
-		headers = map[string]any{amqp.MessageIdHeader: uint8(message.EofMsg)}
-	} else {
-		headers[amqp.MessageIdHeader] = uint8(message.EofMsg)
-	}
-
-	if uint8(len(workersVisited)) < peers {
-		bytes, err := workersVisited.ToBytes()
-		if err != nil {
-			return err
-		}
-		return b.Publish(input.Exchange, input.Key, bytes, headers)
-	}
-
-	for _, output := range outputs {
-		if err = b.Publish(output.Exchange, output.Key, amqp.EmptyEof, headers); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (b *messageBroker) Close() {
