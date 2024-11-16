@@ -166,10 +166,7 @@ func (g *Gateway) startListeners(wg *sync.WaitGroup, err error) {
 
 	go func() {
 		defer wg.Done()
-		err = g.healthCheckService.Listen()
-		if err != nil {
-			logs.Logger.Errorf("Error listening results: %s", err.Error())
-		}
+		g.healthCheckService.Listen()
 	}()
 }
 

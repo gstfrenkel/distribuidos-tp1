@@ -1,53 +1,51 @@
 package healthcheck
 
 import (
+	"fmt"
 	"net"
-	"strconv"
-	"tp1/pkg/ioutils"
 	"tp1/pkg/logs"
 )
 
 const port = 9290
-const TransportProtocol = "tcp"
+const transportProtocol = "udp"
 const msgBytes = 1
+const ackMsg = 2
 
 type Service struct {
-	listener net.Listener
+	listener *net.UDPConn
 }
 
 func NewHcService() (*Service, error) {
-	listener, err := net.Listen(TransportProtocol, ":"+strconv.Itoa(port))
+	udpAddr, err := net.ResolveUDPAddr(transportProtocol, fmt.Sprintf(":%d", port))
 	if err != nil {
 		return nil, err
 	}
 
+	listener, err := net.ListenUDP(transportProtocol, udpAddr)
+	if err != nil {
+		return nil, err
+	}
+	logs.Logger.Infof("Health check service listening on port %d", port)
+
 	return &Service{listener: listener}, nil
 }
 
-// Listen listens for incoming health checker connections.
-// There should be only ONE health checker trying to connect to a node, that's why we don't need to handle multiple connections.
-func (h *Service) Listen() error {
-	logs.Logger.Infof("Health checker listening on: %s", h.listener.Addr().String())
-	for {
-		conn, err := h.listener.Accept()
-		if err != nil {
-			return err
-		}
-		h.handleHealthChecker(conn)
-	}
-}
-
-// handleHealthChecker reads the health checker messages.
+// Listen reads the health checker messages.
 // If it fails to read (timeout occurred), it means the health checker is down.
-func (h *Service) handleHealthChecker(conn net.Conn) {
+func (h *Service) Listen() {
 	buf := make([]byte, msgBytes)
-	for { //todo: check sigterm to stop
-		err := ioutils.ReadFull(conn, buf, msgBytes)
-		logs.Logger.Infof("Received health check message. Node: %s", conn.LocalAddr())
+	for { //todo: check sigterm to stop?
+		_, addr, err := h.listener.ReadFromUDP(buf)
 		if err != nil {
-			logs.Logger.Errorf("Health checker down: %s", err)
-			_ = conn.Close()
-			return
+			logs.Logger.Errorf("Error reading health check message: %v", err)
+			continue
+		}
+
+		logs.Logger.Infof("Received health check message from: %s", addr)
+
+		_, err = h.listener.WriteToUDP([]byte{ackMsg}, addr)
+		if err != nil {
+			logs.Logger.Errorf("Error sending health check ack: %v", err)
 		}
 	}
 }

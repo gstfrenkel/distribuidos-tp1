@@ -121,10 +121,7 @@ func (f *Worker) Start(filter Filter) {
 
 func (f *Worker) listenHc() {
 	go func() {
-		err := f.HealthCheckService.Listen()
-		if err != nil {
-			logs.Logger.Errorf("error listening for health checker: %s", err.Error())
-		}
+		f.HealthCheckService.Listen()
 	}()
 }
 

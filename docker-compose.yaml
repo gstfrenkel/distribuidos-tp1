@@ -15,21 +15,6 @@ services:
     logging:
       driver: none
 
-  reviews-filter-1:
-    container_name: reviews-filter-1
-    image: reviews-filter:latest
-    environment:
-      - worker-id=0
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-    links:
-      - rabbitmq
-    networks:
-      - tp1_net
-    volumes:
-      - ./configs/review.json:/app/config.json
-
   gateway-1:
     container_name: gateway-1
     image: gateway:latest

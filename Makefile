@@ -5,7 +5,6 @@ all:
 
 build:
 	docker build -f ./build/gateway.Dockerfile -t "gateway:latest" .
-	docker build -f ./build/review.Dockerfile -t "reviews-filter:latest" .
 .PHONY: build
 
 build-client:
@@ -13,7 +12,7 @@ build-client:
 .PHONY: build-client
 
 build-hc:
-	docker build -f ./build/healthchecker.Dockerfile -t "healthcheck:latest" .
+	docker build -f ./build/healthchecker.Dockerfile -t "healthchecker:latest" .
 .PHONY: build-hc
 
 docker-compose-up: build
