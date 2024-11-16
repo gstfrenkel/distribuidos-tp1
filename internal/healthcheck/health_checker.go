@@ -30,6 +30,8 @@ const configFilePath = "config.toml"
 const sleepSecs = 10
 const maxErrors = 3
 const hcMsg = 1
+const dockerStart = "docker start "
+const dockerStop = "docker stop "
 
 type HealthChecker struct {
 	id         uint8
@@ -94,45 +96,74 @@ func (hc *HealthChecker) Start() {
 // Check checks if the node is alive
 // nodeIp is the container name of the node
 func (hc *HealthChecker) Check(nodeIp string) {
-	nodeAddr := nodeIp + ":" + hc.serverPort
-	conn, err := net.Dial(TransportProtocol, nodeAddr)
-	if err != nil {
-		logs.Logger.Errorf("Node conn error: %v", err)
-		restartNode(nodeIp)
-		return
-	}
+	finished := false //TODO sigterm
+	for !finished {
+		nodeAddr := nodeIp + ":" + hc.serverPort
+		conn, err := hc.connect(nodeAddr)
+		if err != nil {
+			logs.Logger.Errorf("Node conn error: %v", err)
+			hc.restartNode(nodeIp)
+			break
+		}
 
+		errCount := hc.sendHcMsg(conn)
+		conn.Close()
+
+		if errCount == maxErrors {
+			hc.restartNode(nodeIp)
+		}
+	}
+}
+
+func (hc *HealthChecker) sendHcMsg(conn net.Conn) int {
 	errCount := 0
 	for errCount < maxErrors { //TODO sigterm
 		err := ioutils.SendAll(conn, []byte{hcMsg})
+		logs.Logger.Infof("Sent health check message to node: %s", conn.RemoteAddr())
 		if err != nil {
 			errCount++
+			logs.Logger.Errorf("Error sending health check message: %v. Count: %d", err, errCount)
 		}
 		time.Sleep(sleepSecs * time.Second)
 	}
+	return errCount
+}
 
-	if errCount == maxErrors {
-		restartNode(nodeIp)
+// Connect to the node.
+// If it fails to connect, it tries to reconnect maxErrors times.
+// If it fails to reconnect, it restarts the node.
+func (hc *HealthChecker) connect(nodeAddr string) (net.Conn, error) {
+	i := 0
+	var err error
+
+	for i < maxErrors {
+		conn, connErr := net.Dial(TransportProtocol, nodeAddr)
+		if connErr == nil {
+			logs.Logger.Infof("Connected to node %s", nodeAddr)
+			return conn, nil
+		}
+		logs.Logger.Errorf("Error connecting to node %s: %v, retrying", nodeAddr, connErr)
+		i++
+		err = connErr
 	}
 
-	conn.Close()
+	return nil, err
 }
 
 // Using DinD to restart the health checker
-func restartNode(containerName string) {
+func (hc *HealthChecker) restartNode(containerName string) {
 	logs.Logger.Errorf("Node %s is down", containerName)
 
-	err := ioutils.ExecCommand([]string{"docker", "stop", containerName})
+	err := ioutils.ExecCommand(dockerStop + containerName)
 	if err != nil {
 		logs.Logger.Errorf("Error stopping node: %s", err)
 	}
 
-	err = ioutils.ExecCommand([]string{"docker", "start", containerName})
+	err = ioutils.ExecCommand(dockerStart + containerName)
 	if err != nil {
 		logs.Logger.Errorf("Error restarting node: %s", err)
 		return
 	}
 
 	logs.Logger.Infof("Node %s restarted", containerName)
-	//TODO volver a hacerle hc
 }

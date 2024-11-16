@@ -10,9 +10,9 @@ COPY cmd/worker/joiner_percentile/percentile.go ./main.go
 COPY pkg/ ./pkg/
 COPY internal/errors/ ./internal/errors/
 COPY internal/worker/worker.go ./internal/worker/
-# Update path to desired entrypoint
 COPY internal/worker/joiner/joiner.go ./internal/worker/joiner/
 COPY internal/worker/joiner/percentile.go ./internal/worker/joiner/
+COPY internal/healthcheck ./internal/healthcheck/
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /main
 

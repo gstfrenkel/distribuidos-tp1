@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"tp1/internal/healthcheck"
 
 	"tp1/pkg/amqp"
 	"tp1/pkg/amqp/broker"
@@ -25,15 +26,16 @@ type Filter interface {
 }
 
 type Worker struct {
-	config     config.Config
-	Query      any
-	Broker     amqp.MessageBroker
-	InputEof   amqp.DestinationEof
-	OutputsEof []amqp.DestinationEof
-	Outputs    []amqp.Destination
-	SignalChan chan os.Signal
-	Id         uint8
-	Peers      uint8
+	config             config.Config
+	Query              any
+	Broker             amqp.MessageBroker
+	InputEof           amqp.DestinationEof
+	OutputsEof         []amqp.DestinationEof
+	Outputs            []amqp.Destination
+	SignalChan         chan os.Signal
+	Id                 uint8
+	Peers              uint8
+	HealthCheckService *healthcheck.Service
 }
 
 func New() (*Worker, error) {
@@ -60,13 +62,19 @@ func New() (*Worker, error) {
 		return nil, err
 	}
 
+	hc, err := healthcheck.NewHcService()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Worker{
-		config:     cfg,
-		Query:      query,
-		Broker:     b,
-		SignalChan: signalChan,
-		Id:         uint8(id),
-		Peers:      peers,
+		config:             cfg,
+		Query:              query,
+		Broker:             b,
+		SignalChan:         signalChan,
+		Id:                 uint8(id),
+		Peers:              peers,
+		HealthCheckService: hc,
 	}, nil
 }
 
@@ -80,6 +88,9 @@ func (f *Worker) Init() error {
 func (f *Worker) Start(filter Filter) {
 	defer f.Broker.Close()
 	defer close(f.SignalChan)
+
+	f.listenHc() //todo sigterm
+	defer f.HealthCheckService.Close()
 
 	var inputQ []amqp.Destination
 	err := f.config.Unmarshal("input-queues", &inputQ)
@@ -106,6 +117,15 @@ func (f *Worker) Start(filter Filter) {
 	}
 
 	f.consume(filter, f.SignalChan, channels...)
+}
+
+func (f *Worker) listenHc() {
+	go func() {
+		err := f.HealthCheckService.Listen()
+		if err != nil {
+			logs.Logger.Errorf("error listening for health checker: %s", err.Error())
+		}
+	}()
 }
 
 func (f *Worker) consume(filter Filter, signalChan chan os.Signal, deliveryChan ...<-chan amqp.Delivery) {

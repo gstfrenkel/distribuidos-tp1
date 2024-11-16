@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY go.mod go.sum ./
 RUN go mod download
+RUN apt-get update && apt-get install -y netcat-openbsd
 
 # Update path to desired entrypoint
 COPY cmd/gateway/gateway.go ./main.go

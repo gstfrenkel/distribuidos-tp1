@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"os/exec"
+	"strings"
 )
 
 // SendAll Sends all data to a connection socket
@@ -49,6 +50,7 @@ func MoveBuff(data []byte, n int) []byte {
 }
 
 // ExecCommand executes a command in the shell
-func ExecCommand(command []string) error {
-	return exec.Command(command[0], command[1:]...).Run()
+func ExecCommand(command string) error {
+	commands := strings.Split(command, " ")
+	return exec.Command(commands[0], commands[1:]...).Run()
 }

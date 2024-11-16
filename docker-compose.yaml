@@ -15,6 +15,21 @@ services:
     logging:
       driver: none
 
+  reviews-filter-1:
+    container_name: reviews-filter-1
+    image: reviews-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/review.json:/app/config.json
+
   gateway-1:
     container_name: gateway-1
     image: gateway:latest
@@ -29,17 +44,6 @@ services:
       - tp1_net
     volumes:
       - ./configs/gateway.toml:/app/config.toml
-
-  health-checker-1:
-    container_name: health-checker-1
-    image: healthchecker:latest
-    env_file:
-      ./configs/health-checker-1.env
-    networks:
-      - tp1_net
-    volumes:
-      - ./configs/health_checker.toml:/app/config.toml
-      - /var/run/docker.sock:/var/run/docker.sock
 
 networks:
   tp1_net:
