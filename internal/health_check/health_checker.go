@@ -14,24 +14,26 @@ import (
 	"tp1/pkg/logs"
 )
 
-// Env vars keys
-const hcIdKey = "id"
-const hcNextIdKey = "next"
-const hcNodesKey = "nodes"
-const hcNodesSepKey = ","
+const (
+	// Env vars keys
+	hcIdKey       = "id"
+	hcNextIdKey   = "next"
+	hcNodesKey    = "nodes"
+	hcNodesSepKey = ","
 
-// Config keys
-const hcServerPort = "hc.server-port"
-const hcServerDefaultPort = "9290"
-const hcContainerNameKey = "hc.container-name"
-const hcDefaultContainerName = "hc.health-checker-%d"
+	// Config keys
+	hcServerPort           = "hc.server-port"
+	hcServerDefaultPort    = "9290"
+	hcContainerNameKey     = "hc.container-name"
+	hcDefaultContainerName = "hc.health-checker-%d"
 
-const configFilePath = "config.toml"
-const sleepSecs = 10
-const maxErrors = 3
-const hcMsg = 1
-const dockerRestart = "docker restart "
-const timeoutSecs = 3
+	configFilePath = "config.toml"
+	sleepSecs      = 10
+	maxErrors      = 3
+	hcMsg          = 1
+	dockerRestart  = "docker restart "
+	timeoutSecs    = 3
+)
 
 type HealthChecker struct {
 	hcAddr     string

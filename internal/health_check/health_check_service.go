@@ -6,11 +6,13 @@ import (
 	"tp1/pkg/logs"
 )
 
-const port = 9290
-const transportProtocol = "udp"
-const msgBytes = 1
-const ackMsg = 2
-const maxError = 3
+const (
+	port              = 9290
+	transportProtocol = "udp"
+	msgBytes          = 1
+	ackMsg            = 2
+	maxError          = 3
+)
 
 type Service struct {
 	listener *net.UDPConn
