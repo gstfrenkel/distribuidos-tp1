@@ -1,4 +1,4 @@
-package health_check
+package healthcheck
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ type Service struct {
 	listener *net.UDPConn
 }
 
-func NewHcService() (*Service, error) {
+func NewService() (*Service, error) {
 	udpAddr, err := net.ResolveUDPAddr(transportProtocol, fmt.Sprintf(":%d", port))
 	if err != nil {
 		return nil, err

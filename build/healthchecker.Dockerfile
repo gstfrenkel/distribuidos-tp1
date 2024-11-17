@@ -10,9 +10,9 @@ RUN apt-get update && apt-get install -y \
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY cmd/health_checker/health_checker.go ./main.go
+COPY cmd/healthchecker/healthchecker.go ./main.go
 COPY pkg/ ./pkg/
-COPY internal/health_check ./internal/health_check/
+COPY internal/healthcheck ./internal/healthcheck/
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /main
 

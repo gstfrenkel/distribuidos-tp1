@@ -26,7 +26,7 @@ build-client:
 .PHONY: build-client
 
 build-hc:
-	docker build -f ./build/health_checker.Dockerfile -t "health-checker:latest" .
+	docker build -f ./build/healthchecker.Dockerfile -t "healthchecker:latest" .
 .PHONY: build-hc
 
 docker-compose-up: build

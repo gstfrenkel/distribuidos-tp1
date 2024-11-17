@@ -12,7 +12,7 @@ COPY internal/errors/ ./internal/errors/
 COPY internal/worker/worker.go ./internal/worker/
 COPY internal/worker/joiner/joiner.go ./internal/worker/joiner/
 COPY internal/worker/joiner/top.go ./internal/worker/joiner/
-COPY internal/health_check/health_check_service.go ./internal/health_check/health_check_service.go
+COPY internal/healthcheck/healthcheck_service.go ./internal/healthcheck/healthcheck_service.go
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /main
 

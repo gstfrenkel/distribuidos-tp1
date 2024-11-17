@@ -1,13 +1,13 @@
 services:
-  health-checker-1:
-    container_name: health-checker-1
-    image: health-checker:latest
+  healthchecker-1:
+    container_name: healthchecker-1
+    image: healthchecker:latest
     env_file:
-      ./configs/env/health-checker-1.env
+      ./configs/env/healthchecker-1.env
     networks:
       - tp1_net
     volumes:
-      - ./configs/health_checker.toml:/app/config.toml
+      - ./configs/healthchecker.toml:/app/config.toml
       - /var/run/docker.sock:/var/run/docker.sock
 
 networks:

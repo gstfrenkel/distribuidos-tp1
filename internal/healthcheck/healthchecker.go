@@ -1,4 +1,4 @@
-package health_check
+package healthcheck
 
 import (
 	"fmt"
@@ -25,7 +25,7 @@ const (
 	hcServerPort           = "hc.server-port"
 	hcServerDefaultPort    = "9290"
 	hcContainerNameKey     = "hc.container-name"
-	hcDefaultContainerName = "hc.health-checker-%d"
+	hcDefaultContainerName = "healthchecker-%d"
 
 	configFilePath = "config.toml"
 	sleepSecs      = 10
@@ -43,7 +43,7 @@ type HealthChecker struct {
 	service    *Service
 }
 
-func NewHc() (*HealthChecker, error) {
+func New() (*HealthChecker, error) {
 	cfg, err := provider.LoadConfig(configFilePath)
 	serverPort, containerName := getConfig(cfg)
 	id, nextId, nodes, err := getEnvVars()
@@ -51,7 +51,7 @@ func NewHc() (*HealthChecker, error) {
 		return nil, err
 	}
 
-	hcService, err := NewHcService()
+	hcService, err := NewService()
 	if err != nil {
 		return nil, err
 	}

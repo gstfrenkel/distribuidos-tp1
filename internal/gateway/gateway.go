@@ -8,7 +8,7 @@ import (
 	"sync"
 	"syscall"
 	"tp1/internal/gateway/id_generator"
-	"tp1/internal/health_check"
+	"tp1/internal/healthcheck"
 	"tp1/pkg/message"
 
 	"tp1/internal/gateway/rabbit"
@@ -40,7 +40,7 @@ type Gateway struct {
 	IdGenerator        *id_generator.IdGenerator
 	IdGeneratorMu      sync.Mutex
 	clientChannels     sync.Map
-	healthCheckService *health_check.Service
+	healthCheckService *healthcheck.Service
 }
 
 func New() (*Gateway, error) {
@@ -81,7 +81,7 @@ func New() (*Gateway, error) {
 		return nil, err
 	}
 
-	hc, err := health_check.NewHcService()
+	hc, err := healthcheck.NewService()
 	if err != nil {
 		return nil, err
 	}

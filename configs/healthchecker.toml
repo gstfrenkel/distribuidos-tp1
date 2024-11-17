@@ -1,0 +1,3 @@
+[hc]
+server-port = 9290
+container-name = "healthchecker-%d"
