@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"io"
 	"net"
+	"os/exec"
+	"strings"
 )
 
 // SendAll Sends all data to a connection socket
@@ -45,4 +47,10 @@ func ReadU32FromSlice(buf []byte) uint32 {
 func MoveBuff(data []byte, n int) []byte {
 	copy(data, data[n:])
 	return data[:len(data)-n]
+}
+
+// ExecCommand executes a command in the shell
+func ExecCommand(command string) error {
+	commands := strings.Split(command, " ")
+	return exec.Command(commands[0], commands[1:]...).Run()
 }

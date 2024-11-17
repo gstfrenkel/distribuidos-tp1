@@ -10,8 +10,8 @@ COPY cmd/worker/platform_counter/platform_counter.go ./main.go
 COPY pkg/ ./pkg/
 COPY internal/errors/ ./internal/errors/
 COPY internal/worker/worker.go ./internal/worker/
-# Update path to desired entrypoint
 COPY internal/worker/platform_counter/platform_counter.go ./internal/worker/platform_counter/
+COPY internal/healthcheck/service.go ./internal/healthcheck/service.go
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /main
 
