@@ -73,6 +73,10 @@ func New() (*HealthChecker, error) {
 
 // Start starts the health checker for every node
 func (hc *HealthChecker) Start() {
+	go func() {
+		hc.service.Listen()
+	}()
+
 	wg := sync.WaitGroup{}
 	wg.Add(len(hc.nodes))
 
