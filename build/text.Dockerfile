@@ -11,7 +11,7 @@ COPY pkg/ ./pkg/
 COPY internal/errors/ ./internal/errors/
 COPY internal/worker/worker.go ./internal/worker/
 COPY internal/worker/text/text.go ./internal/worker/text/
-COPY internal/healthcheck/healthcheck_service.go ./internal/healthcheck/healthcheck_service.go
+COPY internal/healthcheck/service.go ./internal/healthcheck/service.go
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /main
 
