@@ -7,6 +7,7 @@ import (
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/sequence"
 )
 
 type top struct {
@@ -40,7 +41,9 @@ func (t *top) Start() {
 	t.w.Start(t)
 }
 
-func (t *top) Process(delivery amqp.Delivery, _ amqp.Header) {
+func (t *top) Process(delivery amqp.Delivery, _ amqp.Header) ([]sequence.Destination, []string) {
+	var sequenceIds []sequence.Destination
+
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 	clientId := delivery.Headers[amqp.ClientIdHeader].(string)
 
@@ -56,21 +59,21 @@ func (t *top) Process(delivery amqp.Delivery, _ amqp.Header) {
 		msg, err := message.ScoredReviewFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return
+		} else {
+			t.processReview(clientId, msg)
 		}
-
-		t.processReview(clientId, msg)
 	} else if messageId == message.GameNameID {
 		msg, err := message.GameNameFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return
+		} else {
+			t.processGame(clientId, msg)
 		}
-
-		t.processGame(clientId, msg)
 	} else {
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
 	}
+
+	return sequenceIds, nil
 }
 
 func (t *top) processEof(clientId string) {

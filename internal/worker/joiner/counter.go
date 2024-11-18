@@ -6,6 +6,7 @@ import (
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/sequence"
 )
 
 type counter struct {
@@ -38,7 +39,9 @@ func (c *counter) Start() {
 	c.w.Start(c)
 }
 
-func (c *counter) Process(delivery amqp.Delivery, _ amqp.Header) {
+func (c *counter) Process(delivery amqp.Delivery, _ amqp.Header) ([]sequence.Destination, []string) {
+	var sequenceIds []sequence.Destination
+
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 	clientId := delivery.Headers[amqp.ClientIdHeader].(string)
 
@@ -54,21 +57,21 @@ func (c *counter) Process(delivery amqp.Delivery, _ amqp.Header) {
 		msg, err := message.ScoredReviewFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return
+		} else {
+			c.processReview(clientId, msg)
 		}
-
-		c.processReview(clientId, msg)
 	} else if messageId == message.GameNameID {
 		msg, err := message.GameNameFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return
+		} else {
+			c.processGame(clientId, msg, delivery.Body)
 		}
-
-		c.processGame(clientId, msg, delivery.Body)
 	} else {
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
 	}
+
+	return sequenceIds, nil
 }
 
 func (c *counter) processEof(clientId string) {

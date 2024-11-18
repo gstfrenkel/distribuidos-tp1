@@ -6,6 +6,7 @@ import (
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/sequence"
 )
 
 type percentile struct {
@@ -38,7 +39,9 @@ func (p *percentile) Start() {
 	p.w.Start(p)
 }
 
-func (p *percentile) Process(delivery amqp.Delivery, _ amqp.Header) {
+func (p *percentile) Process(delivery amqp.Delivery, _ amqp.Header) ([]sequence.Destination, []string) {
+	var sequenceIds []sequence.Destination
+
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 	clientId := delivery.Headers[amqp.ClientIdHeader].(string)
 
@@ -54,21 +57,21 @@ func (p *percentile) Process(delivery amqp.Delivery, _ amqp.Header) {
 		msg, err := message.ScoredReviewFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return
+		} else {
+			p.processReview(clientId, msg)
 		}
-
-		p.processReview(clientId, msg)
 	} else if messageId == message.GameNameID {
 		msg, err := message.GameNameFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return
+		} else {
+			p.processGame(clientId, msg)
 		}
-
-		p.processGame(clientId, msg)
 	} else {
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
 	}
+
+	return sequenceIds, nil
 }
 
 func (p *percentile) processEof(clientId string) {

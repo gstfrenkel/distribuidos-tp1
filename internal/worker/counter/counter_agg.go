@@ -6,6 +6,7 @@ import (
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/sequence"
 )
 
 type filter struct {
@@ -37,7 +38,9 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery, _ amqp.Header) {
+func (f *filter) Process(delivery amqp.Delivery, _ amqp.Header) ([]sequence.Destination, []string) {
+	var sequenceIds []sequence.Destination
+
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 	clientId := delivery.Headers[amqp.ClientIdHeader].(string)
 
@@ -52,14 +55,15 @@ func (f *filter) Process(delivery amqp.Delivery, _ amqp.Header) {
 		msg, err := message.GameNameFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return
+		} else {
+			f.saveGame(msg, clientId)
+			f.publish(clientId, false)
 		}
-
-		f.saveGame(msg, clientId)
-		f.publish(clientId, false)
 	} else {
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
 	}
+
+	return sequenceIds, nil
 }
 
 func (f *filter) publish(clientId string, eof bool) {

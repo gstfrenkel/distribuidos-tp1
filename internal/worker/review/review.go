@@ -6,6 +6,7 @@ import (
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/sequence"
 )
 
 const (
@@ -47,7 +48,9 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery, _ amqp.Header) {
+func (f *filter) Process(delivery amqp.Delivery, _ amqp.Header) ([]sequence.Destination, []string) {
+	var sequenceIds []sequence.Destination
+
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
@@ -60,15 +63,16 @@ func (f *filter) Process(delivery amqp.Delivery, _ amqp.Header) {
 		msg, err := message.ReviewFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return
+		} else {
+			headersText[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
+			headersScored[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
+			f.publish(msg)
 		}
-
-		headersText[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
-		headersScored[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
-		f.publish(msg)
 	} else {
 		logs.Logger.Infof(errors.InvalidMessageId.Error(), messageId)
 	}
+
+	return sequenceIds, nil
 }
 
 func (f *filter) publish(msg message.Review) {

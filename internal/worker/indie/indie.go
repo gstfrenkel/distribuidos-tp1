@@ -6,6 +6,7 @@ import (
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/sequence"
 )
 
 const (
@@ -40,13 +41,16 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery, _ amqp.Header) {
+func (f *filter) Process(delivery amqp.Delivery, _ amqp.Header) ([]sequence.Destination, []string) {
+	var sequenceIds []sequence.Destination
+	var err error
+
 	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
 
 	if messageId == message.EofMsg {
 		headersEof[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
 
-		_, err := f.w.HandleEofMessage(delivery.Body, headersEof)
+		sequenceIds, err = f.w.HandleEofMessage(delivery.Body, headersEof)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
@@ -54,15 +58,16 @@ func (f *filter) Process(delivery amqp.Delivery, _ amqp.Header) {
 		msg, err := message.GameFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return
+		} else {
+			headersQuery2[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
+			headersQuery3[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
+			f.publish(msg)
 		}
-
-		headersQuery2[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
-		headersQuery3[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
-		f.publish(msg)
 	} else {
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
 	}
+
+	return sequenceIds, nil
 }
 
 func (f *filter) publish(msg message.Game) {
