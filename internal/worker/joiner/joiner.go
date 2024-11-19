@@ -3,6 +3,7 @@ package joiner
 import (
 	"tp1/pkg/amqp"
 	"tp1/pkg/message"
+	"tp1/pkg/sequence"
 )
 
 var (
@@ -22,21 +23,25 @@ type recvEofs struct {
 	game   bool
 }
 
-func processEof(clientId string, origin uint8, eofsByClient map[string]recvEofs, gameInfoByClient map[string]map[int64]gameInfo, f func(clientId string)) {
-	recv, ok := eofsByClient[clientId]
+func processEof(header amqp.Header, eofsByClient map[string]recvEofs, gameInfoByClient map[string]map[int64]gameInfo, f func(clientId string) []sequence.Destination) []sequence.Destination {
+	var sequenceIds []sequence.Destination
+
+	recv, ok := eofsByClient[header.ClientId]
 	if !ok {
-		eofsByClient[clientId] = recvEofs{}
+		eofsByClient[header.ClientId] = recvEofs{}
 	}
 
-	eofsByClient[clientId] = recvEofs{
-		review: origin == amqp.ReviewOriginId || recv.review,
-		game:   origin == amqp.GameOriginId || recv.game,
+	eofsByClient[header.ClientId] = recvEofs{
+		review: header.OriginId == amqp.ReviewOriginId || recv.review,
+		game:   header.OriginId == amqp.GameOriginId || recv.game,
 	}
 
-	if eofsByClient[clientId].review && eofsByClient[clientId].game {
-		headersEof[amqp.ClientIdHeader] = clientId
-		f(clientId)
-		delete(gameInfoByClient, clientId)
-		delete(eofsByClient, clientId)
+	if eofsByClient[header.ClientId].review && eofsByClient[header.ClientId].game {
+		headersEof[amqp.ClientIdHeader] = header.ClientId
+		sequenceIds = f(header.ClientId)
+		delete(gameInfoByClient, header.ClientId)
+		delete(eofsByClient, header.ClientId)
 	}
+
+	return sequenceIds
 }

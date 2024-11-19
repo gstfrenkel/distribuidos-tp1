@@ -60,7 +60,9 @@ func (f *filter) Process(delivery amqp.Delivery, header amqp.Header) ([]sequence
 }
 
 func (f *filter) publish(header amqp.Header, msg message.Game) []sequence.Destination {
-	sequenceId := f.w.NextSequenceId(f.w.Outputs[0].Key)
+	output := f.w.Outputs[0]
+
+	sequenceId := f.w.NextSequenceId(output.Key)
 	headers[amqp.ClientIdHeader] = header.ClientId
 	headers[amqp.SequenceIdHeader] = sequence.SrcNew(f.w.Id, sequenceId).ToString()
 
@@ -70,10 +72,9 @@ func (f *filter) publish(header amqp.Header, msg message.Game) []sequence.Destin
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 	}
 
-	key := f.w.Outputs[0].Key
-	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, key, b, headers); err != nil {
+	if err = f.w.Broker.Publish(output.Exchange, output.Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 
-	return []sequence.Destination{sequence.DstNew(key, sequenceId)}
+	return []sequence.Destination{sequence.DstNew(output.Key, sequenceId)}
 }

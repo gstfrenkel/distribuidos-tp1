@@ -39,54 +39,58 @@ func (p *percentile) Start() {
 	p.w.Start(p)
 }
 
-func (p *percentile) Process(delivery amqp.Delivery, _ amqp.Header) ([]sequence.Destination, []string) {
+func (p *percentile) Process(delivery amqp.Delivery, header amqp.Header) ([]sequence.Destination, []string) {
 	var sequenceIds []sequence.Destination
+	var recvMsg []string
 
-	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
-	clientId := delivery.Headers[amqp.ClientIdHeader].(string)
-
-	if messageId == message.EofMsg {
-		processEof(
-			clientId,
-			delivery.Headers[amqp.OriginIdHeader].(uint8),
+	switch header.MessageId {
+	case message.EofMsg:
+		sequenceIds = processEof(
+			header,
 			p.eofsByClient,
 			p.gameInfoByClient,
 			p.processEof,
 		)
-	} else if messageId == message.ScoredReviewID {
+	case message.ScoredReviewID:
 		msg, err := message.ScoredReviewFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 		} else {
-			p.processReview(clientId, msg)
+			p.processReview(header.ClientId, msg)
 		}
-	} else if messageId == message.GameNameID {
+	case message.GameNameID:
 		msg, err := message.GameNameFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 		} else {
-			p.processGame(clientId, msg)
+			p.processGame(header.ClientId, msg)
 		}
-	} else {
-		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
+	default:
+		logs.Logger.Errorf(errors.InvalidMessageId.Error(), header.MessageId)
 	}
 
-	return sequenceIds, nil
+	return sequenceIds, recvMsg
 }
 
-func (p *percentile) processEof(clientId string) {
+func (p *percentile) processEof(clientId string) []sequence.Destination {
+	var sequenceIds []sequence.Destination
+
 	userInfo, ok := p.gameInfoByClient[clientId]
 	if ok {
-		p.processBatch(clientId, userInfo)
+		sequenceIds = p.processBatch(clientId, userInfo)
 	}
 
-	_, err := p.w.HandleEofMessage(amqp.EmptyEof, headersEof)
+	auxSequenceIds, err := p.w.HandleEofMessage(amqp.EmptyEof, headersEof)
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
+
+	sequenceIds = append(sequenceIds, auxSequenceIds...)
+	return sequenceIds
 }
 
-func (p *percentile) processBatch(clientId string, userInfo map[int64]gameInfo) {
+func (p *percentile) processBatch(clientId string, userInfo map[int64]gameInfo) []sequence.Destination {
+	var sequenceIds []sequence.Destination
 	var reviews message.ScoredReviews
 
 	for id, info := range userInfo {
@@ -97,14 +101,16 @@ func (p *percentile) processBatch(clientId string, userInfo map[int64]gameInfo) 
 		reviews = append(reviews, message.ScoredReview{GameId: id, Votes: info.votes, GameName: info.gameName})
 
 		if len(reviews) >= int(p.batchSize) {
-			p.publish(clientId, reviews)
+			sequenceIds = append(sequenceIds, p.publish(clientId, reviews))
 			reviews = reviews[:0] // Reset slice without deallocating memory.
 		}
 	}
 
 	if len(reviews) > 0 {
-		p.publish(clientId, reviews)
+		sequenceIds = append(sequenceIds, p.publish(clientId, reviews))
 	}
+
+	return sequenceIds
 }
 
 func (p *percentile) processReview(clientId string, msg message.ScoredReview) {
@@ -137,14 +143,19 @@ func (p *percentile) processGame(clientId string, msg message.GameName) {
 	}
 }
 
-func (p *percentile) publish(clientId string, reviews message.ScoredReviews) {
+func (p *percentile) publish(clientId string, reviews message.ScoredReviews) sequence.Destination {
 	b, err := reviews.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 	}
 
+	key := p.w.Outputs[0].Key
+	sequenceId := p.w.NextSequenceId(key)
 	headersReview[amqp.ClientIdHeader] = clientId
-	if err = p.w.Broker.Publish(p.w.Outputs[0].Exchange, p.w.Outputs[0].Key, b, headersReview); err != nil {
+	headersReview[amqp.SequenceIdHeader] = sequence.SrcNew(p.w.Id, sequenceId)
+	if err = p.w.Broker.Publish(p.w.Outputs[0].Exchange, key, b, headersReview); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
+
+	return sequence.DstNew(key, sequenceId)
 }
