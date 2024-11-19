@@ -207,8 +207,6 @@ func (f *Worker) consume(filter Filter, signalChan chan os.Signal, deliveryChan 
 			if err = f.recovery.Log(recovery.NewRecord(header, sequenceIds, msg)); err != nil {
 				logs.Logger.Errorf("%s: %s", errors.FailedToLog.Error(), err)
 			}
-		} else {
-			logs.Logger.Infof("Received duplicate: %v", srcSequenceId)
 		}
 
 		// Acknowledge all duplicate and processed messages
