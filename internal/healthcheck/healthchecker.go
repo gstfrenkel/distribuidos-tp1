@@ -21,7 +21,7 @@ const (
 	hcIdKey       = "id"
 	hcNextIdKey   = "next"
 	hcNodesKey    = "nodes"
-	hcNodesSepKey = ","
+	hcNodesSepKey = " "
 
 	// Config keys
 	hcServerPort           = "hc.server-port"
@@ -77,6 +77,7 @@ func New() (*HealthChecker, error) {
 
 // Start starts the health checker for every node
 func (hc *HealthChecker) Start() {
+	defer hc.service.Close()
 	sigs := make(chan os.Signal, 2)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 

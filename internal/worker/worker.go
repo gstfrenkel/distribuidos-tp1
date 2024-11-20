@@ -91,6 +91,8 @@ func (f *Worker) Start(filter Filter) {
 
 	f.listenHc()
 
+	defer f.HealthCheckService.Close()
+
 	var inputQ []amqp.Destination
 	err := f.config.Unmarshal("input-queues", &inputQ)
 	if err != nil {

@@ -2,25 +2,21 @@ services:
   healthchecker-1:
     container_name: healthchecker-1
     image: healthchecker:latest
-    env_file:
-      ./configs/env/healthchecker-1.env
+    env_file: ./configs/env/healthchecker-1.env
     networks:
       - tp1_net
     volumes:
       - ./configs/healthchecker.toml:/app/config.toml
       - /var/run/docker.sock:/var/run/docker.sock
-
   healthchecker-2:
     container_name: healthchecker-2
     image: healthchecker:latest
-    env_file:
-      ./configs/env/healthchecker-2.env
+    env_file: ./configs/env/healthchecker-2.env
     networks:
       - tp1_net
     volumes:
       - ./configs/healthchecker.toml:/app/config.toml
       - /var/run/docker.sock:/var/run/docker.sock
-
 networks:
   tp1_net:
     external: false
