@@ -1,0 +1,350 @@
+services:
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:management
+    ports:
+      - "15672:15672"
+    networks:
+      - tp1_net
+    healthcheck:
+      test: rabbitmq-diagnostics check_port_connectivity
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 50s
+    logging:
+      driver: none
+
+  gateway-1:
+    container_name: gateway-1
+    image: gateway:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/gateway.toml:/app/config.toml
+
+  reviews-filter-1:
+    container_name: reviews-filter-1
+    image: reviews-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/review.json:/app/config.json
+
+  review-text-filter-1:
+    container_name: review-text-filter-1
+    image: review-text-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/text.json:/app/config.json
+
+  action-filter-1:
+    container_name: action-filter-1
+    image: action-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/action.json:/app/config.json
+
+  indie-filter-1:
+    container_name: indie-filter-1
+    image: indie-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/indie.json:/app/config.json
+
+  platform-filter-1:
+    container_name: platform-filter-1
+    image: platform-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - gateway-1
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/platform.json:/app/config.json
+
+  joiner-counter-filter-1:
+    container_name: joiner-counter-filter-1
+    image: joiner-counter-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/joiner_counter.json:/app/config.json
+
+  joiner-counter-filter-2:
+    container_name: joiner-counter-filter-2
+    image: joiner-counter-filter:latest
+    environment:
+      - worker-id=1
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/joiner_counter.json:/app/config.json
+
+  joiner-top-filter-1:
+    container_name: joiner-top-filter-1
+    image: joiner-top-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/joiner_top.json:/app/config.json
+
+  joiner-top-filter-2:
+    container_name: joiner-top-filter-2
+    image: joiner-top-filter:latest
+    environment:
+      - worker-id=1
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/joiner_top.json:/app/config.json
+
+  joiner-percentile-filter-1:
+    container_name: joiner-percentile-filter-1
+    image: joiner-percentile-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/joiner_percentile.json:/app/config.json
+
+  joiner-percentile-filter-2:
+    container_name: joiner-percentile-filter-2
+    image: joiner-percentile-filter:latest
+    environment:
+      - worker-id=1
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/joiner_percentile.json:/app/config.json
+
+  percentile-filter-1:
+    container_name: percentile-filter-1
+    image: percentile:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/percentile.json:/app/config.json
+
+  topn-filter-1:
+    container_name: topn-filter-1
+    image: topn:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/topn.json:/app/config.json
+
+  topn-filter-2:
+    container_name: topn-filter-2
+    image: topn:latest
+    environment:
+      - worker-id=1
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/topn.json:/app/config.json
+
+  topn-aggregator-1:
+    container_name: topn-aggregator-1
+    image: topn:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/topn_agg.json:/app/config.json
+
+  platform-counter-1:
+    container_name: platform-counter-1
+    image: platform-counter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/platform_counter.json:/app/config.json
+
+  platform-aggregator-1:
+    container_name: platform-aggregator-1
+    image: platform-counter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/platform_counter_agg.json:/app/config.json
+
+  topn-playtime-filter-1:
+    container_name: topn-playtime-filter-1
+    image: topn-playtime-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/topn_playtime.json:/app/config.json
+
+  release-date-filter-1:
+    container_name: release-date-filter-1
+    image: release-date-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/release_date.json:/app/config.json
+
+  topn-playtime-aggregator-1:
+    container_name: topn-playtime-aggregator-1
+    image: topn-playtime-filter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/topn_playtime_agg.json:/app/config.json
+
+  review-counter-agg:
+    container_name: review-counter-agg
+    image: counter:latest
+    environment:
+      - worker-id=0
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/counter_agg.json:/app/config.json
+
+networks:
+  tp1_net:
+    external: false

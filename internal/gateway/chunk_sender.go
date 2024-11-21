@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"sync"
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
@@ -33,15 +34,16 @@ func newChunkSender(id int, channel <-chan ChunkItem, broker amqp.MessageBroker,
 	}
 }
 
-func startChunkSender(id int, channel <-chan ChunkItem, broker amqp.MessageBroker, exchange string, chunkMaxSize uint8, routingKey string) {
+func startChunkSender(id int, clientAckChannels *sync.Map, channel <-chan ChunkItem, broker amqp.MessageBroker, exchange string, chunkMaxSize uint8, routingKey string) {
 	s := newChunkSender(id, channel, broker, exchange, chunkMaxSize, routingKey)
+	logs.Logger.Infof("Starting chunk sender id: %d", id)
 	for {
 		item := <-channel
-		s.updateChunk(item, item.Msg == nil)
+		s.updateChunk(clientAckChannels, item, item.Msg == nil)
 	}
 }
 
-func (s *ChunkSender) updateChunk(item ChunkItem, eof bool) {
+func (s *ChunkSender) updateChunk(clientAckChannels *sync.Map, item ChunkItem, eof bool) {
 	clientId := item.ClientId
 	if !eof {
 		if _, ok := s.chunks[clientId]; !ok {
@@ -50,13 +52,13 @@ func (s *ChunkSender) updateChunk(item ChunkItem, eof bool) {
 		s.chunks[clientId] = append(s.chunks[clientId], item)
 	}
 
-	s.sendChunk(eof, clientId)
+	s.sendChunk(clientAckChannels, eof, clientId)
 }
 
 // sendChunk sends a chunks of data to the broker if the chunks is full or the eof flag is true
 // In case eof is true, it sends an EOF message to the broker
 // if a chunks was sent restarts count
-func (s *ChunkSender) sendChunk(eof bool, clientId string) {
+func (s *ChunkSender) sendChunk(clientAckChannels *sync.Map, eof bool, clientId string) {
 	messageId := matchMessageId(s.id)
 	chunk := s.chunks[clientId]
 
@@ -72,6 +74,7 @@ func (s *ChunkSender) sendChunk(eof bool, clientId string) {
 		}
 
 		s.chunks[clientId] = make([]any, 0, s.maxChunkSize)
+		sendAckThroughChannel(clientAckChannels, clientId)
 	}
 
 	if eof {
@@ -81,7 +84,9 @@ func (s *ChunkSender) sendChunk(eof bool, clientId string) {
 		}
 		logs.Logger.Infof("Sent eof with key %v", s.routingKey)
 		delete(s.chunks, clientId)
+		sendAckThroughChannel(clientAckChannels, clientId)
 	}
+
 }
 
 func toBytes(msgId message.ID, chunk []any) ([]byte, error) {
@@ -97,4 +102,13 @@ func toBytes(msgId message.ID, chunk []any) ([]byte, error) {
 		games = append(games, v.(ChunkItem).Msg.(message.DataCSVGames))
 	}
 	return message.GamesFromClientGames(games)
+}
+
+func sendAckThroughChannel(clientAckChannels *sync.Map, clientID string) {
+	if clientChanI, exists := clientAckChannels.Load(clientID); exists {
+		clientChan := clientChanI.(chan []byte)
+		clientChan <- []byte("ack")
+	} else {
+		logs.Logger.Errorf("No client channel found for clientID %v", clientID)
+	}
 }

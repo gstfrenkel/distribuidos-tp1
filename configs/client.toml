@@ -6,8 +6,8 @@ results_port = 5052
 ids_port = 5053
 
 [client]
-games_path = "data/games.csv"
-reviews_path = "data/reviews.csv"
+games_path = "data/fafa_games.csv"
+reviews_path = "data/fafa_reviews.csv"
 max_messages = 5
 
 

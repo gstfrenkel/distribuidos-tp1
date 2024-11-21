@@ -28,19 +28,21 @@ const connections = 4
 const chunkChans = 2
 
 type Gateway struct {
-	Config             config.Config
-	broker             amqp.MessageBroker
-	queues             []amqp.Queue //order: reviews, games_platform, games_action, games_indie
-	exchange           string
-	reportsExchange    string
-	Listeners          [connections]net.Listener
-	ChunkChans         [chunkChans]chan ChunkItem
-	finished           bool
-	finishedMu         sync.Mutex
-	IdGenerator        *id_generator.IdGenerator
-	IdGeneratorMu      sync.Mutex
-	clientChannels     sync.Map
-	healthCheckService *healthcheck.Service
+	Config                   config.Config
+	broker                   amqp.MessageBroker
+	queues                   []amqp.Queue //order: reviews, games_platform, games_action, games_indie
+	exchange                 string
+	reportsExchange          string
+	Listeners                [connections]net.Listener
+	ChunkChans               [chunkChans]chan ChunkItem
+	finished                 bool
+	finishedMu               sync.Mutex
+	IdGenerator              *id_generator.IdGenerator
+	IdGeneratorMu            sync.Mutex
+	clientChannels           sync.Map
+	clientGamesAckChannels   sync.Map
+	clientReviewsAckChannels sync.Map
+	healthCheckService       *healthcheck.Service
 }
 
 func New() (*Gateway, error) {
@@ -87,19 +89,21 @@ func New() (*Gateway, error) {
 	}
 
 	return &Gateway{
-		Config:             cfg,
-		broker:             b,
-		queues:             queues,
-		exchange:           GatewayExchangeName,
-		reportsExchange:    ReportsExchangeName,
-		ChunkChans:         [chunkChans]chan ChunkItem{make(chan ChunkItem), make(chan ChunkItem)},
-		finished:           false,
-		finishedMu:         sync.Mutex{},
-		Listeners:          [connections]net.Listener{},
-		IdGenerator:        id_generator.New(uint8(gId)),
-		IdGeneratorMu:      sync.Mutex{},
-		clientChannels:     sync.Map{},
-		healthCheckService: hc,
+		Config:                   cfg,
+		broker:                   b,
+		queues:                   queues,
+		exchange:                 GatewayExchangeName,
+		reportsExchange:          ReportsExchangeName,
+		ChunkChans:               [chunkChans]chan ChunkItem{make(chan ChunkItem), make(chan ChunkItem)},
+		finished:                 false,
+		finishedMu:               sync.Mutex{},
+		Listeners:                [connections]net.Listener{},
+		IdGenerator:              id_generator.New(uint8(gId)),
+		IdGeneratorMu:            sync.Mutex{},
+		clientChannels:           sync.Map{},
+		clientGamesAckChannels:   sync.Map{},
+		clientReviewsAckChannels: sync.Map{},
+		healthCheckService:       hc,
 	}, nil
 }
 
@@ -119,8 +123,8 @@ func (g *Gateway) Start() {
 		return
 	}
 
-	go startChunkSender(GamesListener, g.ChunkChans[GamesListener], g.broker, g.exchange, g.Config.Uint8("gateway.chunk_size", 100), g.Config.String("rabbitmq.games_routing_key", "game"))
-	go startChunkSender(ReviewsListener, g.ChunkChans[ReviewsListener], g.broker, g.exchange, g.Config.Uint8("gateway.chunk_size", 100), g.Config.String("rabbitmq.reviews_routing_key", "review"))
+	go startChunkSender(GamesListener, &g.clientGamesAckChannels, g.ChunkChans[GamesListener], g.broker, g.exchange, g.Config.Uint8("gateway.chunk_size", 100), g.Config.String("rabbitmq.games_routing_key", "game"))
+	go startChunkSender(ReviewsListener, &g.clientReviewsAckChannels, g.ChunkChans[ReviewsListener], g.broker, g.exchange, g.Config.Uint8("gateway.chunk_size", 100), g.Config.String("rabbitmq.reviews_routing_key", "review"))
 	go g.ListenResults()
 
 	wg := &sync.WaitGroup{}
@@ -201,4 +205,12 @@ func (g *Gateway) HandleSIGTERM() {
 	g.finishedMu.Lock()
 	g.finished = true
 	g.finishedMu.Unlock()
+}
+
+func (g *Gateway) AckClient() {
+	/*
+		Recibe un id, se fija en el map a que cliente le corresponde
+		(nota: cada vez que se conecta un cliente a gaems o review. tenemos que crear una entrada ahi no?)
+		Creo que si. Osea, un canal manda mensajes. y que guarda? parda.
+	*/
 }

@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"net"
+	"sync"
 	"tp1/internal/gateway/id_generator"
 	"tp1/pkg/ioutils"
 	"tp1/pkg/logs"
@@ -18,6 +19,16 @@ func (g *Gateway) listenForData(listener int) error {
 func (g *Gateway) handleDataConnection(c net.Conn, msgId message.ID) {
 	clientId := g.readClientId(c)
 	sends := 0
+
+	clientChan := make(chan []byte)
+
+	if msgId == message.ReviewIdMsg {
+		g.clientReviewsAckChannels.Store(clientId, clientChan)
+		go sendAcksToClient(&g.clientReviewsAckChannels, clientId, c)
+	} else {
+		g.clientGamesAckChannels.Store(clientId, clientChan)
+		go sendAcksToClient(&g.clientGamesAckChannels, clientId, c)
+	}
 
 	auxBuf := make([]byte, g.Config.Int("gateway.buffer_size", 1024))
 	buf := make([]byte, 0, g.Config.Int("gateway.buffer_size", 1024))
@@ -119,5 +130,20 @@ func sendConfirmationToClient(conn net.Conn) {
 	}
 	if err := message.SendMessage(conn, eofMsg); err != nil {
 		logs.Logger.Error("Error sending confirmation message to client")
+	}
+}
+
+func sendAcksToClient(clientAckChannels *sync.Map, clientId string, conn net.Conn) {
+	// Check if the channel exists for the client ID
+	if ch, ok := clientAckChannels.Load(clientId); ok {
+		ackChannel := ch.(chan []byte)
+		for ack := range ackChannel {
+			// Attempt to send the ack message to the connection
+			_, err := conn.Write(ack)
+			if err != nil {
+				logs.Logger.Error("Error sending ack to client %s: %v\n", clientId, err)
+				break
+			}
+		}
 	}
 }
