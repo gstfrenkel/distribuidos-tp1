@@ -7,7 +7,7 @@ fi
 
 NUM_CLIENTS=$1
 
-OUTPUT_FILE="docker-compose-client.yaml"
+OUTPUT_FILE="../docker-compose-client.yaml"
 
 cat > $OUTPUT_FILE <<EOL
 version: '3'
