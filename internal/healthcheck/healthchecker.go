@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
@@ -19,7 +21,7 @@ const (
 	hcIdKey       = "id"
 	hcNextIdKey   = "next"
 	hcNodesKey    = "nodes"
-	hcNodesSepKey = ","
+	hcNodesSepKey = " "
 
 	// Config keys
 	hcServerPort           = "hc.server-port"
@@ -41,6 +43,8 @@ type HealthChecker struct {
 	nextHc     string   //address of the next health checker
 	nodes      []string //addresses of the nodes to check
 	service    *Service
+	finished   bool
+	finishedMu sync.Mutex
 }
 
 func New() (*HealthChecker, error) {
@@ -73,6 +77,15 @@ func New() (*HealthChecker, error) {
 
 // Start starts the health checker for every node
 func (hc *HealthChecker) Start() {
+	defer hc.service.Close()
+	sigs := make(chan os.Signal, 2)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-sigs
+		hc.HandleSIGTERM()
+	}()
+
 	go func() {
 		hc.service.Listen()
 	}()
@@ -94,6 +107,13 @@ func (hc *HealthChecker) Start() {
 // nodeIp is the container name of the node
 func (hc *HealthChecker) Check(nodeIp string) {
 	for {
+		hc.finishedMu.Lock()
+		if hc.finished {
+			hc.finishedMu.Unlock()
+			return
+		}
+		hc.finishedMu.Unlock()
+
 		nodeAddr := nodeIp + ":" + hc.serverPort
 		conn, err := hc.connect(nodeAddr)
 		if err != nil {
@@ -117,6 +137,14 @@ func (hc *HealthChecker) sendHcMsg(conn *net.UDPConn) int {
 	errCount := 0
 	buffer := make([]byte, msgBytes)
 	for errCount < maxErrors {
+
+		hc.finishedMu.Lock()
+		if hc.finished {
+			hc.finishedMu.Unlock()
+			return errCount
+		}
+		hc.finishedMu.Unlock()
+
 		_, err := conn.Write([]byte{hcMsg})
 		if err != nil {
 			errCount++
@@ -197,4 +225,11 @@ func getEnvVars() (int, int, []string, error) {
 
 func hcAddrFromId(containerName string, id int) string {
 	return fmt.Sprintf(containerName, id)
+}
+
+func (hc *HealthChecker) HandleSIGTERM() {
+	logs.Logger.Info("Received SIGTERM, shutting down")
+	hc.finishedMu.Lock()
+	hc.finished = true
+	hc.finishedMu.Unlock()
 }
