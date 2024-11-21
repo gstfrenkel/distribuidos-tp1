@@ -112,15 +112,15 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 
 		lineCount++
 
-		// Stop and wait for a confirmation message every 100 lines
-		if lineCount%100 == 0 {
-			logs.Logger.Infof("Waiting for confirmation message after sending 100 lines... ID: %v", id)
-			buffer := make([]byte, 1024) // Read a large amount of bytes
+		// Wait for ack message after sending batch size lines.
+		if lineCount%100 == 0 { // Todo leer de config este valor
+			logs.Logger.Infof("Waiting for ack after sending 100 lines... ID: %v", id)
+			buffer := make([]byte, 1024) // Read Ack
 			if _, err := conn.Read(buffer); err != nil {
-				logs.Logger.Errorf("Error reading confirmation message: %s", err)
+				logs.Logger.Errorf("Error reading ack: %s", err)
 				return
 			}
-			logs.Logger.Infof("Received confirmation message, resuming...")
+			logs.Logger.Infof("Received ack, resuming...")
 		}
 	}
 
@@ -134,12 +134,12 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 	}
 	logs.Logger.Infof("Sent EOF for: %v", id)
 
-	logs.Logger.Infof("Waiting for confirmation message after sending EOF")
+	logs.Logger.Infof("Waiting for ack after sending EOF")
 	buffer := make([]byte, 1024) // Read byes
 	if _, err := conn.Read(buffer); err != nil {
-		logs.Logger.Errorf("Error reading confirmation message: %s", err)
+		logs.Logger.Errorf("Error reading ack: %s", err)
 		return
 	}
-	logs.Logger.Infof("Received confirmation message, Exiting...")
+	logs.Logger.Infof("Received final ack, Exiting loop...")
 
 }

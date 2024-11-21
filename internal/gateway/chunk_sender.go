@@ -36,7 +36,6 @@ func newChunkSender(id int, channel <-chan ChunkItem, broker amqp.MessageBroker,
 
 func startChunkSender(id int, clientAckChannels *sync.Map, channel <-chan ChunkItem, broker amqp.MessageBroker, exchange string, chunkMaxSize uint8, routingKey string) {
 	s := newChunkSender(id, channel, broker, exchange, chunkMaxSize, routingKey)
-	logs.Logger.Infof("Starting chunk sender id: %d", id)
 	for {
 		item := <-channel
 		s.updateChunk(clientAckChannels, item, item.Msg == nil)

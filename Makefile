@@ -4,21 +4,7 @@ PWD := $(shell pwd)
 all:
 
 build:
-	docker build -f ./build/joiner_percentile.Dockerfile -t "joiner-percentile-filter:latest" .
-	docker build -f ./build/joiner_counter.Dockerfile -t "joiner-counter-filter:latest" .
-	docker build -f ./build/joiner_top.Dockerfile -t "joiner-top-filter:latest" .
-	docker build -f ./build/review.Dockerfile -t "reviews-filter:latest" .
-	docker build -f ./build/text.Dockerfile -t "review-text-filter:latest" .
-	docker build -f ./build/action.Dockerfile -t "action-filter:latest" .
-	docker build -f ./build/indie.Dockerfile -t "indie-filter:latest" .
-	docker build -f ./build/platform.Dockerfile -t "platform-filter:latest" .
 	docker build -f ./build/gateway.Dockerfile -t "gateway:latest" .
-	docker build -f ./build/topn.Dockerfile -t "topn:latest" .
-	docker build -f ./build/percentile.Dockerfile -t "percentile:latest" .
-	docker build -f ./build/platform_counter.Dockerfile -t "platform-counter:latest" .
-	docker build -f ./build/release.Dockerfile -t "release-date-filter:latest" .
-	docker build -f ./build/topnplaytime.Dockerfile -t "topn-playtime-filter:latest" .
-	docker build -f ./build/counter.Dockerfile -t "counter:latest" .
 .PHONY: build
 
 build-client:
