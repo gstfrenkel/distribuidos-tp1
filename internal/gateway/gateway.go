@@ -19,13 +19,27 @@ import (
 	"tp1/pkg/logs"
 )
 
-const configFilePath = "config.toml"
-const GamesListener = 0
-const ReviewsListener = 1
-const ResultsListener = 2
-const ClientIdListener = 3
-const connections = 4
-const chunkChans = 2
+const (
+	configFilePath        = "config.toml"
+	GamesListener         = 0
+	ReviewsListener       = 1
+	ResultsListener       = 2
+	ClientIdListener      = 3
+	connections           = 4
+	chunkChans            = 2
+	exchangeNameKey       = "rabbitmq.exchange_name"
+	exchangeDefault       = "gateway"
+	reportsKey            = "rabbitmq.reports"
+	reportsDefault        = "reports"
+	workerIdKey           = "worker-id"
+	chunkSizeKey          = "gateway.chunk_size"
+	chunkSizeDefault      = 100
+	gamesRoutingKey       = "rabbitmq.games_routing_key"
+	gamesRoutingDefault   = "game"
+	reviewsRoutingKey     = "rabbitmq.reviews_routing_key"
+	reviewsRoutingDefault = "review"
+	signals               = 2
+)
 
 type Gateway struct {
 	Config             config.Config
@@ -60,13 +74,13 @@ func New() (*Gateway, error) {
 	}
 
 	// Gateway exchange
-	GatewayExchangeName, err := rabbit.CreateExchange(cfg, b, cfg.String("rabbitmq.exchange_name", "gateway"))
+	GatewayExchangeName, err := rabbit.CreateExchange(cfg, b, cfg.String(exchangeNameKey, exchangeDefault))
 	if err != nil {
 		return nil, err
 	}
 
 	// Reports exchange
-	ReportsExchangeName, err := rabbit.CreateExchange(cfg, b, cfg.String("rabbitmq.reports", "reports"))
+	ReportsExchangeName, err := rabbit.CreateExchange(cfg, b, cfg.String(reportsKey, reportsDefault))
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +90,7 @@ func New() (*Gateway, error) {
 		return nil, err
 	}
 
-	gId, err := strconv.Atoi(os.Getenv("worker-id"))
+	gId, err := strconv.Atoi(os.Getenv(workerIdKey))
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +119,7 @@ func New() (*Gateway, error) {
 
 func (g *Gateway) Start() {
 	defer g.broker.Close()
-	sigs := make(chan os.Signal, 2)
+	sigs := make(chan os.Signal, signals)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
@@ -119,8 +133,18 @@ func (g *Gateway) Start() {
 		return
 	}
 
-	go startChunkSender(GamesListener, g.ChunkChans[GamesListener], g.broker, g.exchange, g.Config.Uint8("gateway.chunk_size", 100), g.Config.String("rabbitmq.games_routing_key", "game"))
-	go startChunkSender(ReviewsListener, g.ChunkChans[ReviewsListener], g.broker, g.exchange, g.Config.Uint8("gateway.chunk_size", 100), g.Config.String("rabbitmq.reviews_routing_key", "review"))
+	go startChunkSender(GamesListener,
+		g.ChunkChans[GamesListener], g.broker, g.exchange,
+		g.Config.Uint8(chunkSizeKey, chunkSizeDefault),
+		g.Config.String(gamesRoutingKey, gamesRoutingDefault),
+	)
+
+	go startChunkSender(ReviewsListener,
+		g.ChunkChans[ReviewsListener], g.broker, g.exchange,
+		g.Config.Uint8(chunkSizeKey, chunkSizeDefault),
+		g.Config.String(reviewsRoutingKey, reviewsRoutingDefault),
+	)
+
 	go g.ListenResults()
 
 	wg := &sync.WaitGroup{}

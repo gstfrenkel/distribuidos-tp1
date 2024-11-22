@@ -7,14 +7,20 @@ import (
 	"tp1/pkg/logs"
 )
 
-const LenFieldSize = 4
+const (
+	LenFieldSize       = 4
+	resultsPortKey     = "gateway.results_port"
+	resultsPortDefault = "5052"
+	transportProtocol  = "tcp"
+	maxMsgKey          = "client.max_messages"
+	maxMsgDefault      = 5
+)
 
 func (c *Client) startResultsListener(address string) {
-
-	resultsPort := c.cfg.String("gateway.results_port", "5052")
+	resultsPort := c.cfg.String(resultsPortKey, resultsPortDefault)
 	resultsFullAddress := address + ":" + resultsPort
 
-	resultsConn, err := net.Dial("tcp", resultsFullAddress)
+	resultsConn, err := net.Dial(transportProtocol, resultsFullAddress)
 	if err != nil {
 		logs.Logger.Errorf("Error connecting to results socket: %s", err)
 		return
@@ -31,8 +37,12 @@ func (c *Client) startResultsListener(address string) {
 	logs.Logger.Infof("Connected to results on: %s", resultsFullAddress)
 
 	messageCount := 0
-	maxMessages := c.cfg.Int("client.max_messages", 5)
+	maxMessages := c.cfg.Int(maxMsgKey, maxMsgDefault)
 
+	c.readResults(resultsConn, messageCount, maxMessages)
+}
+
+func (c *Client) readResults(resultsConn net.Conn, messageCount int, maxMessages int) {
 	for {
 		c.stoppedMutex.Lock()
 		if c.stopped {
@@ -59,13 +69,17 @@ func (c *Client) startResultsListener(address string) {
 
 		receivedData := string(payload)
 
-		if _, err := c.resultsFile.WriteString(receivedData + "\n\n"); err != nil {
-			logs.Logger.Errorf("Error writing to results.txt: %v", err)
-		}
+		c.writeDataToFile(receivedData)
 
 		messageCount++
 		if messageCount >= maxMessages {
 			return
 		}
+	}
+}
+
+func (c *Client) writeDataToFile(receivedData string) {
+	if _, err := c.resultsFile.WriteString(receivedData + "\n\n"); err != nil {
+		logs.Logger.Errorf("Error writing to results.txt: %v", err)
 	}
 }

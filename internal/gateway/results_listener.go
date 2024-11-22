@@ -11,6 +11,11 @@ import (
 	"tp1/pkg/message"
 )
 
+const (
+	reportsQ        = "rabbit_q.reports_q"
+	defaultReportsQ = "reports"
+)
+
 // ListenResultsRequests waits until a client connects to the results listener and sends the results to the client
 func (g *Gateway) listenResultsRequests() error {
 	return g.listenForConnections(ResultsListener, g.SendResults)
@@ -30,21 +35,19 @@ func (g *Gateway) SendResults(cliConn net.Conn) {
 	}()
 
 	for {
-		select {
-		case rabbitMsg := <-clientChan:
-			clientMsg := message.ClientMessage{
-				DataLen: uint32(len(rabbitMsg)),
-				Data:    rabbitMsg,
-			}
+		rabbitMsg := <-clientChan
+		clientMsg := message.ClientMessage{
+			DataLen: uint32(len(rabbitMsg)),
+			Data:    rabbitMsg,
+		}
 
-			data := make([]byte, LenFieldSize+len(clientMsg.Data))
-			binary.BigEndian.PutUint32(data[:LenFieldSize], clientMsg.DataLen)
-			copy(data[LenFieldSize:], clientMsg.Data)
+		data := make([]byte, LenFieldSize+len(clientMsg.Data))
+		binary.BigEndian.PutUint32(data[:LenFieldSize], clientMsg.DataLen)
+		copy(data[LenFieldSize:], clientMsg.Data)
 
-			if err := ioutils.SendAll(cliConn, data); err != nil {
-				logs.Logger.Errorf("Error sending message to client: %s", err)
-				return
-			}
+		if err := ioutils.SendAll(cliConn, data); err != nil {
+			logs.Logger.Errorf("Error sending message to client: %s", err)
+			return
 		}
 	}
 }
@@ -52,7 +55,7 @@ func (g *Gateway) SendResults(cliConn net.Conn) {
 // ListenResults listens for results from the "reports" queue and sends them to the results channel
 func (g *Gateway) ListenResults() {
 
-	reportsQueue := g.Config.String("rabbit_q.reports_q", "reports")
+	reportsQueue := g.Config.String(reportsQ, defaultReportsQ)
 	messages, err := g.broker.Consume(reportsQueue, "", true, false)
 	if err != nil {
 		logs.Logger.Errorf("Failed to start consuming messages from reports_queue: %s", err.Error())
@@ -68,36 +71,24 @@ func (g *Gateway) ListenResults() {
 }
 
 func (g *Gateway) handleMessage(m amqp.Delivery, clientAccumulatedResults map[string]map[uint8]string) {
+	clientID := m.Headers[amqp.ClientIdHeader].(string)
+	originIDUint8 := m.Headers[amqp.OriginIdHeader].(uint8)
 
-	clientID, clientIDPresent := m.Headers[amqp.ClientIdHeader].(string)
-	if !clientIDPresent {
-		logs.Logger.Errorf("Missing or invalid 'x-client-id' in message headers.")
-		return
-	}
-
-	originID, ok := m.Headers[amqp.OriginIdHeader]
-	if ok {
-		if originIDUint8, ok := originID.(uint8); ok {
-			// Handle EOF or message content
-			if bytes.Equal(m.Body, amqp.EmptyEof) && (originIDUint8 == amqp.Query4originId || originIDUint8 == amqp.Query5originId) {
-				g.handleEof(clientID, clientAccumulatedResults[clientID], originIDUint8)
-			} else {
-				if originIDUint8 == amqp.Query4originId || originIDUint8 == amqp.Query5originId {
-					// Initialize accumulated results for this client (if not present)
-					initializeAccumulatedResultsForClient(clientAccumulatedResults, clientID)
-					handleAppendMsg(originIDUint8, m, clientAccumulatedResults[clientID])
-				} else {
-					result, err := parseMessageBody(originIDUint8, m.Body)
-					if err != nil {
-						logs.Logger.Errorf("Failed to parse message body: %v", err)
-						return
-					}
-					g.handleResultMsg(clientID, originIDUint8, result)
-				}
-			}
+	// Handle EOF or message content
+	if originIDUint8 == amqp.Query4originId || originIDUint8 == amqp.Query5originId {
+		if bytes.Equal(m.Body, amqp.EmptyEof) {
+			g.handleEof(clientID, clientAccumulatedResults[clientID], originIDUint8)
 		} else {
-			logs.Logger.Errorf("Header x-origin-id is not a valid uint8 value, got: %v", originID)
+			initializeAccumulatedResultsForClient(clientAccumulatedResults, clientID)
+			handleAppendMsg(originIDUint8, m, clientAccumulatedResults[clientID])
 		}
+	} else {
+		result, err := parseMessageBody(originIDUint8, m.Body)
+		if err != nil {
+			logs.Logger.Errorf("Failed to parse message body: %v", err)
+			return
+		}
+		g.handleResultMsg(clientID, originIDUint8, result)
 	}
 }
 
