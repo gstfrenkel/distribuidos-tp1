@@ -206,11 +206,3 @@ func (g *Gateway) HandleSIGTERM() {
 	g.finished = true
 	g.finishedMu.Unlock()
 }
-
-func (g *Gateway) AckClient() {
-	/*
-		Recibe un id, se fija en el map a que cliente le corresponde
-		(nota: cada vez que se conecta un cliente a gaems o review. tenemos que crear una entrada ahi no?)
-		Creo que si. Osea, un canal manda mensajes. y que guarda? parda.
-	*/
-}

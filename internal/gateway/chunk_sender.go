@@ -60,6 +60,7 @@ func (s *ChunkSender) updateChunk(clientAckChannels *sync.Map, item ChunkItem, e
 func (s *ChunkSender) sendChunk(clientAckChannels *sync.Map, eof bool, clientId string) {
 	messageId := matchMessageId(s.id)
 	chunk := s.chunks[clientId]
+	ackSent := false
 
 	if len(chunk) >= int(s.maxChunkSize) || eof {
 		bytes, err := toBytes(messageId, chunk)
@@ -74,6 +75,8 @@ func (s *ChunkSender) sendChunk(clientAckChannels *sync.Map, eof bool, clientId 
 
 		s.chunks[clientId] = make([]any, 0, s.maxChunkSize)
 		sendAckThroughChannel(clientAckChannels, clientId)
+		ackSent = true
+
 	}
 
 	if eof {
@@ -83,7 +86,10 @@ func (s *ChunkSender) sendChunk(clientAckChannels *sync.Map, eof bool, clientId 
 		}
 		logs.Logger.Infof("Sent eof with key %v", s.routingKey)
 		delete(s.chunks, clientId)
-		sendAckThroughChannel(clientAckChannels, clientId)
+		if !ackSent {
+			sendAckThroughChannel(clientAckChannels, clientId)
+		}
+
 	}
 
 }
@@ -106,7 +112,7 @@ func toBytes(msgId message.ID, chunk []any) ([]byte, error) {
 func sendAckThroughChannel(clientAckChannels *sync.Map, clientID string) {
 	if clientChanI, exists := clientAckChannels.Load(clientID); exists {
 		clientChan := clientChanI.(chan []byte)
-		clientChan <- []byte("ack")
+		clientChan <- []byte{0x01}
 	} else {
 		logs.Logger.Errorf("No client channel found for clientID %v", clientID)
 	}

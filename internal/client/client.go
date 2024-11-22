@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -19,6 +20,7 @@ type Client struct {
 	stoppedMutex sync.Mutex
 	resultsFile  *os.File
 	clientId     string
+	gatewayAddr  string
 }
 
 func New() (*Client, error) {
@@ -43,7 +45,7 @@ func (c *Client) Start() {
 
 	wg := sync.WaitGroup{}
 	gatewayAddress := c.cfg.String("gateway.address", "172.25.125.100")
-
+	c.gatewayAddr = gatewayAddress
 	err := c.fetchClientID(gatewayAddress)
 	if err != nil {
 		logs.Logger.Errorf("Error fetching client ID: %v", err)
@@ -93,7 +95,12 @@ func (c *Client) Start() {
 	go func() {
 		defer wg.Done()
 		defer gamesConn.Close()
-		readAndSendCSV(c.cfg.String("client.games_path", "data/games.csv"), uint8(message.GameIdMsg), gamesConn, &message.DataCSVGames{}, c)
+		err := c.sendClientID(gamesConn)
+		if err != nil {
+			logs.Logger.Errorf("Error sending client ID: %s", err)
+			return
+		}
+		readAndSendCSV(c.cfg.String("client.games_path", "data/games.csv"), uint8(message.GameIdMsg), gamesConn, &message.DataCSVGames{}, c, gamesPort)
 		header := make([]byte, 32)
 		if _, err = gamesConn.Read(header); err != nil {
 			logs.Logger.Errorf("Failed to read message: %v", err.Error())
@@ -103,7 +110,12 @@ func (c *Client) Start() {
 	go func() {
 		defer wg.Done()
 		defer reviewsConn.Close()
-		readAndSendCSV(c.cfg.String("client.reviews_path", "data/reviews.csv"), uint8(message.ReviewIdMsg), reviewsConn, &message.DataCSVReviews{}, c)
+		err := c.sendClientID(reviewsConn)
+		if err != nil {
+			logs.Logger.Errorf("Error sending client ID: %s", err)
+			return
+		}
+		readAndSendCSV(c.cfg.String("client.reviews_path", "data/reviews.csv"), uint8(message.ReviewIdMsg), reviewsConn, &message.DataCSVReviews{}, c, reviewsPort)
 		header := make([]byte, 32)
 		if _, err = reviewsConn.Read(header); err != nil {
 			logs.Logger.Errorf("Failed to read message: %v", err.Error())
@@ -113,4 +125,25 @@ func (c *Client) Start() {
 	wg.Wait()
 	logs.Logger.Info("Client exit...")
 	c.Close(gamesConn, reviewsConn)
+}
+
+func (c *Client) reconnectToGateway(port string) (net.Conn, error) {
+	address := fmt.Sprintf("%s:%s", c.gatewayAddr, port)
+	logs.Logger.Infof("Trying to connect to %s...", address)
+
+	conn, err := net.Dial("tcp", address)
+	if err != nil {
+		logs.Logger.Info("Failed to connect to %s: %v", address, err)
+		return nil, err
+	}
+
+	logs.Logger.Info("Connected to %s successfully.", address)
+
+	err = c.sendClientID(conn)
+	if err != nil {
+		logs.Logger.Errorf("Error sending client ID: %s", err)
+		return nil, err
+	}
+
+	return conn, nil
 }

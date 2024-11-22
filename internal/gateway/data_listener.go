@@ -134,14 +134,13 @@ func sendConfirmationToClient(conn net.Conn) {
 }
 
 func sendAcksToClient(clientAckChannels *sync.Map, clientId string, conn net.Conn) {
-	// Check if the channel exists for the client ID
 	if ch, ok := clientAckChannels.Load(clientId); ok {
 		ackChannel := ch.(chan []byte)
 		for ack := range ackChannel {
-			// Attempt to send the ack message to the connection
+			// Send the ack byte to the client
 			_, err := conn.Write(ack)
 			if err != nil {
-				logs.Logger.Error("Error sending ack to client %s: %v\n", clientId, err)
+				logs.Logger.Errorf("Error sending ack to client %s: %v\n", clientId, err)
 				break
 			}
 		}

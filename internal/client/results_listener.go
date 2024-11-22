@@ -9,6 +9,7 @@ import (
 
 const LenFieldSize = 4
 
+// TODO: reconnect to gateway + Handle duplicate results
 func (c *Client) startResultsListener(address string) {
 
 	resultsPort := c.cfg.String("gateway.results_port", "5052")

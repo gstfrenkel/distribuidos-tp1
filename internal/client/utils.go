@@ -61,6 +61,15 @@ func (c *Client) sendClientID(conn net.Conn) error {
 		logs.Logger.Errorf("Error sending client ID: %s", err)
 		return err
 	}
-	logs.Logger.Infof("Client ID %s sent", c.clientId)
+	return nil
+}
+
+func readAck(conn net.Conn) error {
+	ackBuf := make([]byte, 1)
+	_, err := conn.Read(ackBuf)
+	if err != nil {
+		return fmt.Errorf("error reading ACK: %w", err)
+	}
+
 	return nil
 }
