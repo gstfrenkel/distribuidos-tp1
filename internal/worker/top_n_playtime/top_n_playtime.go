@@ -35,7 +35,7 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery, _ amqp.Header) ([]sequence.Destination, []string) {
+func (f *filter) Process(delivery amqp.Delivery, _ amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
 
 	clientId := delivery.Headers[amqp.ClientIdHeader].(string)

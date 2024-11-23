@@ -41,9 +41,9 @@ func (t *top) Start() {
 	t.w.Start(t)
 }
 
-func (t *top) Process(delivery amqp.Delivery, header amqp.Header) ([]sequence.Destination, []string) {
+func (t *top) Process(delivery amqp.Delivery, header amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
-	var recvMsg []string
+	var msg []byte
 
 	switch header.MessageId {
 	case message.EofMsg:
@@ -71,7 +71,7 @@ func (t *top) Process(delivery amqp.Delivery, header amqp.Header) ([]sequence.De
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), header.MessageId)
 	}
 
-	return sequenceIds, recvMsg
+	return sequenceIds, msg
 }
 
 func (t *top) processEof(_ string) []sequence.Destination {

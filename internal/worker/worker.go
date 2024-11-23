@@ -26,7 +26,7 @@ import (
 type Filter interface {
 	Init() error
 	Start()
-	Process(delivery amqp.Delivery, header amqp.Header) ([]sequence.Destination, []string)
+	Process(delivery amqp.Delivery, header amqp.Header) ([]sequence.Destination, []byte)
 }
 
 type Worker struct {
@@ -122,6 +122,41 @@ func (f *Worker) Start(filter Filter) {
 	}
 
 	f.consume(filter, f.signalChan, channels...)
+}
+
+func (f *Worker) Recover(ch chan<- recovery.Message) {
+	if ch != nil {
+		defer close(ch)
+	}
+
+	recoveryCh := make(chan recovery.Record, 64)
+	go f.recovery.Recover(recoveryCh)
+
+	for record := range recoveryCh {
+		src, err := sequence.SrcFromString(record.Header().SequenceId)
+		if err != nil {
+			logs.Logger.Errorf("error getting source from sequence: %s", err.Error())
+			continue
+		}
+
+		if ch != nil {
+			ch <- recovery.NewMessage(record)
+		}
+
+		for _, seq := range record.SequenceIds() {
+			f.recoverDstSequenceId(seq)
+		}
+
+		f.recoverSrcSequenceId(*src)
+	}
+}
+
+func (f *Worker) recoverSrcSequenceId(source sequence.Source) {
+	f.dup.Add(source)
+}
+
+func (f *Worker) recoverDstSequenceId(destination sequence.Destination) {
+	f.sequenceIds[destination.Key()] = destination.Id() + 1
 }
 
 func (f *Worker) NextSequenceId(key string) uint64 {

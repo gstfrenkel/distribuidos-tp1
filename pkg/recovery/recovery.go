@@ -2,11 +2,14 @@ package recovery
 
 import (
 	"io"
+	"tp1/pkg/amqp"
 	"tp1/pkg/ioutils"
+	"tp1/pkg/logs"
+	"tp1/pkg/sequence"
 )
 
 type Handler interface {
-	Recover(ch chan<- []string)
+	Recover(ch chan<- Record)
 	Log(record Record) error
 	Close()
 }
@@ -26,7 +29,7 @@ func NewHandler() (Handler, error) {
 	}, nil
 }
 
-func (h *handler) Recover(ch chan<- []string) {
+func (h *handler) Recover(ch chan<- Record) {
 	defer close(ch)
 
 	for {
@@ -38,7 +41,24 @@ func (h *handler) Recover(ch chan<- []string) {
 				continue
 			}
 		}
-		ch <- line
+
+		header, err := amqp.HeaderFromStrings(line)
+		if err != nil {
+			logs.Logger.Errorf("failed to recover header: %s", err.Error())
+			continue
+		}
+
+		sequenceIds, err := sequence.DstsFromStrings(line[4:])
+		if err != nil {
+			logs.Logger.Errorf("failed to recover sequence: %s", err.Error())
+			continue
+		}
+
+		ch <- NewRecord(
+			*header,
+			sequenceIds,
+			[]byte(line[4+1+len(sequenceIds)]),
+		)
 	}
 }
 

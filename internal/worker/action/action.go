@@ -31,6 +31,8 @@ func (f *filter) Init() error {
 		return err
 	}
 
+	f.recover()
+
 	return nil
 }
 
@@ -38,7 +40,7 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery, header amqp.Header) ([]sequence.Destination, []string) {
+func (f *filter) Process(delivery amqp.Delivery, header amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
 	var err error
 
@@ -92,14 +94,15 @@ func (f *filter) publish(header amqp.Header, msg message.Game) []sequence.Destin
 	return sequenceIds
 }
 
-/*func (f *filter) recover() {
-	ch := make(chan []string)
-	go f.w.recoveryt.Recover(ch)
+func (f *filter) recover() {
+	f.w.Recover(nil) // Usar sólo si no se necesita procesar nada excepto duplicados y sequence numbers.
 
-	for _, l := range <-ch {
+	/* Ejemplo de uso en caso de que sí se necesite procesar mensajes.
+	ch := make(chan recovery.Message, 32)
+	go f.w.Recover(ch)
 
+	for msg := range ch {
+		// Procesar mensaje.
 	}
-
-	return nil
+	*/
 }
-*/

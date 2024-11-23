@@ -39,9 +39,9 @@ func (p *percentile) Start() {
 	p.w.Start(p)
 }
 
-func (p *percentile) Process(delivery amqp.Delivery, header amqp.Header) ([]sequence.Destination, []string) {
+func (p *percentile) Process(delivery amqp.Delivery, header amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
-	var recvMsg []string
+	var msg []byte
 
 	switch header.MessageId {
 	case message.EofMsg:
@@ -69,7 +69,7 @@ func (p *percentile) Process(delivery amqp.Delivery, header amqp.Header) ([]sequ
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), header.MessageId)
 	}
 
-	return sequenceIds, recvMsg
+	return sequenceIds, msg
 }
 
 func (p *percentile) processEof(clientId string) []sequence.Destination {

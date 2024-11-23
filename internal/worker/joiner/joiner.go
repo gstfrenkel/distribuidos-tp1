@@ -37,8 +37,10 @@ func processEof(header amqp.Header, eofsByClient map[string]recvEofs, gameInfoBy
 	}
 
 	if eofsByClient[header.ClientId].review && eofsByClient[header.ClientId].game {
-		headersEof[amqp.ClientIdHeader] = header.ClientId
-		sequenceIds = f(header.ClientId)
+		if f != nil {
+			headersEof[amqp.ClientIdHeader] = header.ClientId
+			sequenceIds = f(header.ClientId)
+		}
 		delete(gameInfoByClient, header.ClientId)
 		delete(eofsByClient, header.ClientId)
 	}

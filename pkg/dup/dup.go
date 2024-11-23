@@ -18,7 +18,7 @@ func NewHandler() Handler {
 }
 
 func (h *handler) Add(seq sequence.Source) {
-	h.dupsByWorker[seq.WorkerId()] = seq.Id()
+	h.dupsByWorker[seq.WorkerId()] = seq.Id() + 1
 }
 
 func (h *handler) IsDuplicate(seq sequence.Source) bool {
