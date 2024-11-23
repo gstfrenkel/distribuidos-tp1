@@ -72,8 +72,12 @@ func (g *Gateway) ListenResults() {
 
 func (g *Gateway) handleMessage(m amqp.Delivery, clientAccumulatedResults map[string]map[uint8]string) {
 	clientID := m.Headers[amqp.ClientIdHeader].(string)
-	originIDUint8 := m.Headers[amqp.OriginIdHeader].(uint8)
+	originID, ok := m.Headers[amqp.OriginIdHeader] //not all workers send this header
+	if !ok {
+		return
+	}
 
+	originIDUint8 := originID.(uint8)
 	// Handle EOF or message content
 	if originIDUint8 == amqp.Query4originId || originIDUint8 == amqp.Query5originId {
 		if bytes.Equal(m.Body, amqp.EmptyEof) {

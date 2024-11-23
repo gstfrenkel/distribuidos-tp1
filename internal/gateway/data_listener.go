@@ -36,7 +36,6 @@ func (g *Gateway) handleDataConnection(c net.Conn, msgId message.ID) {
 			break
 		}
 		g.finishedMu.Unlock()
-
 		n, err := c.Read(auxBuf)
 		if err != nil {
 			logs.Logger.Errorf("Error reading from listener: %s", err)
@@ -44,38 +43,35 @@ func (g *Gateway) handleDataConnection(c net.Conn, msgId message.ID) {
 		}
 
 		buf = append(buf, auxBuf[:n]...)
-		g.processReadBuffer(&finished, buf, &sends, msgId, clientId)
+
+		for !finished {
+			g.finishedMu.Lock()
+			if g.finished {
+				g.finishedMu.Unlock()
+				break
+			}
+			g.finishedMu.Unlock()
+
+			if len(buf) < LenFieldSize {
+				break
+			}
+
+			payloadSize := ioutils.ReadU32FromSlice(buf)
+
+			if uint32(len(buf)) < payloadSize+LenFieldSize {
+				break
+			}
+
+			_, buf = readPayloadSize(buf)
+
+			sends += 1
+			finished = g.processPayload(msgId, buf[:payloadSize], payloadSize, clientId)
+			buf = ioutils.MoveBuff(buf, int(payloadSize))
+		}
 	}
 
 	logs.Logger.Infof("%d - Received %d messages", msgId, sends)
 	sendConfirmationToClient(c)
-}
-
-func (g *Gateway) processReadBuffer(finished *bool, buf []byte, sends *int, msgId message.ID, clientId string) {
-	for !*finished {
-		g.finishedMu.Lock()
-		if g.finished {
-			g.finishedMu.Unlock()
-			break
-		}
-		g.finishedMu.Unlock()
-
-		if len(buf) < LenFieldSize {
-			break
-		}
-
-		payloadSize := ioutils.ReadU32FromSlice(buf)
-
-		if uint32(len(buf)) < payloadSize+LenFieldSize {
-			break
-		}
-
-		_, buf = readPayloadSize(buf)
-
-		*sends += 1
-		*finished = g.processPayload(msgId, buf[:payloadSize], payloadSize, clientId)
-		buf = ioutils.MoveBuff(buf, int(payloadSize))
-	}
 }
 
 func (g *Gateway) readClientId(c net.Conn) string {
