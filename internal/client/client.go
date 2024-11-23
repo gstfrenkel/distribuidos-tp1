@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
 	"tp1/pkg/logs"
@@ -70,13 +71,13 @@ func (c *Client) Start() {
 	reviewsPort := c.cfg.String("gateway.reviews_port", "5050")
 	reviewsFullAddress := gatewayAddress + ":" + reviewsPort
 
-	gamesConn, err := net.Dial("tcp", gamesFullAddress)
+	gamesConn, err := c.attemptConnection(gamesPort)
 	if err != nil {
 		logs.Logger.Errorf("Games Conn error: %v", err)
 		return
 	}
 
-	reviewsConn, err := net.Dial("tcp", reviewsFullAddress)
+	reviewsConn, err := c.attemptConnection(reviewsPort)
 	if err != nil {
 		logs.Logger.Errorf("Reviews Conn error: %v", err)
 		return
@@ -95,11 +96,6 @@ func (c *Client) Start() {
 	go func() {
 		defer wg.Done()
 		defer gamesConn.Close()
-		err := c.sendClientID(gamesConn)
-		if err != nil {
-			logs.Logger.Errorf("Error sending client ID: %s", err)
-			return
-		}
 		readAndSendCSV(c.cfg.String("client.games_path", "data/games.csv"), uint8(message.GameIdMsg), gamesConn, &message.DataCSVGames{}, c, gamesPort)
 		header := make([]byte, 32)
 		if _, err = gamesConn.Read(header); err != nil {
@@ -110,11 +106,6 @@ func (c *Client) Start() {
 	go func() {
 		defer wg.Done()
 		defer reviewsConn.Close()
-		err := c.sendClientID(reviewsConn)
-		if err != nil {
-			logs.Logger.Errorf("Error sending client ID: %s", err)
-			return
-		}
 		readAndSendCSV(c.cfg.String("client.reviews_path", "data/reviews.csv"), uint8(message.ReviewIdMsg), reviewsConn, &message.DataCSVReviews{}, c, reviewsPort)
 		header := make([]byte, 32)
 		if _, err = reviewsConn.Read(header); err != nil {
@@ -127,9 +118,25 @@ func (c *Client) Start() {
 	c.Close(gamesConn, reviewsConn)
 }
 
-func (c *Client) reconnectToGateway(port string) (net.Conn, error) {
+func (c *Client) reconnect(port string) net.Conn {
+	var newConn net.Conn
+	for {
+		logs.Logger.Infof("Attempting to reconnect...")
+		conn, err := c.attemptConnection(port)
+		if err == nil {
+			logs.Logger.Infof("Reconnected successfully.")
+			newConn = conn
+			break
+		}
+		logs.Logger.Errorf("Reconnect failed, retrying in 5 seconds: %v", err)
+		time.Sleep(5 * time.Second) // Todo read from config timeout value
+	}
+	return newConn
+}
+
+func (c *Client) attemptConnection(port string) (net.Conn, error) {
 	address := fmt.Sprintf("%s:%s", c.gatewayAddr, port)
-	logs.Logger.Infof("Trying to connect to %s...", address)
+	logs.Logger.Infof("Connecting to %s...", address)
 
 	conn, err := net.Dial("tcp", address)
 	if err != nil {
@@ -137,7 +144,7 @@ func (c *Client) reconnectToGateway(port string) (net.Conn, error) {
 		return nil, err
 	}
 
-	logs.Logger.Info("Connected to %s successfully.", address)
+	logs.Logger.Infof("Connected to %s successfully.", address)
 
 	err = c.sendClientID(conn)
 	if err != nil {

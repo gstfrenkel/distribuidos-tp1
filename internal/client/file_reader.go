@@ -8,28 +8,12 @@ import (
 	"os"
 	"reflect"
 	"strconv"
-	"time"
+
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 )
 
 func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interface{}, c *Client, port string) {
-
-	reconnect := func() net.Conn {
-		var newConn net.Conn
-		for {
-			logs.Logger.Infof("Attempting to reconnect...")
-			conn, err := c.reconnectToGateway(port)
-			if err == nil {
-				logs.Logger.Infof("Reconnected successfully.")
-				newConn = conn
-				break
-			}
-			logs.Logger.Errorf("Reconnect failed, retrying in 5 seconds: %v", err)
-			time.Sleep(5 * time.Second)
-		}
-		return newConn
-	}
 
 	sendBatch := func(startLine int, batchSize int, reader *csv.Reader, dataStruct interface{}) (int, error) {
 		lineCount := startLine
@@ -138,7 +122,7 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 			for i := 0; i < batchStartLine; i++ {
 				_, _ = reader.Read()
 			}
-			conn = reconnect()
+			conn = c.reconnect(port)
 			continue
 		}
 
@@ -152,7 +136,7 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 			for i := 0; i < batchStartLine; i++ {
 				_, _ = reader.Read()
 			}
-			conn = reconnect()
+			conn = c.reconnect(port)
 			continue
 		}
 
@@ -169,7 +153,7 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 		if err := message.SendMessage(conn, eofMsg); err != nil {
 			logs.Logger.Errorf("Error sending EOF message: %s", err)
 			// Reconnect and retry sending EOF
-			conn = reconnect()
+			conn = c.reconnect(port)
 			continue
 		}
 		logs.Logger.Infof("Sent EOF for: %v", id)
@@ -179,7 +163,7 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 			logs.Logger.Errorf("Error reading final ACK: %s", err)
 
 			// Reconnect and retry reading the ACK
-			conn = reconnect()
+			conn = c.reconnect(port)
 			continue
 		}
 		break
