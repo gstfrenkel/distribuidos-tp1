@@ -10,8 +10,8 @@ COPY cmd/worker/action/action.go ./main.go
 COPY pkg/ ./pkg/
 COPY internal/errors/ ./internal/errors/
 COPY internal/worker/worker.go ./internal/worker/
-# Update path to desired entrypoint
 COPY internal/worker/action/action.go ./internal/worker/action/
+COPY internal/healthcheck/service.go ./internal/healthcheck/service.go
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /main
 

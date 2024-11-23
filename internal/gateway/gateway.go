@@ -8,6 +8,7 @@ import (
 	"sync"
 	"syscall"
 	"tp1/internal/gateway/id_generator"
+	"tp1/internal/healthcheck"
 	"tp1/pkg/message"
 
 	"tp1/internal/gateway/rabbit"
@@ -27,18 +28,19 @@ const connections = 4
 const chunkChans = 2
 
 type Gateway struct {
-	Config          config.Config
-	broker          amqp.MessageBroker
-	queues          []amqp.Queue //order: reviews, games_platform, games_action, games_indie
-	exchange        string
-	reportsExchange string
-	Listeners       [connections]net.Listener
-	ChunkChans      [chunkChans]chan ChunkItem
-	finished        bool
-	finishedMu      sync.Mutex
-	IdGenerator     *id_generator.IdGenerator
-	IdGeneratorMu   sync.Mutex
-	clientChannels  sync.Map
+	Config             config.Config
+	broker             amqp.MessageBroker
+	queues             []amqp.Queue //order: reviews, games_platform, games_action, games_indie
+	exchange           string
+	reportsExchange    string
+	Listeners          [connections]net.Listener
+	ChunkChans         [chunkChans]chan ChunkItem
+	finished           bool
+	finishedMu         sync.Mutex
+	IdGenerator        *id_generator.IdGenerator
+	IdGeneratorMu      sync.Mutex
+	clientChannels     sync.Map
+	healthCheckService *healthcheck.Service
 }
 
 func New() (*Gateway, error) {
@@ -79,19 +81,25 @@ func New() (*Gateway, error) {
 		return nil, err
 	}
 
+	hc, err := healthcheck.NewService()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Gateway{
-		Config:          cfg,
-		broker:          b,
-		queues:          queues,
-		exchange:        GatewayExchangeName,
-		reportsExchange: ReportsExchangeName,
-		ChunkChans:      [chunkChans]chan ChunkItem{make(chan ChunkItem), make(chan ChunkItem)},
-		finished:        false,
-		finishedMu:      sync.Mutex{},
-		Listeners:       [connections]net.Listener{},
-		IdGenerator:     id_generator.New(uint8(gId)),
-		IdGeneratorMu:   sync.Mutex{},
-		clientChannels:  sync.Map{},
+		Config:             cfg,
+		broker:             b,
+		queues:             queues,
+		exchange:           GatewayExchangeName,
+		reportsExchange:    ReportsExchangeName,
+		ChunkChans:         [chunkChans]chan ChunkItem{make(chan ChunkItem), make(chan ChunkItem)},
+		finished:           false,
+		finishedMu:         sync.Mutex{},
+		Listeners:          [connections]net.Listener{},
+		IdGenerator:        id_generator.New(uint8(gId)),
+		IdGeneratorMu:      sync.Mutex{},
+		clientChannels:     sync.Map{},
+		healthCheckService: hc,
 	}, nil
 }
 
@@ -117,7 +125,13 @@ func (g *Gateway) Start() {
 
 	wg := &sync.WaitGroup{}
 	wg.Add(connections)
+	g.startListeners(wg, err)
+	wg.Wait()
 
+	g.free(sigs)
+}
+
+func (g *Gateway) startListeners(wg *sync.WaitGroup, err error) {
 	go func() {
 		defer wg.Done()
 		err = g.listenForNewClient()
@@ -150,8 +164,10 @@ func (g *Gateway) Start() {
 		}
 	}()
 
-	wg.Wait()
-	g.free(sigs)
+	go func() {
+		defer wg.Done()
+		g.healthCheckService.Listen()
+	}()
 }
 
 func matchMessageId(listener int) message.ID {
@@ -174,6 +190,7 @@ func (g *Gateway) free(sigs chan os.Signal) {
 	g.Listeners[GamesListener].Close()
 	g.Listeners[ResultsListener].Close()
 	g.Listeners[ClientIdListener].Close()
+	g.healthCheckService.Close()
 	close(g.ChunkChans[ReviewsListener])
 	close(g.ChunkChans[GamesListener])
 	close(sigs)

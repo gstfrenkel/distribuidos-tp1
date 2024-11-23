@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"tp1/internal/errors"
+	"tp1/internal/healthcheck"
 	"tp1/pkg/amqp"
 	"tp1/pkg/amqp/broker"
 	"tp1/pkg/config"
@@ -42,6 +43,7 @@ type Worker struct {
 	sequenceIds map[string]uint64
 	Id          uint8
 	Peers       uint8
+	HealthCheckService *healthcheck.Service
 }
 
 func New() (*Worker, error) {
@@ -73,6 +75,11 @@ func New() (*Worker, error) {
 		return nil, err
 	}
 
+	hc, err := healthcheck.NewService()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Worker{
 		config:      cfg,
 		Query:       query,
@@ -83,6 +90,7 @@ func New() (*Worker, error) {
 		dup:         dup.NewHandler(),
 		sequenceIds: make(map[string]uint64),
 		Peers:       peers,
+		HealthCheckService: hc,
 	}, nil
 }
 
@@ -96,6 +104,10 @@ func (f *Worker) Init() error {
 func (f *Worker) Start(filter Filter) {
 	defer f.Broker.Close()
 	defer close(f.signalChan)
+
+	f.listenHc()
+
+	defer f.HealthCheckService.Close()
 
 	var inputQ []amqp.Destination
 	err := f.config.Unmarshal("input-queues", &inputQ)
@@ -210,6 +222,12 @@ func (f *Worker) HandleEofMessage(msg []byte, headers map[string]any, output ...
 	}
 
 	return sequenceIds, nil
+}
+
+func (f *Worker) listenHc() {
+	go func() {
+		f.HealthCheckService.Listen()
+	}()
 }
 
 func (f *Worker) consume(filter Filter, signalChan chan os.Signal, deliveryChan ...<-chan amqp.Delivery) {
