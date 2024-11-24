@@ -3,6 +3,7 @@ package amqp
 import (
 	"errors"
 	"strconv"
+	"tp1/pkg/sequence"
 
 	"tp1/pkg/message"
 )
@@ -54,6 +55,30 @@ func HeaderFromStrings(header []string) (*Header, error) {
 		OriginId:   uint8(originId),
 		MessageId:  message.ID(messageId),
 	}, nil
+}
+
+func (h Header) WithSequenceId(sequenceId sequence.Source) Header {
+	h.SequenceId = sequenceId.ToString()
+	return h
+}
+
+func (h Header) WithOriginId(originId uint8) Header {
+	h.OriginId = originId
+	return h
+}
+
+func (h Header) WithMessageId(messageId message.ID) Header {
+	h.MessageId = messageId
+	return h
+}
+
+func (h Header) ToMap() map[string]any {
+	return map[string]any{
+		SequenceIdHeader: h.SequenceId,
+		ClientIdHeader:   h.ClientId,
+		OriginIdHeader:   h.OriginId,
+		MessageIdHeader:  uint8(h.MessageId),
+	}
 }
 
 func (h Header) ToString() []string {

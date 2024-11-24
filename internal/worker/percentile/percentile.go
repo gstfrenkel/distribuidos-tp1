@@ -42,25 +42,24 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery, _ amqp.Header) ([]sequence.Destination, []byte) {
+func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
 
-	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
-	clientId := delivery.Headers[amqp.ClientIdHeader].(string)
-	if messageId == message.EofMsg {
-		f.eofsRecv[clientId]++
-		if f.eofsRecv[clientId] >= f.w.Peers {
-			f.publish(clientId)
+	switch headers.MessageId {
+	case message.EofMsg:
+		f.eofsRecv[headers.ClientId]++
+		if f.eofsRecv[headers.ClientId] >= f.w.Peers {
+			f.publish(headers)
 		}
-	} else if messageId == message.ScoredReviewID {
+	case message.ScoredReviewID:
 		msg, err := message.ScoredReviewsFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 		} else {
-			f.saveScoredReview(msg, clientId)
+			f.saveScoredReview(msg, headers.ClientId)
 		}
-	} else {
-		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
+	default:
+		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
 	return sequenceIds, nil
@@ -74,18 +73,17 @@ func (f *filter) saveScoredReview(msg message.ScoredReviews, clientId string) {
 	f.scoredReviews[clientId] = append(f.scoredReviews[clientId], msg...)
 }
 
-func (f *filter) publish(clientId string) {
-	games := f.getGamesInPercentile(clientId)
-	if games != nil {
-		SendBatches(games.ToAny(), f.batchSize, message.ScoredRevFromAnyToBytes, f.sendBatch, clientId)
+func (f *filter) publish(headers amqp.Header) {
+	if games := f.getGamesInPercentile(headers.ClientId); games != nil {
+		SendBatches(games.ToAny(), f.batchSize, message.ScoredRevFromAnyToBytes, f.sendBatch, headers)
 	}
 
-	f.sendEof(clientId)
-	f.reset(clientId)
+	f.sendEof(headers)
+	f.reset(headers.ClientId)
 }
 
-func (f *filter) sendBatch(bytes []byte, clientId string) {
-	headers := map[string]any{amqp.MessageIdHeader: uint8(message.ScoredReviewID), amqp.OriginIdHeader: amqp.Query5originId, amqp.ClientIdHeader: clientId}
+func (f *filter) sendBatch(bytes []byte, headers amqp.Header) {
+	headers = headers.WithMessageId(message.ScoredReviewID).WithOriginId(amqp.Query5originId)
 	if err := f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, bytes, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
@@ -97,7 +95,6 @@ func (f *filter) getGamesInPercentile(clientId string) message.ScoredReviews {
 		f.sortScoredReviews(clientId)
 		return reviews[f.percentileIdx(clientId):]
 	}
-
 	return nil
 }
 
@@ -125,12 +122,11 @@ func (f *filter) reset(clientId string) {
 	delete(f.eofsRecv, clientId)
 }
 
-func (f *filter) sendEof(clientId string) {
-	headers := map[string]any{amqp.OriginIdHeader: amqp.Query5originId, amqp.ClientIdHeader: clientId}
-	_, err := f.w.HandleEofMessage(amqp.EmptyEof, headers)
+func (f *filter) sendEof(headers amqp.Header) {
+	_, err := f.w.HandleEofMessage(amqp.EmptyEof, headers.WithOriginId(amqp.Query5originId)) // TODO: Return sequence IDs
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 
-	logs.Logger.Infof("Eof message sent for client %s", clientId)
+	logs.Logger.Infof("Eof message sent for client %s", headers.ClientId)
 }

@@ -83,10 +83,10 @@ func (b *messageBroker) ExchangeBind(dst, key, src string) error {
 }
 
 // Publish sends a message to an exchange
-func (b *messageBroker) Publish(exchange, key string, msg []byte, headers map[string]any) error {
+func (b *messageBroker) Publish(exchange, key string, msg []byte, headers amqp.Header) error {
 	return b.ch.Publish(exchange, key, true, false, amqp.Publishing{
 		ContentType: "application/octet-stream",
-		Headers:     headers,
+		Headers:     headers.ToMap(),
 		Body:        msg,
 	})
 }

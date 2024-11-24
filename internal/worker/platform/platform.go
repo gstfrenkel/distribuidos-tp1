@@ -34,14 +34,13 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery, header amqp.Header) ([]sequence.Destination, []byte) {
+func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
 	var err error
 
-	switch header.MessageId {
+	switch headers.MessageId {
 	case message.EofMsg:
-		headersEof[amqp.ClientIdHeader] = header.ClientId
-		sequenceIds, err = f.w.HandleEofMessage(delivery.Body, headersEof)
+		sequenceIds, err = f.w.HandleEofMessage(delivery.Body, headers)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
@@ -50,21 +49,19 @@ func (f *filter) Process(delivery amqp.Delivery, header amqp.Header) ([]sequence
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 		} else {
-			sequenceIds = f.publish(header, msg)
+			sequenceIds = f.publish(headers, msg)
 		}
 	default:
-		logs.Logger.Errorf(errors.InvalidMessageId.Error(), header.MessageId)
+		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
 	return sequenceIds, nil
 }
 
-func (f *filter) publish(header amqp.Header, msg message.Game) []sequence.Destination {
+func (f *filter) publish(headers amqp.Header, msg message.Game) []sequence.Destination {
 	output := f.w.Outputs[0]
-
 	sequenceId := f.w.NextSequenceId(output.Key)
-	headers[amqp.ClientIdHeader] = header.ClientId
-	headers[amqp.SequenceIdHeader] = sequence.SrcNew(f.w.Id, sequenceId).ToString()
+	headers = headers.WithMessageId(message.PlatformID).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
 
 	platforms := msg.ToPlatformMessage()
 	b, err := platforms.ToBytes()

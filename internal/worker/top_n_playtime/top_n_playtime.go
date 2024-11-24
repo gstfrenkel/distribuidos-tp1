@@ -35,13 +35,11 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery, _ amqp.Header) ([]sequence.Destination, []byte) {
+func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
 
-	clientId := delivery.Headers[amqp.ClientIdHeader].(string)
-	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
-
-	if messageId == message.EofMsg {
+	switch headers.MessageId {
+	case message.EofMsg:
 		workersVisited, err := message.EofFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
@@ -49,22 +47,20 @@ func (f *filter) Process(delivery amqp.Delivery, _ amqp.Header) ([]sequence.Dest
 		}
 
 		if !workersVisited.Contains(f.w.Id) {
-			f.publish(clientId)
-			delete(f.clientHeaps, clientId)
+			f.publish(headers)
+			delete(f.clientHeaps, headers.ClientId)
 		}
-
-		headers := map[string]any{amqp.ClientIdHeader: clientId}
 
 		_, err = f.w.HandleEofMessage(delivery.Body, headers)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
 
-	} else if messageId == message.GameWithPlaytimeID {
-		if _, exists := f.clientHeaps[clientId]; !exists {
-			f.clientHeaps[clientId] = &MinHeapPlaytime{}
+	case message.GameWithPlaytimeID:
+		if _, exists := f.clientHeaps[headers.ClientId]; !exists {
+			f.clientHeaps[headers.ClientId] = &MinHeapPlaytime{}
 		}
-		clientHeap := f.clientHeaps[clientId]
+		clientHeap := f.clientHeaps[headers.ClientId]
 
 		msg, err := message.DateFilteredReleasesFromBytes(delivery.Body)
 		if err != nil {
@@ -72,32 +68,28 @@ func (f *filter) Process(delivery amqp.Delivery, _ amqp.Header) ([]sequence.Dest
 			return nil, nil
 		}
 		clientHeap.UpdateReleases(msg, int(f.n))
-	} else {
-		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
+	default:
+		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
 	return sequenceIds, nil
 }
 
-func (f *filter) publish(clientId string) {
-	clientHeap, exists := f.clientHeaps[clientId]
+func (f *filter) publish(headers amqp.Header) {
+	clientHeap, exists := f.clientHeaps[headers.ClientId]
 	if !exists || clientHeap == nil {
 		return
 	}
 
 	topNPlaytime := ToTopNPlaytimeMessage(f.n, clientHeap)
-	logs.Logger.Infof("Top %d games with most playtime for client %s: %v", f.n, clientId, topNPlaytime)
+	logs.Logger.Infof("Top %d games with most playtime for client %s: %v", f.n, headers.ClientId, topNPlaytime)
 	b, err := topNPlaytime.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 		return
 	}
 
-	headers := map[string]any{
-		amqp.MessageIdHeader: uint8(message.GameWithPlaytimeID),
-		amqp.OriginIdHeader:  amqp.Query2originId,
-		amqp.ClientIdHeader:  clientId,
-	}
+	headers = headers.WithMessageId(message.GameWithPlaytimeID).WithOriginId(amqp.Query2originId)
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}

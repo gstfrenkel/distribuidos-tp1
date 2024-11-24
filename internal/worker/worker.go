@@ -27,22 +27,22 @@ import (
 type Filter interface {
 	Init() error
 	Start()
-	Process(delivery amqp.Delivery, header amqp.Header) ([]sequence.Destination, []byte)
+	Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte)
 }
 
 type Worker struct {
-	config      config.Config
-	Query       any
-	Broker      amqp.MessageBroker
-	inputEof    amqp.DestinationEof
-	outputsEof  []amqp.DestinationEof
-	Outputs     []amqp.Destination
-	signalChan  chan os.Signal
-	recovery    recovery.Handler
-	dup         dup.Handler
-	sequenceIds map[string]uint64
-	Id          uint8
-	Peers       uint8
+	config             config.Config
+	Query              any
+	Broker             amqp.MessageBroker
+	inputEof           amqp.DestinationEof
+	outputsEof         []amqp.DestinationEof
+	Outputs            []amqp.Destination
+	signalChan         chan os.Signal
+	recovery           recovery.Handler
+	dup                dup.Handler
+	sequenceIds        map[string]uint64
+	Id                 uint8
+	Peers              uint8
 	HealthCheckService *healthcheck.Service
 }
 
@@ -81,15 +81,15 @@ func New() (*Worker, error) {
 	}
 
 	return &Worker{
-		config:      cfg,
-		Query:       query,
-		Broker:      b,
-		signalChan:  signalChan,
-		Id:          uint8(id),
-		recovery:    recoveryHandler,
-		dup:         dup.NewHandler(),
-		sequenceIds: make(map[string]uint64),
-		Peers:       peers,
+		config:             cfg,
+		Query:              query,
+		Broker:             b,
+		signalChan:         signalChan,
+		Id:                 uint8(id),
+		recovery:           recoveryHandler,
+		dup:                dup.NewHandler(),
+		sequenceIds:        make(map[string]uint64),
+		Peers:              peers,
 		HealthCheckService: hc,
 	}, nil
 }
@@ -181,7 +181,7 @@ func (f *Worker) NextSequenceId(key string) uint64 {
 	return sequenceId
 }
 
-func (f *Worker) HandleEofMessage(msg []byte, headers map[string]any, output ...amqp.DestinationEof) ([]sequence.Destination, error) {
+func (f *Worker) HandleEofMessage(msg []byte, headers amqp.Header, output ...amqp.DestinationEof) ([]sequence.Destination, error) {
 	workersVisited, err := message.EofFromBytes(msg)
 	if err != nil {
 		return nil, err
@@ -191,22 +191,22 @@ func (f *Worker) HandleEofMessage(msg []byte, headers map[string]any, output ...
 		workersVisited = append(workersVisited, f.Id)
 	}
 
-	if headers == nil {
-		headers = map[string]any{amqp.MessageIdHeader: uint8(message.EofMsg)}
-	} else {
-		headers[amqp.MessageIdHeader] = uint8(message.EofMsg)
-	}
-
 	var sequenceIds []sequence.Destination
 
 	if uint8(len(workersVisited)) < f.Peers {
-		sequenceIds = append(sequenceIds, sequence.DstNew(f.inputEof.Key, f.NextSequenceId(f.inputEof.Key)))
+		sequenceId := f.NextSequenceId(f.inputEof.Key)
+		sequenceIds = append(sequenceIds, sequence.DstNew(f.inputEof.Key, sequenceId))
 
 		bytes, err := workersVisited.ToBytes()
 		if err != nil {
 			return nil, err
 		}
-		return sequenceIds, f.Broker.Publish(f.inputEof.Exchange, f.inputEof.Key, bytes, headers)
+		return sequenceIds, f.Broker.Publish(
+			f.inputEof.Exchange,
+			f.inputEof.Key,
+			bytes,
+			headers.WithMessageId(message.EofMsg).WithSequenceId(sequence.SrcNew(f.Id, sequenceId)),
+		)
 	}
 
 	outputs := f.outputsEof
@@ -215,8 +215,14 @@ func (f *Worker) HandleEofMessage(msg []byte, headers map[string]any, output ...
 	}
 
 	for _, o := range outputs {
-		sequenceIds = append(sequenceIds, sequence.DstNew(o.Key, f.NextSequenceId(o.Key)))
-		if err = f.Broker.Publish(o.Exchange, o.Key, amqp.EmptyEof, headers); err != nil {
+		sequenceId := f.NextSequenceId(f.inputEof.Key)
+		sequenceIds = append(sequenceIds, sequence.DstNew(o.Key, sequenceId))
+		if err = f.Broker.Publish(
+			o.Exchange,
+			o.Key,
+			amqp.EmptyEof,
+			headers.WithMessageId(message.EofMsg).WithSequenceId(sequence.SrcNew(f.Id, sequenceId)),
+		); err != nil {
 			return nil, err
 		}
 	}

@@ -39,14 +39,14 @@ func (p *percentile) Start() {
 	p.w.Start(p)
 }
 
-func (p *percentile) Process(delivery amqp.Delivery, header amqp.Header) ([]sequence.Destination, []byte) {
+func (p *percentile) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
 	var msg []byte
 
-	switch header.MessageId {
+	switch headers.MessageId {
 	case message.EofMsg:
 		sequenceIds = processEof(
-			header,
+			headers,
 			p.eofsByClient,
 			p.gameInfoByClient,
 			p.processEof,
@@ -56,31 +56,31 @@ func (p *percentile) Process(delivery amqp.Delivery, header amqp.Header) ([]sequ
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 		} else {
-			p.processReview(header.ClientId, msg)
+			p.processReview(headers.ClientId, msg)
 		}
 	case message.GameNameID:
 		msg, err := message.GameNameFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 		} else {
-			p.processGame(header.ClientId, msg)
+			p.processGame(headers.ClientId, msg)
 		}
 	default:
-		logs.Logger.Errorf(errors.InvalidMessageId.Error(), header.MessageId)
+		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
 	return sequenceIds, msg
 }
 
-func (p *percentile) processEof(clientId string) []sequence.Destination {
+func (p *percentile) processEof(headers amqp.Header) []sequence.Destination {
 	var sequenceIds []sequence.Destination
 
-	userInfo, ok := p.gameInfoByClient[clientId]
+	userInfo, ok := p.gameInfoByClient[headers.ClientId]
 	if ok {
-		sequenceIds = p.processBatch(clientId, userInfo)
+		sequenceIds = p.processBatch(headers, userInfo)
 	}
 
-	auxSequenceIds, err := p.w.HandleEofMessage(amqp.EmptyEof, headersEof)
+	auxSequenceIds, err := p.w.HandleEofMessage(amqp.EmptyEof, headers)
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
@@ -89,7 +89,7 @@ func (p *percentile) processEof(clientId string) []sequence.Destination {
 	return sequenceIds
 }
 
-func (p *percentile) processBatch(clientId string, userInfo map[int64]gameInfo) []sequence.Destination {
+func (p *percentile) processBatch(headers amqp.Header, userInfo map[int64]gameInfo) []sequence.Destination {
 	var sequenceIds []sequence.Destination
 	var reviews message.ScoredReviews
 
@@ -101,13 +101,13 @@ func (p *percentile) processBatch(clientId string, userInfo map[int64]gameInfo) 
 		reviews = append(reviews, message.ScoredReview{GameId: id, Votes: info.votes, GameName: info.gameName})
 
 		if len(reviews) >= int(p.batchSize) {
-			sequenceIds = append(sequenceIds, p.publish(clientId, reviews))
+			sequenceIds = append(sequenceIds, p.publish(headers, reviews))
 			reviews = reviews[:0] // Reset slice without deallocating memory.
 		}
 	}
 
 	if len(reviews) > 0 {
-		sequenceIds = append(sequenceIds, p.publish(clientId, reviews))
+		sequenceIds = append(sequenceIds, p.publish(headers, reviews))
 	}
 
 	return sequenceIds
@@ -143,7 +143,7 @@ func (p *percentile) processGame(clientId string, msg message.GameName) {
 	}
 }
 
-func (p *percentile) publish(clientId string, reviews message.ScoredReviews) sequence.Destination {
+func (p *percentile) publish(headers amqp.Header, reviews message.ScoredReviews) sequence.Destination {
 	b, err := reviews.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
@@ -151,9 +151,10 @@ func (p *percentile) publish(clientId string, reviews message.ScoredReviews) seq
 
 	key := p.w.Outputs[0].Key
 	sequenceId := p.w.NextSequenceId(key)
-	headersReview[amqp.ClientIdHeader] = clientId
-	headersReview[amqp.SequenceIdHeader] = sequence.SrcNew(p.w.Id, sequenceId)
-	if err = p.w.Broker.Publish(p.w.Outputs[0].Exchange, key, b, headersReview); err != nil {
+
+	headers = headers.WithMessageId(message.ScoredReviewID).WithSequenceId(sequence.SrcNew(p.w.Id, sequenceId))
+
+	if err = p.w.Broker.Publish(p.w.Outputs[0].Exchange, key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 

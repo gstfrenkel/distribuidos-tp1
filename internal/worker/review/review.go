@@ -15,12 +15,6 @@ const (
 	query5
 )
 
-var (
-	headersEof    = map[string]any{amqp.OriginIdHeader: amqp.ReviewOriginId, amqp.MessageIdHeader: uint8(message.EofMsg)}
-	headersText   = map[string]any{amqp.MessageIdHeader: uint8(message.ReviewWithTextID)}
-	headersScored = map[string]any{amqp.MessageIdHeader: uint8(message.ScoredReviewID)}
-)
-
 type filter struct {
 	w      *worker.Worker
 	scores [3]int8
@@ -48,51 +42,53 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery, _ amqp.Header) ([]sequence.Destination, []byte) {
+func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
 
-	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
+	headers = headers.WithOriginId(amqp.ReviewOriginId)
 
-	if messageId == message.EofMsg {
-		headersEof[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
-		_, err := f.w.HandleEofMessage(delivery.Body, headersEof)
+	switch headers.MessageId {
+	case message.EofMsg:
+		_, err := f.w.HandleEofMessage(delivery.Body, headers)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
-	} else if messageId == message.ReviewIdMsg {
+	case message.ReviewIdMsg:
 		msg, err := message.ReviewFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 		} else {
-			headersText[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
-			headersScored[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
-			f.publish(msg)
+			f.publish(msg, headers)
 		}
-	} else {
-		logs.Logger.Infof(errors.InvalidMessageId.Error(), messageId)
+	default:
+		logs.Logger.Infof(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
 	return sequenceIds, nil
 }
 
-func (f *filter) publish(msg message.Review) {
+func (f *filter) publish(msg message.Review, headers amqp.Header) {
+	headers = headers.WithMessageId(message.ReviewWithTextID)
+
 	b, err := msg.ToReviewWithTextMessage(f.scores[query4]).ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-	} else if err = f.w.Broker.Publish(f.w.Outputs[query4].Exchange, "", b, headersText); err != nil {
+	} else if err = f.w.Broker.Publish(f.w.Outputs[query4].Exchange, "", b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 
+	headers = headers.WithMessageId(message.ScoredReviewID)
+
 	reviews := msg.ToScoredReviewMessage(f.scores[query3])
-	f.shardPublish(reviews, f.w.Outputs[query3])
+	f.shardPublish(reviews, f.w.Outputs[query3], headers)
 
 	if f.scores[query5] != f.scores[query3] {
 		reviews = msg.ToScoredReviewMessage(f.scores[query5])
 	}
-	f.shardPublish(reviews, f.w.Outputs[query5])
+	f.shardPublish(reviews, f.w.Outputs[query5], headers)
 }
 
-func (f *filter) shardPublish(reviews message.ScoredReviews, output amqp.Destination) {
+func (f *filter) shardPublish(reviews message.ScoredReviews, output amqp.Destination, headers amqp.Header) {
 	for _, rv := range reviews {
 		b, err := rv.ToBytes()
 		if err != nil {
@@ -101,7 +97,7 @@ func (f *filter) shardPublish(reviews message.ScoredReviews, output amqp.Destina
 		}
 
 		k := worker.ShardGameId(rv.GameId, output.Key, output.Consumers)
-		if err = f.w.Broker.Publish(output.Exchange, k, b, headersScored); err != nil {
+		if err = f.w.Broker.Publish(output.Exchange, k, b, headers); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	}

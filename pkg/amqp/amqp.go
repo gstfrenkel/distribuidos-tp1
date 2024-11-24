@@ -54,7 +54,7 @@ type MessageBroker interface {
 	ExchangeDeclare(exchange ...Exchange) error
 	QueueBind(binds ...QueueBind) error
 	ExchangeBind(dst, key, src string) error
-	Publish(exchange, key string, msg []byte, headers map[string]any) error
+	Publish(exchange, key string, msg []byte, headers Header) error
 	Consume(queue, consumer string, autoAck, exclusive bool) (<-chan Delivery, error)
 	Close()
 }

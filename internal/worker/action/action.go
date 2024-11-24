@@ -9,10 +9,10 @@ import (
 	"tp1/pkg/sequence"
 )
 
-var (
+/*var (
 	headersEof = map[string]any{amqp.OriginIdHeader: amqp.GameOriginId}
 	headers    = map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID)}
-)
+)*/
 
 type filter struct {
 	w *worker.Worker
@@ -40,15 +40,13 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery, header amqp.Header) ([]sequence.Destination, []byte) {
+func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
 	var err error
 
-	switch header.MessageId {
+	switch headers.MessageId {
 	case message.EofMsg:
-		headersEof[amqp.ClientIdHeader] = header.ClientId
-
-		sequenceIds, err = f.w.HandleEofMessage(delivery.Body, headersEof)
+		sequenceIds, err = f.w.HandleEofMessage(delivery.Body, headers.WithOriginId(amqp.GameOriginId))
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
@@ -57,18 +55,16 @@ func (f *filter) Process(delivery amqp.Delivery, header amqp.Header) ([]sequence
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 		} else {
-			sequenceIds = f.publish(header, msg)
+			sequenceIds = f.publish(headers, msg)
 		}
 	default:
-		logs.Logger.Errorf(errors.InvalidMessageId.Error(), header.MessageId)
+		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
 	return sequenceIds, nil
 }
 
-func (f *filter) publish(header amqp.Header, msg message.Game) []sequence.Destination {
-	headers[amqp.ClientIdHeader] = header.ClientId
-
+func (f *filter) publish(headers amqp.Header, msg message.Game) []sequence.Destination {
 	games := msg.ToGameNamesMessage(f.w.Query.(string))
 	sequenceIds := make([]sequence.Destination, 0, len(games)*len(f.w.Outputs))
 
@@ -83,7 +79,8 @@ func (f *filter) publish(header amqp.Header, msg message.Game) []sequence.Destin
 			key := worker.ShardGameId(game.GameId, output.Key, output.Consumers)
 			sequenceId := f.w.NextSequenceId(key)
 			sequenceIds = append(sequenceIds, sequence.DstNew(key, sequenceId))
-			headers[amqp.SequenceIdHeader] = sequence.SrcNew(f.w.Id, sequenceId).ToString()
+
+			headers = headers.WithMessageId(message.GameNameID).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
 
 			if err = f.w.Broker.Publish(output.Exchange, key, b, headers); err != nil {
 				logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
