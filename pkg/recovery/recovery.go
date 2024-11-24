@@ -48,7 +48,7 @@ func (h *handler) Recover(ch chan<- Record) {
 			continue
 		}
 
-		sequenceIds, err := sequence.DstsFromStrings(line[4:])
+		sequenceIds, err := sequence.DstsFromStrings(line[amqp.HeaderLen:])
 		if err != nil {
 			logs.Logger.Errorf("failed to recover sequence: %s", err.Error())
 			continue
@@ -57,7 +57,7 @@ func (h *handler) Recover(ch chan<- Record) {
 		ch <- NewRecord(
 			*header,
 			sequenceIds,
-			[]byte(line[4+1+len(sequenceIds)]),
+			[]byte(line[amqp.HeaderLen+dstSequenceHeaderLen+len(sequenceIds)]),
 		)
 	}
 }

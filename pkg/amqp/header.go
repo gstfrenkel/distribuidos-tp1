@@ -8,6 +8,8 @@ import (
 	"tp1/pkg/message"
 )
 
+const HeaderLen = 4
+
 type Header struct {
 	SequenceId string
 	ClientId   string

@@ -2,10 +2,12 @@ package recovery
 
 import (
 	"strconv"
-	"tp1/pkg/sequence"
 
 	"tp1/pkg/amqp"
+	"tp1/pkg/sequence"
 )
+
+const dstSequenceHeaderLen = 1
 
 type Record interface {
 	toString() []string

@@ -19,9 +19,9 @@ func DstNew(key string, sequenceId uint64) Destination {
 }
 
 func dstFromString(seq string) (*Destination, error) {
-	lastHyphenIndex := strings.LastIndex(seq, "-")
+	lastHyphenIndex := strings.LastIndex(seq, separator)
 	if lastHyphenIndex == -1 {
-		return nil, errors.New("invalid destination sequence: " + seq)
+		return nil, errInvalidSequence(seq)
 	}
 
 	key := seq[:lastHyphenIndex]
@@ -69,5 +69,5 @@ func (s Destination) Id() uint64 {
 }
 
 func (s Destination) ToString() string {
-	return fmt.Sprintf("%s-%d", s.key, s.id)
+	return fmt.Sprintf("%s%s%d", s.key, separator, s.id)
 }

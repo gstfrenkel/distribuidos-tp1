@@ -1,7 +1,6 @@
 package sequence
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -17,9 +16,9 @@ func SrcNew(workerId uint8, sequenceId uint64) Source {
 }
 
 func SrcFromString(seq string) (*Source, error) {
-	parts := strings.Split(seq, "-")
-	if len(parts) != 2 {
-		return nil, errors.New("invalid source sequence: " + seq)
+	parts := strings.Split(seq, separator)
+	if len(parts) != partsAmount {
+		return nil, errInvalidSequence(seq)
 	}
 
 	workerId, err := strconv.ParseUint(parts[0], 10, 8)
@@ -43,5 +42,5 @@ func (s Source) Id() uint64 {
 }
 
 func (s Source) ToString() string {
-	return fmt.Sprintf("%d-%d", s.worker, s.id)
+	return fmt.Sprintf("%d%s%d", s.worker, separator, s.id)
 }

@@ -6,7 +6,10 @@ import (
 	"tp1/pkg/logs"
 )
 
-const filepath = "recovery.csv"
+const (
+	filePath = "recovery.csv"
+	fileMode = 0666
+)
 
 // File is a structure that encapsulates a CSV reader and the associated file.
 type File struct {
@@ -16,7 +19,7 @@ type File struct {
 }
 
 func NewFile() (*File, error) {
-	file, err := os.OpenFile(filepath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, fileMode)
 	if err != nil {
 		return nil, err
 	}
