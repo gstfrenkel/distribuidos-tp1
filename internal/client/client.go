@@ -113,10 +113,6 @@ func (c *Client) sendData(wg *sync.WaitGroup, conn net.Conn, pathKey string, pat
 		defer wg.Done()
 		defer conn.Close()
 		c.readAndSendCSV(c.cfg.String(pathKey, pathDef), id, conn, dataStruct, address)
-		// ackMsg := make([]byte, ackBytes)
-		// if _, err := conn.Read(ackMsg); err != nil {
-		// 	logs.Logger.Errorf("Failed to read message: %v", err.Error())
-		// }
 	}()
 }
 

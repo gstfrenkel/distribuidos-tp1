@@ -108,17 +108,30 @@ func (c *Client) readAndSendCSV(filename string, id uint8, conn net.Conn, dataSt
 	for {
 		currentLine, err = sendBatch(batchStartLine, batchSize, reader, dataStruct)
 		if err == io.EOF {
+
+			eofMsg := message.ClientMessage{
+				DataLen: 0,
+				Data:    nil,
+			}
+
+			if err := message.SendMessage(conn, eofMsg); err != nil {
+				logs.Logger.Errorf("Error sending EOF message: %s", err)
+				rewindReader(file, reader, batchStartLine)
+				conn = c.reconnect(address)
+				continue
+			}
+
+			if err := readAck(conn); err != nil {
+				logs.Logger.Errorf("Error reading final ACK: %s", err)
+				rewindReader(file, reader, batchStartLine)
+				conn = c.reconnect(address)
+				continue
+			}
 			break
 		}
 		if err != nil {
-			logs.Logger.Errorf("Error in sendBatch: %s", err)
-
-			// Rewind reader and retry
-			file.Seek(0, io.SeekStart)
-			reader = csv.NewReader(file)
-			for i := 0; i < batchStartLine; i++ {
-				_, _ = reader.Read()
-			}
+			logs.Logger.Errorf("Error sending data: %s", err)
+			rewindReader(file, reader, batchStartLine)
 			conn = c.reconnect(address)
 			continue
 		}
@@ -126,13 +139,7 @@ func (c *Client) readAndSendCSV(filename string, id uint8, conn net.Conn, dataSt
 		// Read ACK for batch
 		if err := readAck(conn); err != nil {
 			logs.Logger.Errorf("ACK error: %s", err)
-
-			// Rewind reader and retry
-			file.Seek(0, io.SeekStart)
-			reader = csv.NewReader(file)
-			for i := 0; i < batchStartLine; i++ {
-				_, _ = reader.Read()
-			}
+			rewindReader(file, reader, batchStartLine)
 			conn = c.reconnect(address)
 			continue
 		}
@@ -141,30 +148,13 @@ func (c *Client) readAndSendCSV(filename string, id uint8, conn net.Conn, dataSt
 		batchStartLine = currentLine
 	}
 
-	// Send EOF message
-	for {
-		eofMsg := message.ClientMessage{
-			DataLen: 0,
-			Data:    nil,
-		}
-		if err := message.SendMessage(conn, eofMsg); err != nil {
-			logs.Logger.Errorf("Error sending EOF message: %s", err)
-			// Reconnect and retry sending EOF
-			conn = c.reconnect(address)
-			continue
-		}
-		logs.Logger.Infof("Sent EOF for: %v", id)
-
-		// Wait for EOF ACK
-		if err := readAck(conn); err != nil {
-			logs.Logger.Errorf("Error reading final ACK: %s", err)
-
-			// Reconnect and retry reading the ACK
-			conn = c.reconnect(address)
-			continue
-		}
-		break
-	}
-
 	logs.Logger.Infof("Received EOF ACK for: %v", id)
+}
+
+func rewindReader(file *os.File, reader *csv.Reader, batchStartLine int) {
+	file.Seek(0, io.SeekStart)
+	reader = csv.NewReader(file)
+	for i := 0; i < batchStartLine; i++ {
+		_, _ = reader.Read()
+	}
 }

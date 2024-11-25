@@ -81,7 +81,6 @@ func (g *Gateway) handleDataConnection(c net.Conn, msgId message.ID) {
 	}
 
 	logs.Logger.Infof("%d - Received %d messages", msgId, sends)
-	sendConfirmationToClient(c)
 }
 
 func (g *Gateway) readClientId(c net.Conn) string {
@@ -126,16 +125,6 @@ func (g *Gateway) sendMsgToChunkSender(msgId message.ID, payload []byte, clientI
 
 func isEndOfFile(payloadSize uint32) bool {
 	return payloadSize == eofPayloadSize
-}
-
-func sendConfirmationToClient(conn net.Conn) {
-	eofMsg := message.ClientMessage{
-		DataLen: 0,
-		Data:    nil,
-	}
-	if err := message.SendMessage(conn, eofMsg); err != nil {
-		logs.Logger.Error("Error sending confirmation message to client")
-	}
 }
 
 func sendAcksToClient(clientAckChannels *sync.Map, clientId string, conn net.Conn) {
