@@ -8,7 +8,16 @@ import (
 	"tp1/pkg/message"
 )
 
-const HeaderLen = 4
+const (
+	defaultOriginId = 255
+
+	sequenceIdIdx = 0
+	clientIdIdx   = 1
+	originIdIdx   = 2
+	messageIdIdx  = 3
+
+	HeaderLen = 4
+)
 
 type Header struct {
 	SequenceId string
@@ -20,7 +29,7 @@ type Header struct {
 func HeadersFromDelivery(delivery Delivery) Header {
 	originId, ok := delivery.Headers[OriginIdHeader]
 	if !ok {
-		originId = 255
+		originId = defaultOriginId
 	}
 
 	sequenceId, ok := delivery.Headers[SequenceIdHeader]
@@ -37,23 +46,23 @@ func HeadersFromDelivery(delivery Delivery) Header {
 }
 
 func HeaderFromStrings(header []string) (*Header, error) {
-	if len(header) < 4 {
+	if len(header) < HeaderLen {
 		return nil, errors.New("not enough arguments")
 	}
 
-	originId, err := strconv.Atoi(header[2])
+	originId, err := strconv.Atoi(header[originIdIdx])
 	if err != nil {
 		return nil, err
 	}
 
-	messageId, err := strconv.Atoi(header[3])
+	messageId, err := strconv.Atoi(header[messageIdIdx])
 	if err != nil {
 		return nil, err
 	}
 
 	return &Header{
-		SequenceId: header[0],
-		ClientId:   header[1],
+		SequenceId: header[sequenceIdIdx],
+		ClientId:   header[clientIdIdx],
 		OriginId:   uint8(originId),
 		MessageId:  message.ID(messageId),
 	}, nil

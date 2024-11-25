@@ -9,11 +9,6 @@ import (
 	"tp1/pkg/sequence"
 )
 
-/*var (
-	headersEof = map[string]any{amqp.OriginIdHeader: amqp.GameOriginId}
-	headers    = map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID)}
-)*/
-
 type filter struct {
 	w *worker.Worker
 }
