@@ -16,7 +16,7 @@ type recvEofs struct {
 	game   bool
 }
 
-func processEof(header amqp.Header, eofsByClient map[string]recvEofs, gameInfoByClient map[string]map[int64]gameInfo, f func(header amqp.Header) []sequence.Destination) []sequence.Destination {
+func processEof(header amqp.Header, eofsByClient map[string]recvEofs, gameInfoByClient map[string]map[int64]gameInfo, sendEof func(header amqp.Header) []sequence.Destination) []sequence.Destination {
 	var sequenceIds []sequence.Destination
 
 	recv, ok := eofsByClient[header.ClientId]
@@ -30,8 +30,8 @@ func processEof(header amqp.Header, eofsByClient map[string]recvEofs, gameInfoBy
 	}
 
 	if eofsByClient[header.ClientId].review && eofsByClient[header.ClientId].game {
-		if f != nil {
-			sequenceIds = f(header)
+		if sendEof != nil {
+			sequenceIds = sendEof(header)
 		}
 		delete(gameInfoByClient, header.ClientId)
 		delete(eofsByClient, header.ClientId)

@@ -24,6 +24,10 @@ import (
 	"github.com/pierrec/xxHash/xxHash32"
 )
 
+const (
+	ChanSize = 32
+)
+
 type Filter interface {
 	Init() error
 	Start()
@@ -141,7 +145,7 @@ func (f *Worker) Recover(ch chan<- recovery.Message) {
 		defer close(ch)
 	}
 
-	recoveryCh := make(chan recovery.Record, 64)
+	recoveryCh := make(chan recovery.Record, ChanSize)
 	go f.recovery.Recover(recoveryCh)
 
 	for record := range recoveryCh {

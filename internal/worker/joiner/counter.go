@@ -161,7 +161,7 @@ func (c *counter) processGame(headers amqp.Header, msg message.GameName, b []byt
 }
 
 func (c *counter) recover() {
-	ch := make(chan recovery.Message, 32)
+	ch := make(chan recovery.Message, worker.ChanSize)
 	go c.w.Recover(ch)
 
 	for recoveredMsg := range ch {
