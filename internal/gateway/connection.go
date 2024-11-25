@@ -5,25 +5,31 @@ import (
 	"tp1/pkg/logs"
 )
 
-const LenFieldSize = 4
-const TransportProtocol = "tcp"
+const (
+	LenFieldSize      = 4
+	gamesAddrKey      = "gateway.games-address"
+	TransportProtocol = "tcp"
+	reviewsAddrKey    = "gateway.reviews-address"
+	resultsAddrKey    = "gateway.results-address"
+	clientIdAddrKey   = "gateway.client-id-address"
+)
 
 func (g *Gateway) createGatewaySockets() error {
-	gamesListener, err := g.newListener("gateway.games-address")
+	gamesListener, err := g.newListener(gamesAddrKey)
 	if err != nil {
 		return err
 	}
-	reviewsListener, err := g.newListener("gateway.reviews-address")
-	if err != nil {
-		return err
-	}
-
-	resultsListener, err := g.newListener("gateway.results-address")
+	reviewsListener, err := g.newListener(reviewsAddrKey)
 	if err != nil {
 		return err
 	}
 
-	clientIdListener, err := g.newListener("gateway.client-id-address")
+	resultsListener, err := g.newListener(resultsAddrKey)
+	if err != nil {
+		return err
+	}
+
+	clientIdListener, err := g.newListener(clientIdAddrKey)
 	if err != nil {
 		return err
 	}
@@ -33,11 +39,15 @@ func (g *Gateway) createGatewaySockets() error {
 	g.Listeners[ResultsListener] = resultsListener
 	g.Listeners[ClientIdListener] = clientIdListener
 
-	logs.Logger.Infof("Gateway listening client id on %s", clientIdListener.Addr().String())
-	logs.Logger.Infof("Gateway listening games on %s", gamesListener.Addr().String())
-	logs.Logger.Infof("Gateway listening reviews on %s", reviewsListener.Addr().String())
-	logs.Logger.Infof("Gateway listening results on %s", resultsListener.Addr().String())
+	g.logListeners("games", gamesListener)
+	g.logListeners("reviews", reviewsListener)
+	g.logListeners("client id", clientIdListener)
+	g.logListeners("results", resultsListener)
 	return nil
+}
+
+func (g *Gateway) logListeners(listenerName string, listener net.Listener) {
+	logs.Logger.Infof("Gateway listening %s on %s", listenerName, listener.Addr().String())
 }
 
 func (g *Gateway) newListener(configKey string) (net.Listener, error) {

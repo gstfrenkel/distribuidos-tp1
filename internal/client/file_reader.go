@@ -11,7 +11,7 @@ import (
 	"tp1/pkg/message"
 )
 
-func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interface{}, c *Client) {
+func (c *Client) readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interface{}) {
 
 	err := c.sendClientID(conn)
 	if err != nil {
