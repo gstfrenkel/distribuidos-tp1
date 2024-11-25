@@ -26,6 +26,17 @@ import (
 
 const (
 	ChanSize = 32
+	signals             = 2
+	configPath          = "config.json"
+	logLevelKey         = "log-level"
+	defaultLogLevel     = "INFO"
+	workerIdKey         = "worker-id"
+	queryKey            = "query"
+	peersKey            = "peers"
+	inputQKey           = "input-queues"
+	manyConsumersSubstr = "%d"
+	exchangesKey        = "exchanges"
+	outputQKey          = "output-queues"
 )
 
 type Filter interface {
@@ -51,26 +62,26 @@ type Worker struct {
 }
 
 func New() (*Worker, error) {
-	cfg, err := provider.LoadConfig("config.json")
+	cfg, err := provider.LoadConfig(configPath)
 	if err != nil {
 		return nil, err
 	}
-	_ = logs.InitLogger(cfg.String("log-level", "INFO"))
+	_ = logs.InitLogger(cfg.String(logLevelKey, defaultLogLevel))
 	b, err := broker.NewBroker()
 	if err != nil {
 		return nil, err
 	}
 
-	signalChan := make(chan os.Signal, 2)
+	signalChan := make(chan os.Signal, signals)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
-	id, _ := strconv.Atoi(os.Getenv("worker-id"))
+	id, _ := strconv.Atoi(os.Getenv(workerIdKey))
 	var query any
-	if err = cfg.Unmarshal("query", &query); err != nil {
+	if err = cfg.Unmarshal(queryKey, &query); err != nil {
 		return nil, err
 	}
 
 	var peers uint8
-	if err = cfg.Unmarshal("peers", &peers); err != nil {
+	if err = cfg.Unmarshal(peersKey, &peers); err != nil {
 		return nil, err
 	}
 
@@ -114,7 +125,7 @@ func (f *Worker) Start(filter Filter) {
 	defer f.HealthCheckService.Close()
 
 	var inputQ []amqp.Destination
-	err := f.config.Unmarshal("input-queues", &inputQ)
+	err := f.config.Unmarshal(inputQKey, &inputQ)
 	if err != nil {
 		logs.Logger.Errorf("error unmarshalling input-queue: %s", err.Error())
 		return
@@ -123,7 +134,7 @@ func (f *Worker) Start(filter Filter) {
 	channels := make([]<-chan amqp.Delivery, 0, len(inputQ))
 	for _, q := range inputQ {
 		queueName := q.Name
-		if strings.Contains(queueName, "%d") {
+		if strings.Contains(queueName, manyConsumersSubstr) {
 			queueName = fmt.Sprintf(queueName, f.Id)
 		}
 		if _, err = f.Broker.QueueDeclare(queueName); err != nil {
@@ -281,7 +292,7 @@ func (f *Worker) consume(filter Filter, signalChan chan os.Signal, deliveryChan 
 
 func (f *Worker) initExchanges() error {
 	var exchanges []amqp.Exchange
-	if err := f.config.Unmarshal("exchanges", &exchanges); err != nil {
+	if err := f.config.Unmarshal(exchangesKey, &exchanges); err != nil {
 		return err
 	}
 
@@ -290,7 +301,7 @@ func (f *Worker) initExchanges() error {
 
 func (f *Worker) initQueues() error {
 	// Output queue unmarshalling.
-	if err := f.config.Unmarshal("output-queues", &f.Outputs); err != nil {
+	if err := f.config.Unmarshal(outputQKey, &f.Outputs); err != nil {
 		return err
 	}
 
@@ -308,7 +319,7 @@ func (f *Worker) initQueues() error {
 
 	// Input queue unmarshalling and binding.
 	var inputQ []amqp.Destination
-	err := f.config.Unmarshal("input-queues", &inputQ)
+	err := f.config.Unmarshal(inputQKey, &inputQ)
 	if err != nil {
 		return err
 	}

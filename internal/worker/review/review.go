@@ -13,11 +13,12 @@ const (
 	query3 uint8 = iota
 	query4
 	query5
+	nQueries
 )
 
 type filter struct {
 	w      *worker.Worker
-	scores [3]int8
+	scores [nQueries]int8
 }
 
 func New() (worker.Filter, error) {
