@@ -63,9 +63,11 @@ type DataCSVReviews struct {
 	ReviewVotes int64
 }
 
+const lenBytes = 4
+
 func SendMessage(conn net.Conn, msg ClientMessage) error {
-	finalMessage := make([]byte, 0, 4+len(msg.Data))
-	lenBytes := make([]byte, 4)
+	finalMessage := make([]byte, 0, lenBytes+len(msg.Data))
+	lenBytes := make([]byte, lenBytes)
 	binary.BigEndian.PutUint32(lenBytes, msg.DataLen)
 	finalMessage = append(finalMessage, lenBytes...)
 	finalMessage = append(finalMessage, msg.Data...)

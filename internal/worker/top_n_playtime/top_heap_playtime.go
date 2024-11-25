@@ -43,21 +43,21 @@ func ToTopNPlaytimeMessage(n uint8, h *MinHeapPlaytime) message.DateFilteredRele
 	return topNReleases(h, int(n))
 }
 
-func (m *MinHeapPlaytime) UpdateReleases(releases message.DateFilteredReleases, n int) {
+func (h *MinHeapPlaytime) UpdateReleases(releases message.DateFilteredReleases, n int) {
 	for _, release := range releases {
-		if m.Len() < n {
-			heap.Push(m, release)
-		} else if release.AvgPlaytime > (*m)[0].AvgPlaytime {
-			heap.Pop(m)
-			heap.Push(m, release)
+		if h.Len() < n {
+			heap.Push(h, release)
+		} else if release.AvgPlaytime > (*h)[0].AvgPlaytime {
+			heap.Pop(h)
+			heap.Push(h, release)
 		}
 	}
 }
 
-func (m *MinHeapPlaytime) GetTopReleases() message.DateFilteredReleases {
-	topReleases := make(message.DateFilteredReleases, m.Len())
+func (h *MinHeapPlaytime) GetTopReleases() message.DateFilteredReleases {
+	topReleases := make(message.DateFilteredReleases, h.Len())
 	for i := range topReleases {
-		topReleases[i] = heap.Pop(m).(message.DateFilteredRelease)
+		topReleases[i] = heap.Pop(h).(message.DateFilteredRelease)
 	}
 
 	sort.Slice(topReleases, func(i, j int) bool {

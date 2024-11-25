@@ -7,6 +7,7 @@ import (
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/sequence"
 )
 
 type GameId int64
@@ -41,25 +42,27 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery) {
-	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
-	clientId := delivery.Headers[amqp.ClientIdHeader].(string)
-	if messageId == message.EofMsg {
-		f.eofsRecv[clientId]++
-		if f.eofsRecv[clientId] >= f.w.Peers {
-			f.publish(clientId)
+func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+	var sequenceIds []sequence.Destination
+
+	switch headers.MessageId {
+	case message.EofMsg:
+		f.eofsRecv[headers.ClientId]++
+		if f.eofsRecv[headers.ClientId] >= f.w.Peers {
+			f.publish(headers)
 		}
-	} else if messageId == message.ScoredReviewID {
+	case message.ScoredReviewID:
 		msg, err := message.ScoredReviewsFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return
+		} else {
+			f.updateTop(msg, headers.ClientId)
 		}
-
-		f.updateTop(msg, clientId)
-	} else {
-		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
+	default:
+		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
+
+	return sequenceIds, nil
 }
 
 func (f *filter) updateTop(msg message.ScoredReviews, clientId string) {
@@ -100,9 +103,10 @@ func (f *filter) fixHeap(msg message.ScoredReview, clientId string) bool {
 
 // Eof msg received, so all msgs were received too.
 // Send the top n games to the broker
-func (f *filter) publish(clientId string) {
-	headers := map[string]any{amqp.MessageIdHeader: uint8(message.ScoredReviewID), amqp.OriginIdHeader: amqp.Query3originId, amqp.ClientIdHeader: clientId}
-	topNScoredReviews := f.getTopNScoredReviews(clientId)
+func (f *filter) publish(headers amqp.Header) {
+	headers = headers.WithMessageId(message.ScoredReviewID).WithOriginId(amqp.Query3originId)
+
+	topNScoredReviews := f.getTopNScoredReviews(headers.ClientId)
 	logs.Logger.Infof("Top %d games with most votes: %v", f.n, topNScoredReviews)
 
 	bytes, err := topNScoredReviews.ToBytes()
@@ -115,15 +119,16 @@ func (f *filter) publish(clientId string) {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 
-	delete(f.top, clientId)
+	delete(f.top, headers.ClientId)
 
 	if f.w.Peers == 0 { //it is not an aggregator
-		if err := f.w.Broker.HandleEofMessage(f.w.Id, 0, amqp.EmptyEof, map[string]any{amqp.ClientIdHeader: clientId}, f.w.InputEof, amqp.DestinationEof(f.w.Outputs[0])); err != nil {
+		_, err = f.w.HandleEofMessage(amqp.EmptyEof, headers, amqp.DestinationEof(f.w.Outputs[0]))
+		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	}
 
-	delete(f.eofsRecv, clientId)
+	delete(f.eofsRecv, headers.ClientId)
 }
 
 func (f *filter) getTopNScoredReviews(clientId string) message.ScoredReviews {

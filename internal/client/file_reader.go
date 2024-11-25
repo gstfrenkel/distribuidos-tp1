@@ -13,7 +13,7 @@ import (
 	"tp1/pkg/message"
 )
 
-func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interface{}, c *Client, port string) {
+func (c *Client) readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interface{}, address string) {
 
 	sendBatch := func(startLine int, batchSize int, reader *csv.Reader, dataStruct interface{}) (int, error) {
 		lineCount := startLine
@@ -82,23 +82,20 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 		return lineCount, nil
 	}
 
-	var err error
-	var file *os.File
-	var reader *csv.Reader
 	var batchStartLine, currentLine int
 	const batchSize = 100 // TODO: read from config
 
 	// Open CSV and initialize reader
-	file, err = os.Open(filename)
+	file, err := os.Open(filename)
 	if err != nil {
 		logs.Logger.Errorf("Error opening CSV file: %s", err)
 		return
 	}
 	defer file.Close()
 
-	reader = csv.NewReader(file)
+	reader := csv.NewReader(file)
 
-	// Skip headers
+	// Read and ignore the first line (headers)
 	if _, err = reader.Read(); err != nil {
 		if err == io.EOF {
 			logs.Logger.Error("CSV file is empty.")
@@ -122,7 +119,7 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 			for i := 0; i < batchStartLine; i++ {
 				_, _ = reader.Read()
 			}
-			conn = c.reconnect(port)
+			conn = c.reconnect(address)
 			continue
 		}
 
@@ -136,7 +133,7 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 			for i := 0; i < batchStartLine; i++ {
 				_, _ = reader.Read()
 			}
-			conn = c.reconnect(port)
+			conn = c.reconnect(address)
 			continue
 		}
 
@@ -153,7 +150,7 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 		if err := message.SendMessage(conn, eofMsg); err != nil {
 			logs.Logger.Errorf("Error sending EOF message: %s", err)
 			// Reconnect and retry sending EOF
-			conn = c.reconnect(port)
+			conn = c.reconnect(address)
 			continue
 		}
 		logs.Logger.Infof("Sent EOF for: %v", id)
@@ -163,7 +160,7 @@ func readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interfa
 			logs.Logger.Errorf("Error reading final ACK: %s", err)
 
 			// Reconnect and retry reading the ACK
-			conn = c.reconnect(port)
+			conn = c.reconnect(address)
 			continue
 		}
 		break

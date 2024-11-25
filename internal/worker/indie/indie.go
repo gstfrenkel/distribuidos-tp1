@@ -6,17 +6,12 @@ import (
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/sequence"
 )
 
 const (
 	query2 uint8 = iota
 	query3
-)
-
-var (
-	headersEof    = map[string]any{amqp.OriginIdHeader: amqp.GameOriginId}
-	headersQuery2 = map[string]any{amqp.MessageIdHeader: uint8(message.GameReleaseID)}
-	headersQuery3 = map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID)}
 )
 
 type filter struct {
@@ -40,30 +35,31 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery) {
-	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
+func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+	var sequenceIds []sequence.Destination
+	var err error
 
-	if messageId == message.EofMsg {
-		headersEof[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
-		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, headersEof, f.w.InputEof, f.w.OutputsEof...); err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
+	switch headers.MessageId {
+	case message.EofMsg:
+		sequenceIds, err = f.w.HandleEofMessage(delivery.Body, headers.WithOriginId(amqp.GameOriginId))
+		if err != nil {
+			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
-	} else if messageId == message.GameIdMsg {
+	case message.GameIdMsg:
 		msg, err := message.GameFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return
+		} else {
+			f.publish(headers, msg)
 		}
-
-		headersQuery2[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
-		headersQuery3[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
-		f.publish(msg)
-	} else {
-		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
+	default:
+		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
+
+	return sequenceIds, nil
 }
 
-func (f *filter) publish(msg message.Game) {
+func (f *filter) publish(headers amqp.Header, msg message.Game) {
 	genre := getGenre(f)
 	gameReleases := msg.ToGameReleasesMessage(genre)
 	b, err := gameReleases.ToBytes()
@@ -72,7 +68,7 @@ func (f *filter) publish(msg message.Game) {
 		return
 	}
 
-	if err = f.w.Broker.Publish(f.w.Outputs[query2].Exchange, f.w.Outputs[query2].Key, b, headersQuery2); err != nil {
+	if err = f.w.Broker.Publish(f.w.Outputs[query2].Exchange, f.w.Outputs[query2].Key, b, headers.WithMessageId(message.GameReleaseID)); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 
@@ -85,7 +81,7 @@ func (f *filter) publish(msg message.Game) {
 		}
 
 		k := worker.ShardGameId(game.GameId, f.w.Outputs[query3].Key, f.w.Outputs[query3].Consumers)
-		if err = f.w.Broker.Publish(f.w.Outputs[query3].Exchange, k, b, headersQuery3); err != nil {
+		if err = f.w.Broker.Publish(f.w.Outputs[query3].Exchange, k, b, headers.WithMessageId(message.GameNameID)); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	}

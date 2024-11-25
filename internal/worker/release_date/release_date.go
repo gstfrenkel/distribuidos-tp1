@@ -6,6 +6,7 @@ import (
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/sequence"
 )
 
 type filter struct {
@@ -33,28 +34,30 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery) {
-	clientId := delivery.Headers[amqp.ClientIdHeader].(string)
-	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
+func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+	var sequenceIds []sequence.Destination
 
-	if messageId == message.EofMsg {
-		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, map[string]any{amqp.ClientIdHeader: clientId}, f.w.InputEof, f.w.OutputsEof...); err != nil {
+	switch headers.MessageId {
+	case message.EofMsg:
+		_, err := f.w.HandleEofMessage(delivery.Body, headers)
+		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
-	} else if messageId == message.GameReleaseID {
+	case message.GameReleaseID:
 		msg, err := message.ReleasesFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return
+		} else {
+			f.publish(msg, headers)
 		}
-
-		f.publish(msg, clientId)
-	} else {
-		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
+	default:
+		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
+
+	return sequenceIds, nil
 }
 
-func (f *filter) publish(msg message.Releases, clientId string) {
+func (f *filter) publish(msg message.Releases, headers amqp.Header) {
 	dateFilteredGames := msg.ToPlaytimeMessage(f.startYear, f.endYear)
 
 	b, err := dateFilteredGames.ToBytes()
@@ -63,10 +66,7 @@ func (f *filter) publish(msg message.Releases, clientId string) {
 		return
 	}
 
-	headers := map[string]any{
-		amqp.MessageIdHeader: uint8(message.GameWithPlaytimeID),
-		amqp.ClientIdHeader:  clientId,
-	}
+	headers = headers.WithMessageId(message.GameWithPlaytimeID) // TODO: Add sequence ID.
 
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)

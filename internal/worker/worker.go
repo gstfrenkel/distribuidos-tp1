@@ -8,57 +8,85 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"tp1/internal/healthcheck"
 
+	"tp1/internal/errors"
+	"tp1/internal/healthcheck"
 	"tp1/pkg/amqp"
 	"tp1/pkg/amqp/broker"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
+	"tp1/pkg/dup"
 	"tp1/pkg/logs"
+	"tp1/pkg/message"
+	"tp1/pkg/recovery"
+	"tp1/pkg/sequence"
 
 	"github.com/pierrec/xxHash/xxHash32"
+)
+
+const (
+	ChanSize = 32
+	signals             = 2
+	configPath          = "config.json"
+	logLevelKey         = "log-level"
+	defaultLogLevel     = "INFO"
+	workerIdKey         = "worker-id"
+	queryKey            = "query"
+	peersKey            = "peers"
+	inputQKey           = "input-queues"
+	manyConsumersSubstr = "%d"
+	exchangesKey        = "exchanges"
+	outputQKey          = "output-queues"
 )
 
 type Filter interface {
 	Init() error
 	Start()
-	Process(delivery amqp.Delivery)
+	Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte)
 }
 
 type Worker struct {
 	config             config.Config
 	Query              any
 	Broker             amqp.MessageBroker
-	InputEof           amqp.DestinationEof
-	OutputsEof         []amqp.DestinationEof
+	inputEof           amqp.DestinationEof
+	outputsEof         []amqp.DestinationEof
 	Outputs            []amqp.Destination
-	SignalChan         chan os.Signal
+	signalChan         chan os.Signal
+	recovery           recovery.Handler
+	dup                dup.Handler
+	sequenceIds        map[string]uint64
 	Id                 uint8
 	Peers              uint8
 	HealthCheckService *healthcheck.Service
 }
 
 func New() (*Worker, error) {
-	cfg, err := provider.LoadConfig("config.json")
+	cfg, err := provider.LoadConfig(configPath)
 	if err != nil {
 		return nil, err
 	}
-	_ = logs.InitLogger(cfg.String("log-level", "INFO"))
+	_ = logs.InitLogger(cfg.String(logLevelKey, defaultLogLevel))
 	b, err := broker.NewBroker()
 	if err != nil {
 		return nil, err
 	}
 
-	signalChan := make(chan os.Signal, 2)
+	signalChan := make(chan os.Signal, signals)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
-	id, _ := strconv.Atoi(os.Getenv("worker-id"))
+	id, _ := strconv.Atoi(os.Getenv(workerIdKey))
 	var query any
-	if err = cfg.Unmarshal("query", &query); err != nil {
+	if err = cfg.Unmarshal(queryKey, &query); err != nil {
 		return nil, err
 	}
 
 	var peers uint8
-	if err = cfg.Unmarshal("peers", &peers); err != nil {
+	if err = cfg.Unmarshal(peersKey, &peers); err != nil {
+		return nil, err
+	}
+
+	recoveryHandler, err := recovery.NewHandler()
+	if err != nil {
 		return nil, err
 	}
 
@@ -71,8 +99,11 @@ func New() (*Worker, error) {
 		config:             cfg,
 		Query:              query,
 		Broker:             b,
-		SignalChan:         signalChan,
+		signalChan:         signalChan,
 		Id:                 uint8(id),
+		recovery:           recoveryHandler,
+		dup:                dup.NewHandler(),
+		sequenceIds:        make(map[string]uint64),
 		Peers:              peers,
 		HealthCheckService: hc,
 	}, nil
@@ -87,14 +118,14 @@ func (f *Worker) Init() error {
 
 func (f *Worker) Start(filter Filter) {
 	defer f.Broker.Close()
-	defer close(f.SignalChan)
+	defer close(f.signalChan)
 
 	f.listenHc()
 
 	defer f.HealthCheckService.Close()
 
 	var inputQ []amqp.Destination
-	err := f.config.Unmarshal("input-queues", &inputQ)
+	err := f.config.Unmarshal(inputQKey, &inputQ)
 	if err != nil {
 		logs.Logger.Errorf("error unmarshalling input-queue: %s", err.Error())
 		return
@@ -103,13 +134,13 @@ func (f *Worker) Start(filter Filter) {
 	channels := make([]<-chan amqp.Delivery, 0, len(inputQ))
 	for _, q := range inputQ {
 		queueName := q.Name
-		if strings.Contains(queueName, "%d") {
+		if strings.Contains(queueName, manyConsumersSubstr) {
 			queueName = fmt.Sprintf(queueName, f.Id)
 		}
 		if _, err = f.Broker.QueueDeclare(queueName); err != nil {
 			logs.Logger.Errorf("error declaring queue %s: %s", queueName, err.Error())
 		}
-		ch, err := f.Broker.Consume(queueName, "", true, false)
+		ch, err := f.Broker.Consume(queueName, "", false, false)
 		if err != nil {
 			logs.Logger.Errorf("error consuming from input-queue: %s", err.Error())
 			return
@@ -117,7 +148,101 @@ func (f *Worker) Start(filter Filter) {
 		channels = append(channels, ch)
 	}
 
-	f.consume(filter, f.SignalChan, channels...)
+	f.consume(filter, f.signalChan, channels...)
+}
+
+func (f *Worker) Recover(ch chan<- recovery.Message) {
+	if ch != nil {
+		defer close(ch)
+	}
+
+	recoveryCh := make(chan recovery.Record, ChanSize)
+	go f.recovery.Recover(recoveryCh)
+
+	for record := range recoveryCh {
+		src, err := sequence.SrcFromString(record.Header().SequenceId)
+		if err != nil {
+			logs.Logger.Errorf("error getting source from sequence: %s", err.Error())
+			continue
+		}
+
+		if ch != nil {
+			ch <- recovery.NewMessage(record)
+		}
+
+		for _, seq := range record.SequenceIds() {
+			f.recoverDstSequenceId(seq)
+		}
+
+		f.recoverSrcSequenceId(*src)
+	}
+}
+
+func (f *Worker) recoverSrcSequenceId(source sequence.Source) {
+	f.dup.Add(source)
+}
+
+func (f *Worker) recoverDstSequenceId(destination sequence.Destination) {
+	f.sequenceIds[destination.Key()] = destination.Id() + 1
+}
+
+func (f *Worker) NextSequenceId(key string) uint64 {
+	sequenceId, ok := f.sequenceIds[key]
+	if !ok {
+		f.sequenceIds[key] = 1
+	} else {
+		f.sequenceIds[key]++
+	}
+	return sequenceId
+}
+
+func (f *Worker) HandleEofMessage(msg []byte, headers amqp.Header, output ...amqp.DestinationEof) ([]sequence.Destination, error) {
+	workersVisited, err := message.EofFromBytes(msg)
+	if err != nil {
+		return nil, err
+	}
+
+	if !workersVisited.Contains(f.Id) {
+		workersVisited = append(workersVisited, f.Id)
+	}
+
+	var sequenceIds []sequence.Destination
+
+	if uint8(len(workersVisited)) < f.Peers {
+		sequenceId := f.NextSequenceId(f.inputEof.Key)
+		sequenceIds = append(sequenceIds, sequence.DstNew(f.inputEof.Key, sequenceId))
+
+		bytes, err := workersVisited.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		return sequenceIds, f.Broker.Publish(
+			f.inputEof.Exchange,
+			f.inputEof.Key,
+			bytes,
+			headers.WithMessageId(message.EofMsg).WithSequenceId(sequence.SrcNew(f.Id, sequenceId)),
+		)
+	}
+
+	outputs := f.outputsEof
+	if output != nil && len(output) > 0 {
+		outputs = output
+	}
+
+	for _, o := range outputs {
+		sequenceId := f.NextSequenceId(f.inputEof.Key)
+		sequenceIds = append(sequenceIds, sequence.DstNew(o.Key, sequenceId))
+		if err = f.Broker.Publish(
+			o.Exchange,
+			o.Key,
+			amqp.EmptyEof,
+			headers.WithMessageId(message.EofMsg).WithSequenceId(sequence.SrcNew(f.Id, sequenceId)),
+		); err != nil {
+			return nil, err
+		}
+	}
+
+	return sequenceIds, nil
 }
 
 func (f *Worker) listenHc() {
@@ -136,17 +261,38 @@ func (f *Worker) consume(filter Filter, signalChan chan os.Signal, deliveryChan 
 
 	for {
 		chosen, recv, ok := reflect.Select(cases)
-		if !ok || chosen == 0 {
+		if !ok || chosen == 0 { // Signal channel chosen for consumption
 			logs.Logger.Criticalf("Signal received. Shutting down...")
 			return
 		}
-		filter.Process(recv.Interface().(amqp.Delivery))
+
+		delivery := recv.Interface().(amqp.Delivery)
+		header := amqp.HeadersFromDelivery(delivery)
+		srcSequenceId, err := sequence.SrcFromString(header.SequenceId)
+		if err != nil {
+			logs.Logger.Errorf("error getting source sequence id: %s", err.Error())
+			continue
+		}
+
+		// Filter and only process non-duplicate messages
+		if !f.dup.IsDuplicate(*srcSequenceId) {
+			sequenceIds, msg := filter.Process(delivery, header)
+
+			if err = f.recovery.Log(recovery.NewRecord(header, sequenceIds, msg)); err != nil {
+				logs.Logger.Errorf("%s: %s", errors.FailedToLog.Error(), err)
+			}
+		}
+
+		// Acknowledge all duplicate and processed messages
+		if err = delivery.Ack(false); err != nil {
+			logs.Logger.Errorf("Failed to acknowledge message: %s", err.Error())
+		}
 	}
 }
 
 func (f *Worker) initExchanges() error {
 	var exchanges []amqp.Exchange
-	if err := f.config.Unmarshal("exchanges", &exchanges); err != nil {
+	if err := f.config.Unmarshal(exchangesKey, &exchanges); err != nil {
 		return err
 	}
 
@@ -155,7 +301,7 @@ func (f *Worker) initExchanges() error {
 
 func (f *Worker) initQueues() error {
 	// Output queue unmarshalling.
-	if err := f.config.Unmarshal("output-queues", &f.Outputs); err != nil {
+	if err := f.config.Unmarshal(outputQKey, &f.Outputs); err != nil {
 		return err
 	}
 
@@ -167,13 +313,13 @@ func (f *Worker) initQueues() error {
 		}
 		// EOF Output queue processing.
 		for _, aux := range destination {
-			f.OutputsEof = append(f.OutputsEof, amqp.DestinationEof(aux))
+			f.outputsEof = append(f.outputsEof, amqp.DestinationEof(aux))
 		}
 	}
 
 	// Input queue unmarshalling and binding.
 	var inputQ []amqp.Destination
-	err := f.config.Unmarshal("input-queues", &inputQ)
+	err := f.config.Unmarshal(inputQKey, &inputQ)
 	if err != nil {
 		return err
 	}
@@ -183,8 +329,8 @@ func (f *Worker) initQueues() error {
 			if _, err = f.Broker.QueueDeclare(q.Name); err != nil {
 				return err
 			}
-			f.InputEof = amqp.DestinationEof(q)
-			if err = f.Broker.QueueBind(amqp.QueueBind{Exchange: f.InputEof.Exchange, Name: f.InputEof.Name, Key: f.InputEof.Key}); err != nil {
+			f.inputEof = amqp.DestinationEof(q)
+			if err = f.Broker.QueueBind(amqp.QueueBind{Exchange: f.inputEof.Exchange, Name: f.inputEof.Name, Key: f.inputEof.Key}); err != nil {
 				return err
 			}
 			break

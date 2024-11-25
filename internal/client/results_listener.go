@@ -2,18 +2,25 @@ package client
 
 import (
 	"encoding/binary"
+	"net"
 	"tp1/pkg/ioutils"
 	"tp1/pkg/logs"
 )
 
-const LenFieldSize = 4
-const ResultPrefixSize = 2
+const (
+	LenFieldSize       = 4
+	resultsPortKey     = "gateway.results_port"
+	resultsPortDefault = "5052"
+	transportProtocol  = "tcp"
+	maxMsgKey          = "client.max_messages"
+	maxMsgDefault      = 5
+)
 
 func (c *Client) startResultsListener(address string) {
-	resultsPort := c.cfg.String("gateway.results_port", "5052")
+	resultsPort := c.cfg.String(resultsPortKey, resultsPortDefault)
 	resultsFullAddress := address + ":" + resultsPort
 
-	resultsConn, err := c.attemptConnection(resultsPort)
+	resultsConn, err := net.Dial(transportProtocol, resultsFullAddress)
 	if err != nil {
 		logs.Logger.Errorf("Initial connection to %s failed: %v", resultsFullAddress, err)
 		return
@@ -27,8 +34,12 @@ func (c *Client) startResultsListener(address string) {
 	logs.Logger.Infof("Connected to results on: %s", resultsFullAddress)
 
 	messageCount := 0
-	maxMessages := c.cfg.Int("client.max_messages", 5)
-	receivedMap := make(map[string]bool)
+	maxMessages := c.cfg.Int(maxMsgKey, maxMsgDefault)
+
+	c.readResults(resultsConn, messageCount, maxMessages, resultsPort)
+}
+
+func (c *Client) readResults(resultsConn net.Conn, messageCount int, maxMessages int, resultsPort string) {
 
 	for {
 		c.stoppedMutex.Lock()
@@ -58,20 +69,19 @@ func (c *Client) startResultsListener(address string) {
 		}
 
 		receivedData := string(payload)
-		prefix := receivedData[:ResultPrefixSize]
-		if received, exists := receivedMap[prefix]; !exists || !received {
-			if _, err := c.resultsFile.WriteString(receivedData + "\n\n"); err != nil {
-				logs.Logger.Errorf("Error writing to results.txt: %v", err)
-			}
-			receivedMap[prefix] = true
-			messageCount++
-		} else {
-			logs.Logger.Infof("Duplicate prefix %s received, skipping.", prefix)
-		}
 
+		c.writeDataToFile(receivedData)
+
+		messageCount++
 		if messageCount >= maxMessages {
 			logs.Logger.Infof("Max messages (%d) reached. Exiting listener.", maxMessages)
 			return
 		}
+	}
+}
+
+func (c *Client) writeDataToFile(receivedData string) {
+	if _, err := c.resultsFile.WriteString(receivedData + "\n\n"); err != nil {
+		logs.Logger.Errorf("Error writing to results.txt: %v", err)
 	}
 }

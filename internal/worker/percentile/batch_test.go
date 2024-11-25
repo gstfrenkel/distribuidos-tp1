@@ -4,6 +4,7 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"tp1/pkg/amqp"
 	"tp1/pkg/message"
 )
 
@@ -78,11 +79,11 @@ func TestSendBatchesSendsCorrectBatches(t *testing.T) {
 	toBytes := func(batch []any) ([]byte, error) {
 		return []byte("batch"), nil
 	}
-	sendBatch := func(bytes []byte, _ string) {
+	sendBatch := func(bytes []byte, _ amqp.Header) {
 		sentBatches = append(sentBatches, bytes)
 	}
 
-	SendBatches(data, 2, toBytes, sendBatch, "0-0")
+	SendBatches(data, 2, toBytes, sendBatch, amqp.Header{ClientId: "0-0"})
 
 	expectedBatches := [][]byte{[]byte("batch"), []byte("batch")}
 	if !reflect.DeepEqual(sentBatches, expectedBatches) {
@@ -102,11 +103,11 @@ func TestSendBatchesSendsScoredRevCorrectBatches(t *testing.T) {
 	toBytes := func(batch []any) ([]byte, error) {
 		return []byte("batch"), nil
 	}
-	sendBatch := func(bytes []byte, _ string) {
+	sendBatch := func(bytes []byte, _ amqp.Header) {
 		sentBatches = append(sentBatches, bytes)
 	}
 
-	SendBatches(data, 2, toBytes, sendBatch, "0-0")
+	SendBatches(data, 2, toBytes, sendBatch, amqp.Header{ClientId: "0-0"})
 
 	expectedBatches := [][]byte{[]byte("batch"), []byte("batch")}
 	if !reflect.DeepEqual(sentBatches, expectedBatches) {
@@ -121,11 +122,11 @@ func TestSendBatchesHandlesEmptyData(t *testing.T) {
 	toBytes := func(batch []any) ([]byte, error) {
 		return []byte("batch"), nil
 	}
-	sendBatch := func(bytes []byte, _ string) {
+	sendBatch := func(bytes []byte, _ amqp.Header) {
 		sentBatches = append(sentBatches, bytes)
 	}
 
-	SendBatches(data, 2, toBytes, sendBatch, "0-0")
+	SendBatches(data, 2, toBytes, sendBatch, amqp.Header{ClientId: "0-0"})
 
 	if len(sentBatches) != 0 {
 		t.Errorf("Expected no batches, got %v", sentBatches)
@@ -142,11 +143,11 @@ func TestSendBatchesHandlesToBytesError(t *testing.T) {
 	toBytes := func(batch []any) ([]byte, error) {
 		return nil, errors.New("toBytes error")
 	}
-	sendBatch := func(bytes []byte, _ string) {
+	sendBatch := func(bytes []byte, _ amqp.Header) {
 		sentBatches = append(sentBatches, bytes)
 	}
 
-	SendBatches(data, 2, toBytes, sendBatch, "0-0")
+	SendBatches(data, 2, toBytes, sendBatch, amqp.Header{ClientId: "0-0"})
 
 	if len(sentBatches) != 0 {
 		t.Errorf("Expected no batches due to error, got %v", sentBatches)

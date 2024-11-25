@@ -9,6 +9,12 @@ import (
 	"tp1/pkg/message"
 )
 
+const (
+	bufferSizeKey     = "gateway.buffer_size"
+	defaultBufferSize = 1024
+	eofPayloadSize    = 0
+)
+
 // listenForData listens for incoming games or reviews
 func (g *Gateway) listenForData(listener int) error {
 	return g.listenForConnections(listener, func(c net.Conn) {
@@ -19,7 +25,6 @@ func (g *Gateway) listenForData(listener int) error {
 func (g *Gateway) handleDataConnection(c net.Conn, msgId message.ID) {
 	clientId := g.readClientId(c)
 	sends := 0
-
 	clientChan := make(chan []byte)
 
 	if msgId == message.ReviewIdMsg {
@@ -30,8 +35,8 @@ func (g *Gateway) handleDataConnection(c net.Conn, msgId message.ID) {
 		go sendAcksToClient(&g.clientGamesAckChannels, clientId, c)
 	}
 
-	auxBuf := make([]byte, g.Config.Int("gateway.buffer_size", 1024))
-	buf := make([]byte, 0, g.Config.Int("gateway.buffer_size", 1024))
+	auxBuf := make([]byte, g.Config.Int(bufferSizeKey, defaultBufferSize))
+	buf := make([]byte, 0, g.Config.Int(bufferSizeKey, defaultBufferSize))
 	finished := false
 
 	for !finished {
@@ -120,7 +125,7 @@ func (g *Gateway) sendMsgToChunkSender(msgId message.ID, payload []byte, clientI
 }
 
 func isEndOfFile(payloadSize uint32) bool {
-	return payloadSize == 0
+	return payloadSize == eofPayloadSize
 }
 
 func sendConfirmationToClient(conn net.Conn) {

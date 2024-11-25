@@ -68,7 +68,8 @@ func (s *ChunkSender) sendChunk(clientAckChannels *sync.Map, eof bool, clientId 
 			logs.Logger.Errorf("Error converting chunks to bytes: %s", err.Error())
 		}
 
-		err = s.broker.Publish(s.exchange, s.routingKey, bytes, map[string]any{amqp.MessageIdHeader: uint8(messageId), amqp.ClientIdHeader: clientId})
+		headers := amqp.Header{MessageId: messageId, ClientId: clientId}
+		err = s.broker.Publish(s.exchange, s.routingKey, bytes, headers)
 		if err != nil {
 			logs.Logger.Errorf("Error publishing chunks: %s", err.Error())
 		}
@@ -80,7 +81,8 @@ func (s *ChunkSender) sendChunk(clientAckChannels *sync.Map, eof bool, clientId 
 	}
 
 	if eof {
-		err := s.broker.Publish(s.exchange, s.routingKey, amqp.EmptyEof, map[string]any{amqp.MessageIdHeader: uint8(message.EofMsg), amqp.ClientIdHeader: clientId})
+		headers := amqp.Header{MessageId: message.EofMsg, ClientId: clientId}
+		err := s.broker.Publish(s.exchange, s.routingKey, amqp.EmptyEof, headers)
 		if err != nil {
 			logs.Logger.Errorf("Error publishing EOF: %s", err.Error())
 		}

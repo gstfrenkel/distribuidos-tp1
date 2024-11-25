@@ -6,6 +6,7 @@ import (
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/sequence"
 )
 
 type filter struct {
@@ -37,59 +38,62 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery) {
-	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
-	clientId := delivery.Headers[amqp.ClientIdHeader].(string)
+func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+	var sequenceIds []sequence.Destination
 
-	if messageId == message.EofMsg {
-		f.eofsRecv[clientId]++
-		if f.eofsRecv[clientId] >= f.w.Peers {
-			f.publish(clientId, true)
-			f.sendEof(clientId)
-			f.reset(clientId)
+	headers = headers.WithOriginId(amqp.Query4originId)
+
+	switch headers.MessageId {
+	case message.EofMsg:
+		f.eofsRecv[headers.ClientId]++
+		if f.eofsRecv[headers.ClientId] >= f.w.Peers {
+			f.publish(headers, true)
+			f.sendEof(headers)
+			f.reset(headers.ClientId)
 		}
-	} else if messageId == message.GameNameID {
+	case message.GameNameID:
 		msg, err := message.GameNameFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return
+		} else {
+			f.saveGame(msg, headers.ClientId)
+			f.publish(headers, false)
 		}
-
-		f.saveGame(msg, clientId)
-		f.publish(clientId, false)
-	} else {
-		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
+	default:
+		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
+
+	return sequenceIds, nil
 }
 
-func (f *filter) publish(clientId string, eof bool) {
-	if len(f.games[clientId]) > 0 && (len(f.games[clientId]) >= int(f.batchSize) || eof) {
-		b, err := f.games[clientId].ToBytes()
-		logs.Logger.Infof("Publishing batch of %d games for client %s", len(f.games), clientId)
+func (f *filter) publish(headers amqp.Header, eof bool) {
+	if len(f.games[headers.ClientId]) > 0 && (len(f.games[headers.ClientId]) >= int(f.batchSize) || eof) {
+		b, err := f.games[headers.ClientId].ToBytes()
+		logs.Logger.Infof("Publishing batch of %d games for client %s", len(f.games), headers.ClientId)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 			return
 		}
 
-		f.sendBatch(b, clientId)
-		f.games[clientId] = f.games[clientId][:0]
+		f.sendBatch(headers, b)
+		f.games[headers.ClientId] = f.games[headers.ClientId][:0]
 	}
 }
 
-func (f *filter) sendBatch(b []byte, clientId string) {
-	headers := map[string]any{amqp.MessageIdHeader: uint8(message.GameNameID), amqp.OriginIdHeader: amqp.Query4originId, amqp.ClientIdHeader: clientId}
+func (f *filter) sendBatch(headers amqp.Header, b []byte) {
+	headers = headers.WithMessageId(message.GameNameID)
 	if err := f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 }
 
-func (f *filter) sendEof(clientId string) {
-	headers := map[string]any{amqp.OriginIdHeader: amqp.Query4originId, amqp.ClientIdHeader: clientId}
-	if err := f.w.Broker.HandleEofMessage(f.w.Id, 0, amqp.EmptyEof, headers, f.w.InputEof, f.w.OutputsEof...); err != nil {
+func (f *filter) sendEof(headers amqp.Header) {
+	_, err := f.w.HandleEofMessage(amqp.EmptyEof, headers)
+	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 
-	logs.Logger.Infof("Eof message sent for client %s", clientId)
+	logs.Logger.Infof("Eof message sent for client %s", headers.ClientId)
 }
 
 func (f *filter) reset(clientId string) {

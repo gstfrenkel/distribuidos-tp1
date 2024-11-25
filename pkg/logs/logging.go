@@ -7,6 +7,8 @@ import (
 
 var Logger, _ = GetLogger("")
 
+const defLevel = "INFO"
+
 // InitLogger Receives the log level to be set in go-logging as a string. This method
 // parses the string and set the level to the logger. If the level string is not
 // valid an error is returned
@@ -18,6 +20,10 @@ func InitLogger(logLevel string) error {
 	backendFormatter := logging.NewBackendFormatter(baseBackend, format)
 
 	backendLeveled := logging.AddModuleLevel(backendFormatter)
+	if logLevel == "" {
+		logLevel = defLevel
+	}
+
 	logLevelCode, err := logging.LogLevel(logLevel)
 	if err != nil {
 		return err

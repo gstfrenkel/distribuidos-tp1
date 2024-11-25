@@ -6,6 +6,7 @@ import (
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/sequence"
 )
 
 type filter struct {
@@ -33,41 +34,42 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery) {
+func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+	var sequenceIds []sequence.Destination
 
-	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
-	clientId := delivery.Headers[amqp.ClientIdHeader].(string)
-
-	if _, exists := f.counters[clientId]; !exists {
-		f.counters[clientId] = &message.Platform{Windows: 0, Linux: 0, Mac: 0}
+	if _, exists := f.counters[headers.ClientId]; !exists {
+		f.counters[headers.ClientId] = &message.Platform{Windows: 0, Linux: 0, Mac: 0}
 	}
-	clientCounter := f.counters[clientId]
+	clientCounter := f.counters[headers.ClientId]
 
-	if messageId == message.EofMsg {
-		logs.Logger.Infof("Received EOF for client %s! Sending platform count: %v", clientId, clientCounter)
+	switch headers.MessageId {
+	case message.EofMsg:
+		logs.Logger.Infof("Received EOF for client %s! Sending platform count: %v", headers.ClientId, clientCounter)
 
-		f.publish(clientId)
-		delete(f.counters, clientId)
+		f.publish(headers)
+		delete(f.counters, headers.ClientId)
 
-		headers := map[string]any{amqp.ClientIdHeader: clientId}
-		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, headers, f.w.InputEof, f.w.OutputsEof...); err != nil {
+		_, err := f.w.HandleEofMessage(delivery.Body, headers)
+		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
 
-	} else if messageId == message.PlatformID {
+	case message.PlatformID:
 		msg, err := message.PlatfromFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return
+		} else {
+			clientCounter.Increment(msg)
 		}
-		clientCounter.Increment(msg)
-	} else {
-		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
+	default:
+		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
+
+	return sequenceIds, nil
 }
 
-func (f *filter) publish(clientId string) {
-	platforms := f.counters[clientId]
+func (f *filter) publish(headers amqp.Header) {
+	platforms := f.counters[headers.ClientId]
 
 	if platforms.IsEmpty() {
 		return
@@ -79,12 +81,9 @@ func (f *filter) publish(clientId string) {
 		return
 	}
 
-	headers := map[string]any{
-		amqp.MessageIdHeader: uint8(message.PlatformID),
-		amqp.OriginIdHeader:  amqp.Query1originId,
-		amqp.ClientIdHeader:  clientId,
-	}
-	logs.Logger.Infof("Sending %v for client %s with key %s", *platforms, clientId, f.w.Outputs[0].Key)
+	logs.Logger.Infof("Sending %v for client %s with key %s", *platforms, headers.ClientId, f.w.Outputs[0].Key)
+
+	headers = headers.WithMessageId(message.PlatformID).WithOriginId(amqp.Query1originId) // TODO: Add sequence ID
 
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)

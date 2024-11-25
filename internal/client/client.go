@@ -1,7 +1,6 @@
 package client
 
 import (
-	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -12,6 +11,23 @@ import (
 	"tp1/pkg/config/provider"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+)
+
+const (
+	configPath        = "config.toml"
+	gatewayAddrKey    = "gateway.address"
+	gatewayAddrDef    = "172.25.125.100"
+	signals           = 2
+	gamesPortKey      = "gateway.games_port"
+	gamesPortDef      = "5051"
+	reviewsPortKey    = "gateway.reviews_port"
+	reviewsPortDef    = "5050"
+	gamesCsvPathKey   = "client.games_path"
+	gamesCsvPathDef   = "data/games.csv"
+	reviewsCsvPathKey = "client.reviews_path"
+	reviewsCsvPathDef = "data/reviews.csv"
+	csvsToSend        = 2
+	ackBytes          = 32
 )
 
 type Client struct {
@@ -25,12 +41,12 @@ type Client struct {
 }
 
 func New() (*Client, error) {
-	config, err := provider.LoadConfig("config.toml")
+	config, err := provider.LoadConfig(configPath)
 	if err != nil {
 		return nil, err
 	}
 
-	sigChan := make(chan os.Signal, 1)
+	sigChan := make(chan os.Signal, signals)
 	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 
 	return &Client{
@@ -43,10 +59,14 @@ func New() (*Client, error) {
 
 func (c *Client) Start() {
 	logs.Logger.Info("Client running...")
+	go func() {
+		<-c.sigChan
+		c.handleSigterm()
+	}()
 
 	wg := sync.WaitGroup{}
-	gatewayAddress := c.cfg.String("gateway.address", "172.25.125.100")
-	c.gatewayAddr = gatewayAddress
+	gatewayAddress := c.cfg.String(gatewayAddrKey, gatewayAddrDef)
+
 	err := c.fetchClientID(gatewayAddress)
 	if err != nil {
 		logs.Logger.Errorf("Error fetching client ID: %v", err)
@@ -65,77 +85,71 @@ func (c *Client) Start() {
 		c.startResultsListener(gatewayAddress)
 	}()
 
-	gamesPort := c.cfg.String("gateway.games_port", "5051")
-	gamesFullAddress := gatewayAddress + ":" + gamesPort
+	gamesFullAddress := c.getFullAddress(gatewayAddress, gamesPortKey, gamesPortDef)
+	reviewsFullAddress := c.getFullAddress(gatewayAddress, reviewsPortKey, reviewsPortDef)
 
-	reviewsPort := c.cfg.String("gateway.reviews_port", "5050")
-	reviewsFullAddress := gatewayAddress + ":" + reviewsPort
-
-	gamesConn, err := c.attemptConnection(gamesPort)
+	gamesConn, err := c.setupConnection(gamesFullAddress)
 	if err != nil {
-		logs.Logger.Errorf("Games Conn error: %v", err)
 		return
 	}
 
-	reviewsConn, err := c.attemptConnection(reviewsPort)
+	reviewsConn, err := c.setupConnection(reviewsFullAddress)
 	if err != nil {
-		logs.Logger.Errorf("Reviews Conn error: %v", err)
 		return
 	}
 
-	logs.Logger.Infof("Games conn: %s", gamesFullAddress)
-	logs.Logger.Infof("Reviews conn: %s", reviewsFullAddress)
+	wg.Add(csvsToSend)
 
-	wg.Add(2)
-
-	go func() {
-		<-c.sigChan
-		c.handleSigterm()
-	}()
-
-	go func() {
-		defer wg.Done()
-		defer gamesConn.Close()
-		readAndSendCSV(c.cfg.String("client.games_path", "data/games.csv"), uint8(message.GameIdMsg), gamesConn, &message.DataCSVGames{}, c, gamesPort)
-		header := make([]byte, 32)
-		if _, err = gamesConn.Read(header); err != nil {
-			logs.Logger.Errorf("Failed to read message: %v", err.Error())
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		defer reviewsConn.Close()
-		readAndSendCSV(c.cfg.String("client.reviews_path", "data/reviews.csv"), uint8(message.ReviewIdMsg), reviewsConn, &message.DataCSVReviews{}, c, reviewsPort)
-		header := make([]byte, 32)
-		if _, err = reviewsConn.Read(header); err != nil {
-			logs.Logger.Errorf("Failed to read message: %v", err.Error())
-		}
-	}()
+	c.sendGames(&wg, gamesConn, gamesFullAddress)
+	c.sendReviews(&wg, reviewsConn, reviewsFullAddress)
 
 	wg.Wait()
 	logs.Logger.Info("Client exit...")
 	c.Close(gamesConn, reviewsConn)
 }
 
-func (c *Client) reconnect(port string) net.Conn {
+func (c *Client) sendData(wg *sync.WaitGroup, conn net.Conn, pathKey string, pathDef string, id uint8, dataStruct interface{}, address string) {
+	go func() {
+		defer wg.Done()
+		defer conn.Close()
+		c.readAndSendCSV(c.cfg.String(pathKey, pathDef), id, conn, dataStruct, address)
+		// ackMsg := make([]byte, ackBytes)
+		// if _, err := conn.Read(ackMsg); err != nil {
+		// 	logs.Logger.Errorf("Failed to read message: %v", err.Error())
+		// }
+	}()
+}
+
+func (c *Client) sendGames(wg *sync.WaitGroup, gamesConn net.Conn, address string) {
+	c.sendData(wg, gamesConn, gamesCsvPathKey, gamesCsvPathDef, uint8(message.GameIdMsg), &message.DataCSVGames{}, address)
+}
+
+func (c *Client) sendReviews(wg *sync.WaitGroup, reviewsConn net.Conn, address string) {
+	c.sendData(wg, reviewsConn, reviewsCsvPathKey, reviewsCsvPathDef, uint8(message.ReviewIdMsg), &message.DataCSVReviews{}, address)
+}
+
+func (c *Client) getFullAddress(gatewayAddress, portKey, portDef string) string {
+	port := c.cfg.String(portKey, portDef)
+	return gatewayAddress + ":" + port
+}
+
+func (c *Client) reconnect(address string) net.Conn {
 	var newConn net.Conn
 	for {
 		logs.Logger.Infof("Attempting to reconnect...")
-		conn, err := c.attemptConnection(port)
+		conn, err := c.setupConnection(address)
 		if err == nil {
 			logs.Logger.Infof("Reconnected successfully.")
 			newConn = conn
 			break
 		}
 		logs.Logger.Errorf("Reconnect failed, retrying in 5 seconds: %v", err)
-		time.Sleep(5 * time.Second) // Todo read from config timeout value
+		time.Sleep(5 * time.Second)
 	}
 	return newConn
 }
 
-func (c *Client) attemptConnection(port string) (net.Conn, error) {
-	address := fmt.Sprintf("%s:%s", c.gatewayAddr, port)
+func (c *Client) setupConnection(address string) (net.Conn, error) {
 	logs.Logger.Infof("Connecting to %s...", address)
 
 	conn, err := net.Dial("tcp", address)
@@ -144,11 +158,12 @@ func (c *Client) attemptConnection(port string) (net.Conn, error) {
 		return nil, err
 	}
 
-	logs.Logger.Infof("Connected to %s successfully.", address)
+	logs.Logger.Infof("Connection established: %s", address)
 
 	err = c.sendClientID(conn)
 	if err != nil {
 		logs.Logger.Errorf("Error sending client ID: %s", err)
+		conn.Close()
 		return nil, err
 	}
 

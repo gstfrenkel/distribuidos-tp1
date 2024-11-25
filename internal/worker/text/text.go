@@ -6,13 +6,9 @@ import (
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/sequence"
 
 	"github.com/pemistahl/lingua-go"
-)
-
-var (
-	headersEof = map[string]any{amqp.OriginIdHeader: amqp.ReviewOriginId, amqp.MessageIdHeader: uint8(message.EofMsg)}
-	headers    = map[string]any{amqp.MessageIdHeader: uint8(message.ScoredReviewID)}
 )
 
 var languages = map[string]lingua.Language{
@@ -63,29 +59,32 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery) {
-	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
+func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+	var sequenceIds []sequence.Destination
 
-	if messageId == message.EofMsg {
-		headersEof[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
-		if err := f.w.Broker.HandleEofMessage(f.w.Id, f.w.Peers, delivery.Body, headersEof, f.w.InputEof, f.w.OutputsEof...); err != nil {
+	headers = headers.WithOriginId(amqp.ReviewOriginId)
+
+	switch headers.MessageId {
+	case message.EofMsg:
+		_, err := f.w.HandleEofMessage(delivery.Body, headers)
+		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
-	} else if messageId == message.ReviewWithTextID {
+	case message.ReviewWithTextID:
 		msg, err := message.TextReviewFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return
+		} else {
+			f.publish(msg, headers)
 		}
-
-		headers[amqp.ClientIdHeader] = delivery.Headers[amqp.ClientIdHeader]
-		f.publish(msg)
-	} else {
-		logs.Logger.Infof(errors.InvalidMessageId.Error(), messageId)
+	default:
+		logs.Logger.Infof(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
+
+	return sequenceIds, nil
 }
 
-func (f *filter) publish(msg message.TextReviews) {
+func (f *filter) publish(msg message.TextReviews, headers amqp.Header) {
 	for gameId, reviews := range msg {
 		count := 0
 
@@ -106,6 +105,8 @@ func (f *filter) publish(msg message.TextReviews) {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 			continue
 		}
+
+		headers = headers.WithMessageId(message.ScoredReviewID)
 
 		if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, k, b, headers); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
