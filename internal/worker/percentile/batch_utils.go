@@ -2,10 +2,11 @@ package percentile
 
 import (
 	"tp1/internal/errors"
+	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 )
 
-func SendBatches(slice []any, batchSize uint16, toBytes func([]any) ([]byte, error), sendBatch func([]byte, string), clientId string) {
+func SendBatches(slice []any, batchSize uint16, toBytes func([]any) ([]byte, error), sendBatch func([]byte, amqp.Header), headers amqp.Header) {
 	length := len(slice)
 	for start := 0; start < length; {
 		batch, nextStart := nextBatch(slice, length, batchSize, start)
@@ -14,7 +15,7 @@ func SendBatches(slice []any, batchSize uint16, toBytes func([]any) ([]byte, err
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err)
 			return
 		}
-		sendBatch(bytes, clientId)
+		sendBatch(bytes, headers)
 		start = nextStart
 	}
 }

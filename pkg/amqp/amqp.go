@@ -7,9 +7,10 @@ import (
 )
 
 const (
-	MessageIdHeader = "x-message-id"
-	OriginIdHeader  = "x-origin-id"
-	ClientIdHeader  = "x-client-id"
+	MessageIdHeader  = "x-message-id"
+	OriginIdHeader   = "x-origin-id"
+	ClientIdHeader   = "x-client-id"
+	SequenceIdHeader = "x-sequence-id"
 )
 
 const (
@@ -53,8 +54,7 @@ type MessageBroker interface {
 	ExchangeDeclare(exchange ...Exchange) error
 	QueueBind(binds ...QueueBind) error
 	ExchangeBind(dst, key, src string) error
-	Publish(exchange, key string, msg []byte, headers map[string]any) error
+	Publish(exchange, key string, msg []byte, headers Header) error
 	Consume(queue, consumer string, autoAck, exclusive bool) (<-chan Delivery, error)
-	HandleEofMessage(workerId, peers uint8, msg []byte, headers map[string]any, input DestinationEof, outputs ...DestinationEof) error
 	Close()
 }
