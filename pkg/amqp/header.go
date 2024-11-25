@@ -28,7 +28,7 @@ type Header struct {
 
 func HeadersFromDelivery(delivery Delivery) Header {
 	originId, ok := delivery.Headers[OriginIdHeader]
-	if !ok {
+	if !ok || originId == nil {
 		originId = defaultOriginId
 	}
 
@@ -39,7 +39,7 @@ func HeadersFromDelivery(delivery Delivery) Header {
 
 	return Header{
 		MessageId:  message.ID(delivery.Headers[MessageIdHeader].(uint8)),
-		OriginId:   uint8(originId.(int)),
+		OriginId:   originId.(uint8),
 		ClientId:   delivery.Headers[ClientIdHeader].(string),
 		SequenceId: sequenceId.(string),
 	}
