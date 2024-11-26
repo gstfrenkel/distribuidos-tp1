@@ -40,6 +40,7 @@ func (c *Client) startResultsListener(address string) {
 }
 
 func (c *Client) readResults(resultsConn net.Conn, messageCount int, maxMessages int, resultsPort string) {
+	timeout := c.cfg.Int(timeoutKey, timeoutDefault)
 
 	for {
 		c.stoppedMutex.Lock()
@@ -54,7 +55,7 @@ func (c *Client) readResults(resultsConn net.Conn, messageCount int, maxMessages
 		err := ioutils.ReadFull(resultsConn, lenBuffer, LenFieldSize)
 		if err != nil {
 			logs.Logger.Errorf("Error reading length of message: %v", err)
-			resultsConn = c.reconnect(resultsPort)
+			resultsConn = c.reconnect(resultsPort, timeout)
 			continue
 		}
 
@@ -64,7 +65,7 @@ func (c *Client) readResults(resultsConn net.Conn, messageCount int, maxMessages
 		err = ioutils.ReadFull(resultsConn, payload, int(dataLen))
 		if err != nil {
 			logs.Logger.Errorf("Error reading payload: %v", err)
-			resultsConn = c.reconnect(resultsPort)
+			resultsConn = c.reconnect(resultsPort, timeout)
 			continue
 		}
 

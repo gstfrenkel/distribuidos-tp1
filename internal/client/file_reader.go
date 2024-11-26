@@ -13,6 +13,13 @@ import (
 	"tp1/pkg/message"
 )
 
+const (
+	chunkSizeKey     = "client.chunk_size"
+	chunkSizeDefault = 100
+	timeoutKey       = "client.timeout"
+	timeoutDefault   = 5
+)
+
 func (c *Client) readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interface{}, address string) {
 
 	sendBatch := func(startLine int, batchSize int, reader *csv.Reader, dataStruct interface{}) (int, error) {
@@ -83,7 +90,7 @@ func (c *Client) readAndSendCSV(filename string, id uint8, conn net.Conn, dataSt
 	}
 
 	var batchStartLine, currentLine int
-	const batchSize = 100 // TODO: read from config
+	batchSize := c.cfg.Int(chunkSizeKey, chunkSizeDefault)
 
 	// Open CSV and initialize reader
 	file, err := os.Open(filename)
@@ -105,6 +112,8 @@ func (c *Client) readAndSendCSV(filename string, id uint8, conn net.Conn, dataSt
 		return
 	}
 
+	timeout := c.cfg.Int(timeoutKey, timeoutDefault)
+
 	for {
 		currentLine, err = sendBatch(batchStartLine, batchSize, reader, dataStruct)
 		if err == io.EOF {
@@ -117,14 +126,14 @@ func (c *Client) readAndSendCSV(filename string, id uint8, conn net.Conn, dataSt
 			if err := message.SendMessage(conn, eofMsg); err != nil {
 				logs.Logger.Errorf("Error sending EOF message: %s", err)
 				rewindReader(file, reader, batchStartLine)
-				conn = c.reconnect(address)
+				conn = c.reconnect(address, timeout)
 				continue
 			}
 
 			if err := readAck(conn); err != nil {
 				logs.Logger.Errorf("Error reading final ACK: %s", err)
 				rewindReader(file, reader, batchStartLine)
-				conn = c.reconnect(address)
+				conn = c.reconnect(address, timeout)
 				continue
 			}
 			break
@@ -132,7 +141,7 @@ func (c *Client) readAndSendCSV(filename string, id uint8, conn net.Conn, dataSt
 		if err != nil {
 			logs.Logger.Errorf("Error sending data: %s", err)
 			rewindReader(file, reader, batchStartLine)
-			conn = c.reconnect(address)
+			conn = c.reconnect(address, timeout)
 			continue
 		}
 
@@ -140,7 +149,7 @@ func (c *Client) readAndSendCSV(filename string, id uint8, conn net.Conn, dataSt
 		if err := readAck(conn); err != nil {
 			logs.Logger.Errorf("ACK error: %s", err)
 			rewindReader(file, reader, batchStartLine)
-			conn = c.reconnect(address)
+			conn = c.reconnect(address, timeout)
 			continue
 		}
 

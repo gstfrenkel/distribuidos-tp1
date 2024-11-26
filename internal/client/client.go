@@ -129,7 +129,8 @@ func (c *Client) getFullAddress(gatewayAddress, portKey, portDef string) string 
 	return gatewayAddress + ":" + port
 }
 
-func (c *Client) reconnect(address string) net.Conn {
+func (c *Client) reconnect(address string, timeout int) net.Conn {
+
 	var newConn net.Conn
 	for {
 		logs.Logger.Infof("Attempting to reconnect...")
@@ -139,8 +140,8 @@ func (c *Client) reconnect(address string) net.Conn {
 			newConn = conn
 			break
 		}
-		logs.Logger.Errorf("Reconnect failed, retrying in 5 seconds: %v", err)
-		time.Sleep(5 * time.Second)
+		logs.Logger.Errorf("Reconnect failed, retrying in %v seconds: %s", timeout, err)
+		time.Sleep(time.Duration(timeout) * time.Second)
 	}
 	return newConn
 }

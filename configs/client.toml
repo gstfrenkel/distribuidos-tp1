@@ -9,5 +9,6 @@ ids_port = 5053
 games_path = "data/fafa_games.csv"
 reviews_path = "data/fafa_reviews.csv"
 max_messages = 5
-
+timeout = 5
+chunk_size = 100
 
