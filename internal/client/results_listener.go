@@ -14,6 +14,7 @@ const (
 	transportProtocol  = "tcp"
 	maxMsgKey          = "client.max_messages"
 	maxMsgDefault      = 5
+	ResultPrefixSize   = 2
 )
 
 func (c *Client) startResultsListener(address string) {
@@ -41,7 +42,7 @@ func (c *Client) startResultsListener(address string) {
 
 func (c *Client) readResults(resultsConn net.Conn, messageCount int, maxMessages int, resultsPort string) {
 	timeout := c.cfg.Int(timeoutKey, timeoutDefault)
-
+	receivedMap := make(map[string]bool)
 	for {
 		c.stoppedMutex.Lock()
 		if c.stopped {
@@ -51,6 +52,7 @@ func (c *Client) readResults(resultsConn net.Conn, messageCount int, maxMessages
 		}
 		c.stoppedMutex.Unlock()
 
+		// Read payload size
 		lenBuffer := make([]byte, LenFieldSize)
 		err := ioutils.ReadFull(resultsConn, lenBuffer, LenFieldSize)
 		if err != nil {
@@ -70,10 +72,15 @@ func (c *Client) readResults(resultsConn net.Conn, messageCount int, maxMessages
 		}
 
 		receivedData := string(payload)
+		prefix := receivedData[:ResultPrefixSize]
+		if received, exists := receivedMap[prefix]; !exists || !received {
+			c.writeDataToFile(receivedData)
+			receivedMap[prefix] = true
+			messageCount++
+		} else {
+			logs.Logger.Infof("Duplicate prefix %s received, skipping.", prefix)
+		}
 
-		c.writeDataToFile(receivedData)
-
-		messageCount++
 		if messageCount >= maxMessages {
 			logs.Logger.Infof("Max messages (%d) reached. Exiting listener.", maxMessages)
 			return
