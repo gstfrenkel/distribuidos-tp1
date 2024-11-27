@@ -1,0 +1,23 @@
+mkdir -p ./volumes
+touch ./volumes/gateway-1.csv
+touch ./volumes/reviews-filter-1.csv
+touch ./volumes/review-text-filter-1.csv
+touch ./volumes/action-filter-1.csv
+touch ./volumes/indie-filter-1.csv
+touch ./volumes/platform-filter-1.csv
+touch ./volumes/joiner-counter-filter-1.csv
+touch ./volumes/joiner-counter-filter-2.csv
+touch ./volumes/joiner-top-filter-1.csv
+touch ./volumes/joiner-top-filter-2.csv
+touch ./volumes/joiner-percentile-filter-1.csv
+touch ./volumes/joiner-percentile-filter-2.csv
+touch ./volumes/percentile-filter-1.csv
+touch ./volumes/topn-filter-1.csv
+touch ./volumes/topn-filter-2.csv
+touch ./volumes/topn-aggregator-1.csv
+touch ./volumes/platform-counter-1.csv
+touch ./volumes/platform-aggregator-1.csv
+touch ./volumes/topn-playtime-filter-1.csv
+touch ./volumes/release-date-filter-1.csv
+touch ./volumes/topn-playtime-aggregator-1.csv
+touch ./volumes/review-counter-agg.csv
