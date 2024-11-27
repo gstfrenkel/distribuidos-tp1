@@ -38,6 +38,8 @@ func (f *filter) Start() {
 func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
 
+	headers = headers.WithOriginId(amqp.Query2originId)
+
 	switch headers.MessageId {
 	case message.EofMsg:
 		workersVisited, err := message.EofFromBytes(delivery.Body)
@@ -55,7 +57,6 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
-
 	case message.GameWithPlaytimeID:
 		if _, exists := f.clientHeaps[headers.ClientId]; !exists {
 			f.clientHeaps[headers.ClientId] = &MinHeapPlaytime{}
@@ -89,7 +90,7 @@ func (f *filter) publish(headers amqp.Header) {
 		return
 	}
 
-	headers = headers.WithMessageId(message.GameWithPlaytimeID).WithOriginId(amqp.Query2originId)
+	headers = headers.WithMessageId(message.GameWithPlaytimeID)
 	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}

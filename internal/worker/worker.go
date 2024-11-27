@@ -9,7 +9,6 @@ import (
 	"strings"
 	"syscall"
 
-	"tp1/internal/errors"
 	"tp1/internal/healthcheck"
 	"tp1/pkg/amqp"
 	"tp1/pkg/amqp/broker"
@@ -33,6 +32,7 @@ const (
 	workerIdKey         = "worker-id"
 	queryKey            = "query"
 	peersKey            = "peers"
+	expectedEofsKey     = "expected_eofs"
 	inputQKey           = "input-queues"
 	manyConsumersSubstr = "%d"
 	exchangesKey        = "exchanges"
@@ -57,7 +57,8 @@ type Worker struct {
 	dup                dup.Handler
 	sequenceIds        map[string]uint64
 	Id                 uint8
-	Peers              uint8
+	peers              uint8
+	ExpectedEofs       uint8
 	HealthCheckService *healthcheck.Service
 }
 
@@ -85,6 +86,11 @@ func New() (*Worker, error) {
 		return nil, err
 	}
 
+	var expectedEofs uint8
+	if err = cfg.Unmarshal(expectedEofsKey, &expectedEofs); err != nil {
+		return nil, err
+	}
+
 	recoveryHandler, err := recovery.NewHandler()
 	if err != nil {
 		return nil, err
@@ -104,7 +110,8 @@ func New() (*Worker, error) {
 		recovery:           recoveryHandler,
 		dup:                dup.NewHandler(),
 		sequenceIds:        make(map[string]uint64),
-		Peers:              peers,
+		peers:              peers,
+		ExpectedEofs:       expectedEofs,
 		HealthCheckService: hc,
 	}, nil
 }
@@ -208,7 +215,7 @@ func (f *Worker) HandleEofMessage(msg []byte, headers amqp.Header, output ...amq
 
 	var sequenceIds []sequence.Destination
 
-	if uint8(len(workersVisited)) < f.Peers {
+	if uint8(len(workersVisited)) < f.peers {
 		sequenceId := f.NextSequenceId(f.inputEof.Key)
 		sequenceIds = append(sequenceIds, sequence.DstNew(f.inputEof.Key, sequenceId))
 
@@ -268,20 +275,20 @@ func (f *Worker) consume(filter Filter, signalChan chan os.Signal, deliveryChan 
 
 		delivery := recv.Interface().(amqp.Delivery)
 		header := amqp.HeadersFromDelivery(delivery)
-		//_, err := sequence.SrcFromString(header.SequenceId)
-		/*		if err != nil {
-				logs.Logger.Errorf("error getting source sequence id: %s", err.Error())
-				continue
-			}*/
+		/*srcSequenceId, err := sequence.SrcFromString(header.SequenceId)
+		if err != nil {
+			logs.Logger.Errorf("error getting source sequence id: %s", err.Error())
+			continue
+		}*/
 
 		// Filter and only process non-duplicate messages
 		//if !f.dup.IsDuplicate(*srcSequenceId) {
-		sequenceIds, msg := filter.Process(delivery, header)
+		_, _ = filter.Process(delivery, header)
 
-		if err := f.recovery.Log(recovery.NewRecord(header, sequenceIds, msg)); err != nil {
+		/*if err := f.recovery.Log(recovery.NewRecord(header, sequenceIds, msg)); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToLog.Error(), err)
 		}
-		//}
+		}*/
 
 		// Acknowledge all duplicate and processed messages
 		if err := delivery.Ack(false); err != nil {

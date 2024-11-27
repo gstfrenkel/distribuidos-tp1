@@ -45,10 +45,12 @@ func (f *filter) Start() {
 func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
 
+	headers = headers.WithOriginId(amqp.Query5originId)
+
 	switch headers.MessageId {
 	case message.EofMsg:
 		f.eofsRecv[headers.ClientId]++
-		if f.eofsRecv[headers.ClientId] >= f.w.Peers {
+		if f.eofsRecv[headers.ClientId] >= f.w.ExpectedEofs {
 			f.publish(headers)
 		}
 	case message.ScoredReviewID:
@@ -83,7 +85,7 @@ func (f *filter) publish(headers amqp.Header) {
 }
 
 func (f *filter) sendBatch(bytes []byte, headers amqp.Header) {
-	headers = headers.WithMessageId(message.ScoredReviewID).WithOriginId(amqp.Query5originId)
+	headers = headers.WithMessageId(message.ScoredReviewID)
 	if err := f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, bytes, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
@@ -123,7 +125,7 @@ func (f *filter) reset(clientId string) {
 }
 
 func (f *filter) sendEof(headers amqp.Header) {
-	_, err := f.w.HandleEofMessage(amqp.EmptyEof, headers.WithOriginId(amqp.Query5originId)) // TODO: Return sequence IDs
+	_, err := f.w.HandleEofMessage(amqp.EmptyEof, headers) // TODO: Return sequence IDs
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}

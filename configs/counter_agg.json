@@ -1,6 +1,7 @@
 {
   "query": 10,
-  "peers": 2,
+  "peers": 0,
+  "expected_eofs": 2,
   "input-queues": [
     {
       "name": "joined_counted"
