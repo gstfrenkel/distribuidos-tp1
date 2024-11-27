@@ -7,7 +7,7 @@ list_containers() {
 
 
 main() {
-    KILL_INTERVAL=${1:-30}
+    KILL_INTERVAL=${1:-35}
 
     while true; do
         containers=($(list_containers))
