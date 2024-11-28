@@ -22,7 +22,7 @@ const (
 
 func (c *Client) readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interface{}, address string) {
 
-	sendBatch := func(startLine int, batchSize int, reader *csv.Reader, dataStruct interface{}) (int, error) {
+	sendBatch := func(startLine int, batchSize int, reader *csv.Reader, dataStruct interface{}, currentBatch uint32) (int, error) {
 		lineCount := startLine
 		for lineCount < startLine+batchSize {
 			record, err := reader.Read()
@@ -76,8 +76,9 @@ func (c *Client) readAndSendCSV(filename string, id uint8, conn net.Conn, dataSt
 			}
 
 			msg := message.ClientMessage{
-				DataLen: uint32(len(dataBuf)),
-				Data:    dataBuf,
+				BatchNum: uint32(currentBatch),
+				DataLen:  uint32(len(dataBuf)),
+				Data:     dataBuf,
 			}
 
 			if err = message.SendMessage(conn, msg); err != nil {
@@ -91,6 +92,7 @@ func (c *Client) readAndSendCSV(filename string, id uint8, conn net.Conn, dataSt
 
 	var batchStartLine, currentLine int
 	batchSize := c.cfg.Int(chunkSizeKey, chunkSizeDefault)
+	currentBatch := uint32(0)
 
 	// Open CSV and initialize reader
 	file, err := os.Open(filename)
@@ -115,12 +117,13 @@ func (c *Client) readAndSendCSV(filename string, id uint8, conn net.Conn, dataSt
 	timeout := c.cfg.Int(timeoutKey, timeoutDefault)
 
 	for {
-		currentLine, err = sendBatch(batchStartLine, batchSize, reader, dataStruct)
+		currentLine, err = sendBatch(batchStartLine, batchSize, reader, dataStruct, currentBatch)
 		if err == io.EOF {
 
 			eofMsg := message.ClientMessage{
-				DataLen: 0,
-				Data:    nil,
+				BatchNum: uint32(currentBatch),
+				DataLen:  0,
+				Data:     nil,
 			}
 
 			if err := message.SendMessage(conn, eofMsg); err != nil {
@@ -153,7 +156,7 @@ func (c *Client) readAndSendCSV(filename string, id uint8, conn net.Conn, dataSt
 			continue
 		}
 
-		// Move to the next batch
+		currentBatch++
 		batchStartLine = currentLine
 	}
 

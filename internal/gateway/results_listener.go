@@ -23,11 +23,9 @@ func (g *Gateway) listenResultsRequests() error {
 
 // SendResults gets reports from the result chan and sends them to the client
 func (g *Gateway) SendResults(cliConn net.Conn) {
-	logs.Logger.Infof("Leyendo resultados... primero el cli id")
 	clientId := g.readClientId(cliConn)
 	clientChan := make(chan []byte)
 	g.clientChannels.Store(clientId, clientChan)
-	logs.Logger.Infof("Created channel for: %s ", clientId)
 
 	defer func() {
 		g.clientChannels.Delete(clientId)

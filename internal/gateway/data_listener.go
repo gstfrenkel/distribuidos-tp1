@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"encoding/binary"
 	"net"
 	"sync"
 	"tp1/internal/gateway/id_generator"
@@ -25,6 +26,10 @@ func (g *Gateway) listenForData(listener int) error {
 func (g *Gateway) handleDataConnection(c net.Conn, msgId message.ID) {
 	clientId := g.readClientId(c)
 	sends := 0
+	auxBuf := make([]byte, g.Config.Int(bufferSizeKey, defaultBufferSize))
+	buf := make([]byte, 0, g.Config.Int(bufferSizeKey, defaultBufferSize))
+	finished := false
+
 	clientChan := make(chan []byte)
 
 	if msgId == message.ReviewIdMsg {
@@ -35,10 +40,6 @@ func (g *Gateway) handleDataConnection(c net.Conn, msgId message.ID) {
 		go sendAcksToClient(&g.clientGamesAckChannels, clientId, c)
 	}
 
-	auxBuf := make([]byte, g.Config.Int(bufferSizeKey, defaultBufferSize))
-	buf := make([]byte, 0, g.Config.Int(bufferSizeKey, defaultBufferSize))
-	finished := false
-
 	for !finished {
 		g.finishedMu.Lock()
 		if g.finished {
@@ -46,15 +47,15 @@ func (g *Gateway) handleDataConnection(c net.Conn, msgId message.ID) {
 			break
 		}
 		g.finishedMu.Unlock()
+
 		n, err := c.Read(auxBuf)
 		if err != nil {
 			logs.Logger.Errorf("Error reading from listener: %s", err)
 			return
 		}
-
 		buf = append(buf, auxBuf[:n]...)
 
-		for !finished {
+		for len(buf) >= LenFieldSize*2 {
 			g.finishedMu.Lock()
 			if g.finished {
 				g.finishedMu.Unlock()
@@ -62,24 +63,32 @@ func (g *Gateway) handleDataConnection(c net.Conn, msgId message.ID) {
 			}
 			g.finishedMu.Unlock()
 
+			batchNumBytes := buf[:LenFieldSize]
+			batchNum := binary.BigEndian.Uint32(batchNumBytes)
+
+			buf = buf[LenFieldSize:]
+
 			if len(buf) < LenFieldSize {
+				buf = append(batchNumBytes, buf...)
 				break
 			}
 
-			payloadSize := ioutils.ReadU32FromSlice(buf)
+			payloadSizeBytes := buf[:LenFieldSize]
+			payloadSize := binary.BigEndian.Uint32(payloadSizeBytes)
 
-			if uint32(len(buf)) < payloadSize+LenFieldSize {
+			buf = buf[LenFieldSize:]
+
+			if uint32(len(buf)) < payloadSize {
+				buf = append(batchNumBytes, append(payloadSizeBytes, buf...)...)
 				break
 			}
 
-			_, buf = readPayloadSize(buf)
+			sends++
+			finished = g.processPayload(msgId, buf[:payloadSize], payloadSize, clientId, batchNum)
 
-			sends += 1
-			finished = g.processPayload(msgId, buf[:payloadSize], payloadSize, clientId)
-			buf = ioutils.MoveBuff(buf, int(payloadSize))
+			buf = buf[payloadSize:]
 		}
 	}
-
 	logs.Logger.Infof("%d - Received %d messages", msgId, sends)
 }
 
@@ -97,18 +106,18 @@ func readPayloadSize(data []byte) (uint32, []byte) {
 
 // processPayload parses the data received from the client and appends it to the corresponding chunks
 // Returns true if the end of the file was reached
-func (g *Gateway) processPayload(msgId message.ID, payload []byte, payloadSize uint32, clientId string) bool {
+func (g *Gateway) processPayload(msgId message.ID, payload []byte, payloadSize uint32, clientId string, batchNum uint32) bool {
 	if isEndOfFile(payloadSize) {
 		logs.Logger.Infof("End of file received for message ID: %d", msgId)
-		g.sendMsgToChunkSender(msgId, nil, clientId)
+		g.sendMsgToChunkSender(msgId, nil, clientId, batchNum)
 		return true
 	}
 
-	g.sendMsgToChunkSender(msgId, payload, clientId)
+	g.sendMsgToChunkSender(msgId, payload, clientId, batchNum)
 	return false
 }
 
-func (g *Gateway) sendMsgToChunkSender(msgId message.ID, payload []byte, clientId string) {
+func (g *Gateway) sendMsgToChunkSender(msgId message.ID, payload []byte, clientId string, batchNum uint32) {
 	var data any
 	if payload != nil {
 		if msgId == message.ReviewIdMsg {
@@ -120,7 +129,7 @@ func (g *Gateway) sendMsgToChunkSender(msgId message.ID, payload []byte, clientI
 		data = nil
 	}
 
-	g.ChunkChans[matchListenerId(msgId)] <- ChunkItem{data, clientId}
+	g.ChunkChans[matchListenerId(msgId)] <- ChunkItem{data, clientId, batchNum}
 }
 
 func isEndOfFile(payloadSize uint32) bool {

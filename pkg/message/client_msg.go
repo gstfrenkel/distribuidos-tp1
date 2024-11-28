@@ -8,8 +8,9 @@ import (
 )
 
 type ClientMessage struct {
-	DataLen uint32
-	Data    []byte
+	BatchNum uint32
+	DataLen  uint32
+	Data     []byte
 }
 
 type DataCSVGames struct {
@@ -66,7 +67,10 @@ type DataCSVReviews struct {
 const lenBytes = 4
 
 func SendMessage(conn net.Conn, msg ClientMessage) error {
-	finalMessage := make([]byte, 0, lenBytes+len(msg.Data))
+	finalMessage := make([]byte, 0, lenBytes*2+len(msg.Data))
+	batchNumBytes := make([]byte, lenBytes)
+	binary.BigEndian.PutUint32(batchNumBytes, msg.BatchNum)
+	finalMessage = append(finalMessage, batchNumBytes...)
 	lenBytes := make([]byte, lenBytes)
 	binary.BigEndian.PutUint32(lenBytes, msg.DataLen)
 	finalMessage = append(finalMessage, lenBytes...)
