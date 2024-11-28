@@ -10,7 +10,7 @@ import (
 	"tp1/pkg/sequence"
 )
 
-// Every joiner must implement the joiner interface because of them join reviews with games.
+// Every joiner must implement the joiner interface because all of them join reviews with games.
 type joiner interface {
 	processReview(headers amqp.Header, msgBytes []byte, recovery bool) []sequence.Destination
 	processGame(headers amqp.Header, msgBytes []byte, recovery bool) []sequence.Destination
