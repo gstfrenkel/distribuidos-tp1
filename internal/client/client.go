@@ -149,7 +149,7 @@ func (c *Client) reconnect(address string, timeout int) net.Conn {
 func (c *Client) setupConnection(address string) (net.Conn, error) {
 	logs.Logger.Infof("Connecting to %s...", address)
 
-	conn, err := net.Dial("tcp", address)
+	conn, err := net.Dial(transportProtocol, address)
 	if err != nil {
 		logs.Logger.Info("Failed to connect to %s: %v", address, err)
 		return nil, err

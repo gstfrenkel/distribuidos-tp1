@@ -45,10 +45,10 @@ func (c *Client) startResultsListener(address string) {
 	messageCount := 0
 	maxMessages := c.cfg.Int(maxMsgKey, maxMsgDefault)
 
-	c.readResults(resultsConn, messageCount, maxMessages, resultsPort)
+	c.readResults(resultsConn, messageCount, maxMessages, resultsFullAddress)
 }
 
-func (c *Client) readResults(resultsConn net.Conn, messageCount int, maxMessages int, resultsPort string) {
+func (c *Client) readResults(resultsConn net.Conn, messageCount int, maxMessages int, resultsFullAddress string) {
 	timeout := c.cfg.Int(timeoutKey, timeoutDefault)
 	receivedMap := make(map[string]bool)
 	for {
@@ -65,7 +65,7 @@ func (c *Client) readResults(resultsConn net.Conn, messageCount int, maxMessages
 		err := ioutils.ReadFull(resultsConn, lenBuffer, LenFieldSize)
 		if err != nil {
 			logs.Logger.Errorf("Error reading length of message: %v", err)
-			resultsConn = c.reconnect(resultsPort, timeout)
+			resultsConn = c.reconnect(resultsFullAddress, timeout)
 			continue
 		}
 
@@ -75,7 +75,7 @@ func (c *Client) readResults(resultsConn net.Conn, messageCount int, maxMessages
 		err = ioutils.ReadFull(resultsConn, payload, int(dataLen))
 		if err != nil {
 			logs.Logger.Errorf("Error reading payload: %v", err)
-			resultsConn = c.reconnect(resultsPort, timeout)
+			resultsConn = c.reconnect(resultsFullAddress, timeout)
 			continue
 		}
 
