@@ -45,10 +45,12 @@ func (f *filter) Start() {
 func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
 
+	headers = headers.WithOriginId(amqp.Query3originId)
+
 	switch headers.MessageId {
 	case message.EofMsg:
 		f.eofsRecv[headers.ClientId]++
-		if f.eofsRecv[headers.ClientId] >= f.w.Peers {
+		if f.eofsRecv[headers.ClientId] >= f.w.ExpectedEofs {
 			f.publish(headers)
 		}
 	case message.ScoredReviewID:
@@ -104,7 +106,7 @@ func (f *filter) fixHeap(msg message.ScoredReview, clientId string) bool {
 // Eof msg received, so all msgs were received too.
 // Send the top n games to the broker
 func (f *filter) publish(headers amqp.Header) {
-	headers = headers.WithMessageId(message.ScoredReviewID).WithOriginId(amqp.Query3originId)
+	headers = headers.WithMessageId(message.ScoredReviewID)
 
 	topNScoredReviews := f.getTopNScoredReviews(headers.ClientId)
 	logs.Logger.Infof("Top %d games with most votes: %v", f.n, topNScoredReviews)
@@ -121,7 +123,7 @@ func (f *filter) publish(headers amqp.Header) {
 
 	delete(f.top, headers.ClientId)
 
-	if f.w.Peers == 0 { //it is not an aggregator
+	if f.w.ExpectedEofs == 0 { //it is not an aggregator
 		_, err = f.w.HandleEofMessage(amqp.EmptyEof, headers, amqp.DestinationEof(f.w.Outputs[0]))
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())

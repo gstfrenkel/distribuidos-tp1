@@ -26,6 +26,14 @@ func (c *Client) startResultsListener(address string) {
 		logs.Logger.Errorf("Initial connection to %s failed: %v", resultsFullAddress, err)
 		return
 	}
+
+	err = c.sendClientID(resultsConn)
+	if err != nil {
+		logs.Logger.Errorf("Error sending client ID: %s", err)
+		resultsConn.Close()
+
+	}
+
 	defer func() {
 		if resultsConn != nil {
 			resultsConn.Close()

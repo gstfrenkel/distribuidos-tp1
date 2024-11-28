@@ -23,10 +23,11 @@ func (g *Gateway) listenResultsRequests() error {
 
 // SendResults gets reports from the result chan and sends them to the client
 func (g *Gateway) SendResults(cliConn net.Conn) {
+	logs.Logger.Infof("Leyendo resultados... primero el cli id")
 	clientId := g.readClientId(cliConn)
-
 	clientChan := make(chan []byte)
 	g.clientChannels.Store(clientId, clientChan)
+	logs.Logger.Infof("Created channel for: %s ", clientId)
 
 	defer func() {
 		g.clientChannels.Delete(clientId)
@@ -54,7 +55,6 @@ func (g *Gateway) SendResults(cliConn net.Conn) {
 
 // ListenResults listens for results from the "reports" queue and sends them to the results channel
 func (g *Gateway) ListenResults() {
-
 	reportsQueue := g.Config.String(reportsQ, defaultReportsQ)
 	messages, err := g.broker.Consume(reportsQueue, "", true, false)
 	if err != nil {
@@ -74,10 +74,12 @@ func (g *Gateway) handleMessage(m amqp.Delivery, clientAccumulatedResults map[st
 	clientID := m.Headers[amqp.ClientIdHeader].(string)
 	originID, ok := m.Headers[amqp.OriginIdHeader] //not all workers send this header
 	if !ok {
+		logs.Logger.Errorf("message missing origin ID")
 		return
 	}
 
 	originIDUint8 := originID.(uint8)
+	messageId, ok := m.Headers[amqp.MessageIdHeader]
 	// Handle EOF or message content
 	if originIDUint8 == amqp.Query4originId || originIDUint8 == amqp.Query5originId {
 		if bytes.Equal(m.Body, amqp.EmptyEof) {
@@ -86,7 +88,7 @@ func (g *Gateway) handleMessage(m amqp.Delivery, clientAccumulatedResults map[st
 			initializeAccumulatedResultsForClient(clientAccumulatedResults, clientID)
 			handleAppendMsg(originIDUint8, m, clientAccumulatedResults[clientID])
 		}
-	} else {
+	} else if !ok || message.ID(messageId.(uint8)) != message.EofMsg {
 		result, err := parseMessageBody(originIDUint8, m.Body)
 		if err != nil {
 			logs.Logger.Errorf("Failed to parse message body: %v", err)

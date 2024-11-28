@@ -46,7 +46,7 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 	switch headers.MessageId {
 	case message.EofMsg:
 		f.eofsRecv[headers.ClientId]++
-		if f.eofsRecv[headers.ClientId] >= f.w.Peers {
+		if f.eofsRecv[headers.ClientId] >= f.w.ExpectedEofs {
 			f.publish(headers, true)
 			f.sendEof(headers)
 			f.reset(headers.ClientId)
@@ -81,7 +81,6 @@ func (f *filter) publish(headers amqp.Header, eof bool) {
 }
 
 func (f *filter) sendBatch(headers amqp.Header, b []byte) {
-	headers = headers.WithMessageId(message.GameNameID)
 	if err := f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}

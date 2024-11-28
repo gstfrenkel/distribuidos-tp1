@@ -9,11 +9,6 @@ import (
 	"tp1/pkg/sequence"
 )
 
-var (
-	headersEof = map[string]any{amqp.MessageIdHeader: uint8(message.EofMsg)}
-	headers    = map[string]any{amqp.MessageIdHeader: uint8(message.PlatformID)}
-)
-
 type filter struct {
 	w *worker.Worker
 }
