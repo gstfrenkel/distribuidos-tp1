@@ -133,25 +133,23 @@ func (c *Client) reconnect(address string, timeout int) net.Conn {
 
 	var newConn net.Conn
 	for {
-		logs.Logger.Infof("Attempting to reconnect...")
 		conn, err := c.setupConnection(address)
 		if err == nil {
 			logs.Logger.Infof("Reconnected successfully.")
 			newConn = conn
 			break
 		}
-		logs.Logger.Errorf("Reconnect failed, retrying in %v seconds: %s", timeout, err)
+		logs.Logger.Errorf("Reconnect failed, retrying...")
 		time.Sleep(time.Duration(timeout) * time.Second)
 	}
 	return newConn
 }
 
 func (c *Client) setupConnection(address string) (net.Conn, error) {
-	logs.Logger.Infof("Connecting to %s...", address)
+	logs.Logger.Infof("Connecting to %s", address)
 
 	conn, err := net.Dial(transportProtocol, address)
 	if err != nil {
-		logs.Logger.Info("Failed to connect to %s: %v", address, err)
 		return nil, err
 	}
 
