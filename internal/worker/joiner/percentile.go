@@ -6,6 +6,7 @@ import (
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/recovery"
 	"tp1/pkg/sequence"
 )
 
@@ -52,19 +53,9 @@ func (p *percentile) Process(delivery amqp.Delivery, headers amqp.Header) ([]seq
 			p.processEof,
 		)
 	case message.ScoredReviewID:
-		msg, err := message.ScoredReviewFromBytes(delivery.Body)
-		if err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-		} else {
-			p.processReview(headers.ClientId, msg)
-		}
+		p.processReview(headers, delivery.Body, false)
 	case message.GameNameID:
-		msg, err := message.GameNameFromBytes(delivery.Body)
-		if err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-		} else {
-			p.processGame(headers.ClientId, msg)
-		}
+		p.processGame(headers, delivery.Body, false)
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
@@ -113,34 +104,49 @@ func (p *percentile) processBatch(headers amqp.Header, userInfo map[int64]gameIn
 	return sequenceIds
 }
 
-func (p *percentile) processReview(clientId string, msg message.ScoredReview) {
-	userInfo, ok := p.gameInfoByClient[clientId]
+func (p *percentile) processReview(headers amqp.Header, msgBytes []byte, _ bool) []sequence.Destination {
+	msg, err := message.ScoredReviewFromBytes(msgBytes)
+	if err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+		return nil
+	}
+
+	userInfo, ok := p.gameInfoByClient[headers.ClientId]
 	if !ok { // First message for this clientId
-		p.gameInfoByClient[clientId] = map[int64]gameInfo{msg.GameId: {votes: msg.Votes}}
-		return
+		p.gameInfoByClient[headers.ClientId] = map[int64]gameInfo{msg.GameId: {votes: msg.Votes}}
+		return nil
 	}
 
 	info, ok := userInfo[msg.GameId]
 	if !ok { // First message for this gameId
-		p.gameInfoByClient[clientId][msg.GameId] = gameInfo{votes: msg.Votes}
+		p.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{votes: msg.Votes}
 	} else {
-		p.gameInfoByClient[clientId][msg.GameId] = gameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
+		p.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
 	}
+
+	return nil
 }
 
-func (p *percentile) processGame(clientId string, msg message.GameName) {
-	userInfo, ok := p.gameInfoByClient[clientId]
+func (p *percentile) processGame(headers amqp.Header, msgBytes []byte, _ bool) []sequence.Destination {
+	msg, err := message.GameNameFromBytes(msgBytes)
+	if err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+		return nil
+	}
+
+	userInfo, ok := p.gameInfoByClient[headers.ClientId]
 	if !ok { // First message for this clientId
-		p.gameInfoByClient[clientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
-		return
+		p.gameInfoByClient[headers.ClientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
+		return nil
 	}
 
 	info, ok := userInfo[msg.GameId]
 	if !ok { // First message for this gameId
-		p.gameInfoByClient[clientId][msg.GameId] = gameInfo{gameName: msg.GameName}
+		p.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{gameName: msg.GameName}
 	} else {
-		p.gameInfoByClient[clientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes}
+		p.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes}
 	}
+	return nil
 }
 
 func (p *percentile) publish(headers amqp.Header, reviews message.ScoredReviews) sequence.Destination {
@@ -159,4 +165,27 @@ func (p *percentile) publish(headers amqp.Header, reviews message.ScoredReviews)
 	}
 
 	return sequence.DstNew(key, sequenceId)
+}
+
+func (p *percentile) recover() {
+	ch := make(chan recovery.Message, worker.ChanSize)
+	go p.w.Recover(ch)
+
+	for recoveredMsg := range ch {
+		switch recoveredMsg.Header().MessageId {
+		case message.EofMsg:
+			processEof(
+				recoveredMsg.Header(),
+				p.eofsByClient,
+				p.gameInfoByClient,
+				nil,
+			)
+		case message.ScoredReviewID:
+			p.processReview(recoveredMsg.Header(), recoveredMsg.Message(), true)
+		case message.GameNameID:
+			p.processGame(recoveredMsg.Header(), recoveredMsg.Message(), true)
+		default:
+			logs.Logger.Errorf(errors.InvalidMessageId.Error(), recoveredMsg.Header().MessageId)
+		}
+	}
 }

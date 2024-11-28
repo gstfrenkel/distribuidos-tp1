@@ -5,6 +5,11 @@ import (
 	"tp1/pkg/sequence"
 )
 
+type joiner interface {
+	processReview(headers amqp.Header, msgBytes []byte, recovery bool) []sequence.Destination
+	processGame(headers amqp.Header, msgBytes []byte, recovery bool) []sequence.Destination
+}
+
 type gameInfo struct {
 	gameName string // If gameName is an empty string, reviews of this game have been received but the game has not yet been identified as the correct genre.
 	votes    uint64
@@ -16,7 +21,11 @@ type recvEofs struct {
 	game   bool
 }
 
-func processEof(header amqp.Header, eofsByClient map[string]recvEofs, gameInfoByClient map[string]map[int64]gameInfo, sendEof func(header amqp.Header) []sequence.Destination) []sequence.Destination {
+func processEof(header amqp.Header,
+	eofsByClient map[string]recvEofs,
+	gameInfoByClient map[string]map[int64]gameInfo,
+	sendEof func(header amqp.Header) []sequence.Destination,
+) []sequence.Destination {
 	var sequenceIds []sequence.Destination
 
 	recv, ok := eofsByClient[header.ClientId]
