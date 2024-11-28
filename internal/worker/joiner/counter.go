@@ -6,38 +6,32 @@ import (
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
-	"tp1/pkg/recovery"
 	"tp1/pkg/sequence"
 )
 
 type counter struct {
-	w                *worker.Worker
-	eofsByClient     map[string]recvEofs
-	gameInfoByClient map[string]map[int64]gameInfo
-	target           uint64
+	joiner *Joiner
+	target uint64
 }
 
 func NewCounter() (worker.Filter, error) {
-	w, err := worker.New()
+	j, err := NewJoiner()
 	if err != nil {
 		return nil, err
 	}
 
 	return &counter{
-		w:                w,
-		eofsByClient:     map[string]recvEofs{},
-		gameInfoByClient: map[string]map[int64]gameInfo{},
+		joiner: j,
+		target: uint64(j.w.Query.(float64)),
 	}, nil
 }
 
 func (c *counter) Init() error {
-	c.target = uint64(c.w.Query.(float64))
-
-	return c.w.Init()
+	return c.joiner.w.Init()
 }
 
 func (c *counter) Start() {
-	c.w.Start(c)
+	c.joiner.w.Start(c)
 }
 
 func (c *counter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
@@ -48,8 +42,8 @@ func (c *counter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequen
 	case message.EofMsg:
 		sequenceIds = processEof(
 			headers,
-			c.eofsByClient,
-			c.gameInfoByClient,
+			c.joiner.eofsByClient,
+			c.joiner.gameInfoByClient,
 			c.processEof,
 		)
 	case message.ScoredReviewID:
@@ -64,7 +58,7 @@ func (c *counter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequen
 }
 
 func (c *counter) processEof(headers amqp.Header) []sequence.Destination {
-	sequenceIds, err := c.w.HandleEofMessage(amqp.EmptyEof, headers)
+	sequenceIds, err := c.joiner.w.HandleEofMessage(amqp.EmptyEof, headers)
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
@@ -79,15 +73,15 @@ func (c *counter) processReview(headers amqp.Header, msgBytes []byte, recovery b
 		return sequenceIds
 	}
 
-	userInfo, ok := c.gameInfoByClient[headers.ClientId]
+	userInfo, ok := c.joiner.gameInfoByClient[headers.ClientId]
 	if !ok {
-		c.gameInfoByClient[headers.ClientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
+		c.joiner.gameInfoByClient[headers.ClientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
 		return sequenceIds
 	}
 
 	info, ok := userInfo[msg.GameId]
 	if !ok {
-		c.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{votes: msg.Votes}
+		c.joiner.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{votes: msg.Votes}
 		return sequenceIds
 	} else if info.sent {
 		return sequenceIds
@@ -104,9 +98,9 @@ func (c *counter) processReview(headers amqp.Header, msgBytes []byte, recovery b
 				return sequenceIds
 			}
 		}
-		c.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes, sent: true}
+		c.joiner.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes, sent: true}
 	} else {
-		c.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
+		c.joiner.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
 	}
 
 	return sequenceIds
@@ -120,15 +114,15 @@ func (c *counter) processGame(headers amqp.Header, msgBytes []byte, recovery boo
 		return sequenceIds
 	}
 
-	userInfo, ok := c.gameInfoByClient[headers.ClientId]
+	userInfo, ok := c.joiner.gameInfoByClient[headers.ClientId]
 	if !ok {
-		c.gameInfoByClient[headers.ClientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
+		c.joiner.gameInfoByClient[headers.ClientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
 		return sequenceIds
 	}
 
 	info, ok := userInfo[msg.GameId]
 	if !ok { // No reviews have been received for this game.
-		c.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{gameName: msg.GameName}
+		c.joiner.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{gameName: msg.GameName}
 		return sequenceIds
 	}
 
@@ -138,9 +132,9 @@ func (c *counter) processGame(headers amqp.Header, msgBytes []byte, recovery boo
 				return sequenceIds
 			}
 		}
-		c.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes, sent: true}
+		c.joiner.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes, sent: true}
 	} else {
-		c.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes}
+		c.joiner.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes}
 	}
 
 	return sequenceIds
@@ -150,12 +144,12 @@ func (c *counter) processGame(headers amqp.Header, msgBytes []byte, recovery boo
 // In case of error, returns nil
 // Otherwise, returns the sequenceId of the message sent.
 func (c *counter) publish(headers amqp.Header, msgBytes []byte) []sequence.Destination {
-	key := c.w.Outputs[0].Key
-	sequenceId := c.w.NextSequenceId(key)
+	key := c.joiner.w.Outputs[0].Key
+	sequenceId := c.joiner.w.NextSequenceId(key)
 
-	headers = headers.WithMessageId(message.GameNameID).WithSequenceId(sequence.SrcNew(c.w.Id, sequenceId))
+	headers = headers.WithMessageId(message.GameNameID).WithSequenceId(sequence.SrcNew(c.joiner.w.Id, sequenceId))
 
-	if err := c.w.Broker.Publish(c.w.Outputs[0].Exchange, c.w.Outputs[0].Key, msgBytes, headers); err != nil {
+	if err := c.joiner.w.Broker.Publish(c.joiner.w.Outputs[0].Exchange, c.joiner.w.Outputs[0].Key, msgBytes, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		return nil
 	}
@@ -164,24 +158,5 @@ func (c *counter) publish(headers amqp.Header, msgBytes []byte) []sequence.Desti
 }
 
 func (c *counter) recover() {
-	ch := make(chan recovery.Message, worker.ChanSize)
-	go c.w.Recover(ch)
-
-	for recoveredMsg := range ch {
-		switch recoveredMsg.Header().MessageId {
-		case message.EofMsg:
-			processEof(
-				recoveredMsg.Header(),
-				c.eofsByClient,
-				c.gameInfoByClient,
-				nil,
-			)
-		case message.ScoredReviewID:
-			c.processReview(recoveredMsg.Header(), recoveredMsg.Message(), true)
-		case message.GameNameID:
-			c.processGame(recoveredMsg.Header(), recoveredMsg.Message(), true)
-		default:
-			logs.Logger.Errorf(errors.InvalidMessageId.Error(), recoveredMsg.Header().MessageId)
-		}
-	}
+	c.joiner.recover(c)
 }

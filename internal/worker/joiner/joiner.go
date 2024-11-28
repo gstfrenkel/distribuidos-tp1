@@ -1,13 +1,38 @@
 package joiner
 
 import (
+	"tp1/internal/errors"
+	"tp1/internal/worker"
 	"tp1/pkg/amqp"
+	"tp1/pkg/logs"
+	"tp1/pkg/message"
+	"tp1/pkg/recovery"
 	"tp1/pkg/sequence"
 )
 
+// Every joiner must implement the joiner interface because of them join reviews with games.
 type joiner interface {
 	processReview(headers amqp.Header, msgBytes []byte, recovery bool) []sequence.Destination
 	processGame(headers amqp.Header, msgBytes []byte, recovery bool) []sequence.Destination
+}
+
+type Joiner struct {
+	w                *worker.Worker
+	eofsByClient     map[string]recvEofs
+	gameInfoByClient map[string]map[int64]gameInfo
+}
+
+func NewJoiner() (*Joiner, error) {
+	w, err := worker.New()
+	if err != nil {
+		return nil, err
+	}
+
+	return &Joiner{
+		w:                w,
+		eofsByClient:     map[string]recvEofs{},
+		gameInfoByClient: map[string]map[int64]gameInfo{},
+	}, nil
 }
 
 type gameInfo struct {
@@ -47,4 +72,27 @@ func processEof(header amqp.Header,
 	}
 
 	return sequenceIds
+}
+
+func (j *Joiner) recover(instance joiner) {
+	ch := make(chan recovery.Message, worker.ChanSize)
+	go j.w.Recover(ch)
+
+	for recoveredMsg := range ch {
+		switch recoveredMsg.Header().MessageId {
+		case message.EofMsg:
+			processEof(
+				recoveredMsg.Header(),
+				j.eofsByClient,
+				j.gameInfoByClient,
+				nil,
+			)
+		case message.ScoredReviewID:
+			instance.processReview(recoveredMsg.Header(), recoveredMsg.Message(), true)
+		case message.GameNameID:
+			instance.processGame(recoveredMsg.Header(), recoveredMsg.Message(), true)
+		default:
+			logs.Logger.Errorf(errors.InvalidMessageId.Error(), recoveredMsg.Header().MessageId)
+		}
+	}
 }
