@@ -10,8 +10,8 @@ import (
 	"tp1/pkg/sequence"
 )
 
-// Every joiner must implement the process interface because all of them join reviews with games.
-type process interface {
+// Every joiner must implement the processor interface because all of them join reviews with games.
+type processor interface {
 	processReview(headers amqp.Header, msgBytes []byte, recovery bool) []sequence.Destination
 	processGame(headers amqp.Header, msgBytes []byte, recovery bool) []sequence.Destination
 }
@@ -70,7 +70,7 @@ func (j *joiner) processEof(header amqp.Header, sendEof func(header amqp.Header)
 	return sequenceIds
 }
 
-func (j *joiner) recover(instance process) {
+func (j *joiner) recover(instance processor) {
 	ch := make(chan recovery.Message, worker.ChanSize)
 	go j.w.Recover(ch)
 
