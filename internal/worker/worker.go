@@ -158,6 +158,12 @@ func (f *Worker) Start(filter Filter) {
 	f.consume(filter, f.signalChan, channels...)
 }
 
+// Recover reads the recovery log and processes the messages.
+//
+// It performs the following steps:
+// - Recover the source sequence id.
+// - Recover the destination sequence id.
+// - Send the message to the filter for processing if needed.
 func (f *Worker) Recover(ch chan<- recovery.Message) {
 	if ch != nil {
 		defer close(ch)
