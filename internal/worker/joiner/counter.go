@@ -10,12 +10,12 @@ import (
 )
 
 type counter struct {
-	joiner *Joiner
+	joiner *joiner
 	target uint64
 }
 
 func NewCounter() (worker.Filter, error) {
-	j, err := NewJoiner()
+	j, err := newJoiner()
 	if err != nil {
 		return nil, err
 	}

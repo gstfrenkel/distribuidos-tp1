@@ -10,12 +10,12 @@ import (
 )
 
 type percentile struct {
-	joiner    *Joiner
+	joiner    *joiner
 	batchSize uint16
 }
 
 func NewPercentile() (worker.Filter, error) {
-	j, err := NewJoiner()
+	j, err := newJoiner()
 	if err != nil {
 		return nil, err
 	}

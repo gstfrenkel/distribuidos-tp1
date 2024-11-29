@@ -11,12 +11,12 @@ import (
 )
 
 type top struct {
-	joiner *Joiner
+	joiner *joiner
 	output amqp.Destination
 }
 
 func NewTop() (worker.Filter, error) {
-	j, err := NewJoiner()
+	j, err := newJoiner()
 	if err != nil {
 		return nil, err
 	}
