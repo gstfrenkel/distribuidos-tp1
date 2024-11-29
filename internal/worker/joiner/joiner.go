@@ -77,10 +77,7 @@ func (j *joiner) recover(instance process) {
 	for recoveredMsg := range ch {
 		switch recoveredMsg.Header().MessageId {
 		case message.EofMsg:
-			j.processEof(
-				recoveredMsg.Header(),
-				nil,
-			)
+			j.processEof(recoveredMsg.Header(), nil)
 		case message.ScoredReviewID:
 			instance.processReview(recoveredMsg.Header(), recoveredMsg.Message(), true)
 		case message.GameNameID:
