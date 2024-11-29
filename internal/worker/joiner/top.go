@@ -43,12 +43,7 @@ func (t *top) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.D
 
 	switch headers.MessageId {
 	case message.EofMsg:
-		sequenceIds = processEof(
-			headers,
-			t.joiner.eofsByClient,
-			t.joiner.gameInfoByClient,
-			t.processEof,
-		)
+		sequenceIds = t.joiner.processEof(headers, t.processEof)
 	case message.ScoredReviewID:
 		sequenceIds = t.processReview(headers, delivery.Body, false)
 	case message.GameNameID:

@@ -40,12 +40,7 @@ func (p *percentile) Process(delivery amqp.Delivery, headers amqp.Header) ([]seq
 
 	switch headers.MessageId {
 	case message.EofMsg:
-		sequenceIds = processEof(
-			headers,
-			p.joiner.eofsByClient,
-			p.joiner.gameInfoByClient,
-			p.processEof,
-		)
+		sequenceIds = p.joiner.processEof(headers, p.processEof)
 	case message.ScoredReviewID:
 		p.processReview(headers, delivery.Body, false)
 	case message.GameNameID:

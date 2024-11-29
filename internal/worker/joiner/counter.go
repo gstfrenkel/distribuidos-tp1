@@ -40,12 +40,7 @@ func (c *counter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequen
 
 	switch headers.MessageId {
 	case message.EofMsg:
-		sequenceIds = processEof(
-			headers,
-			c.joiner.eofsByClient,
-			c.joiner.gameInfoByClient,
-			c.processEof,
-		)
+		sequenceIds = c.joiner.processEof(headers, c.processEof)
 	case message.ScoredReviewID:
 		sequenceIds = c.processReview(headers, delivery.Body, false)
 	case message.GameNameID:
