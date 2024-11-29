@@ -10,7 +10,7 @@ import (
 	"tp1/pkg/sequence"
 )
 
-// Every process must implement the process interface because all of them join reviews with games.
+// Every joiner must implement the process interface because all of them join reviews with games.
 type process interface {
 	processReview(headers amqp.Header, msgBytes []byte, recovery bool) []sequence.Destination
 	processGame(headers amqp.Header, msgBytes []byte, recovery bool) []sequence.Destination
