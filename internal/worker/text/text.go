@@ -94,10 +94,7 @@ func (f *filter) publish(msg message.TextReviews, headers amqp.Header) []sequenc
 	sequenceIds := make([]sequence.Destination, 0, len(msg))
 
 	for gameId, reviews := range msg {
-		count := 0
-		count = f.detectLang(reviews, count)
-
-		if count == 0 {
+		if !f.detectLang(reviews) {
 			continue
 		}
 
@@ -120,14 +117,14 @@ func (f *filter) publish(msg message.TextReviews, headers amqp.Header) []sequenc
 	return sequenceIds
 }
 
-func (f *filter) detectLang(reviews []string, count int) int {
+func (f *filter) detectLang(reviews []string) bool {
 	for _, review := range reviews {
 		lang, valid := f.detector.DetectLanguageOf(review)
 		if valid && lang == f.target {
-			count += 1
+			return true
 		}
 	}
-	return count
+	return false
 }
 
 func (f *filter) recover() {
