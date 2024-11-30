@@ -7,6 +7,7 @@ import (
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 	"tp1/pkg/sequence"
+	"tp1/pkg/utils/shard"
 )
 
 type filter struct {
@@ -55,7 +56,7 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 
 func (f *filter) publish(headers amqp.Header, msg message.Game) []sequence.Destination {
 	output := f.w.Outputs[0]
-	key := worker.ShardSequenceId(headers.SequenceId, output.Key, output.Consumers)
+	key := shard.String(headers.SequenceId, output.Key, output.Consumers)
 	sequenceId := f.w.NextSequenceId(key)
 	headers = headers.WithMessageId(message.PlatformID).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
 

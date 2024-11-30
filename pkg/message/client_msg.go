@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
-	"tp1/pkg/ioutils"
+	"tp1/pkg/utils/io"
 )
 
 type ClientMessage struct {
@@ -71,7 +71,7 @@ func SendMessage(conn net.Conn, msg ClientMessage) error {
 	binary.BigEndian.PutUint32(lenBytes, msg.DataLen)
 	finalMessage = append(finalMessage, lenBytes...)
 	finalMessage = append(finalMessage, msg.Data...)
-	if err := ioutils.SendAll(conn, finalMessage); err != nil {
+	if err := io.SendAll(conn, finalMessage); err != nil {
 		return fmt.Errorf("failed to send message: %v", err)
 	}
 	return nil

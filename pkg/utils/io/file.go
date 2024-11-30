@@ -1,8 +1,9 @@
-package ioutils
+package io
 
 import (
 	"encoding/csv"
 	"os"
+
 	"tp1/pkg/logs"
 )
 

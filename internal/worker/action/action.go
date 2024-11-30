@@ -7,6 +7,7 @@ import (
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 	"tp1/pkg/sequence"
+	"tp1/pkg/utils/shard"
 )
 
 type filter struct {
@@ -71,7 +72,7 @@ func (f *filter) publish(headers amqp.Header, msg message.Game) []sequence.Desti
 		}
 
 		for _, output := range f.w.Outputs {
-			key := worker.ShardGameId(game.GameId, output.Key, output.Consumers)
+			key := shard.Int64(game.GameId, output.Key, output.Consumers)
 			sequenceId := f.w.NextSequenceId(key)
 			sequenceIds = append(sequenceIds, sequence.DstNew(key, sequenceId))
 

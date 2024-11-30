@@ -1,6 +1,10 @@
 package top_n_playtime
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
+
 	"tp1/internal/errors"
 	"tp1/internal/worker"
 	"tp1/pkg/amqp"
@@ -13,6 +17,7 @@ type filter struct {
 	w           *worker.Worker
 	n           uint8
 	clientHeaps map[string]*MinHeapPlaytime
+	agg         bool
 }
 
 func New() (worker.Filter, error) {
@@ -32,6 +37,8 @@ func (f *filter) Init() error {
 
 func (f *filter) Start() {
 	f.n = uint8(f.w.Query.(float64))
+	f.agg = strings.Contains(f.w.Outputs[0].Key, "%d")
+
 	f.w.Start(f)
 }
 
@@ -53,9 +60,10 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 			delete(f.clientHeaps, headers.ClientId)
 		}
 
-		_, err = f.w.HandleEofMessage(delivery.Body, headers)
-		if err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
+		if !f.agg {
+			if _, err = f.w.HandleEofMessage(delivery.Body, headers); err != nil {
+				logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
+			}
 		}
 	case message.GameWithPlaytimeID:
 		if _, exists := f.clientHeaps[headers.ClientId]; !exists {
@@ -83,15 +91,20 @@ func (f *filter) publish(headers amqp.Header) {
 	}
 
 	topNPlaytime := ToTopNPlaytimeMessage(f.n, clientHeap)
-	logs.Logger.Infof("Top %d games with most playtime for client %s: %v", f.n, headers.ClientId, topNPlaytime)
 	b, err := topNPlaytime.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 		return
 	}
 
+	output := f.w.Outputs[0]
+	if f.agg {
+		gatewayId, _ := strconv.Atoi(strings.Split(headers.ClientId, "-")[0])
+		output.Key = fmt.Sprintf(output.Key, gatewayId)
+	}
+
 	headers = headers.WithMessageId(message.GameWithPlaytimeID)
-	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
+	if err = f.w.Broker.Publish(output.Exchange, output.Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 }

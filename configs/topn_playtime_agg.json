@@ -1,9 +1,7 @@
 {
   "query": 10,
   "input-queues": {
-    "exchange": "reports",
-    "name": "topn_playtime_q2",
-    "key": "input"
+    "name": "topn_playtime_q2"
   },
   "output-queues": [{
     "exchange": "reports",

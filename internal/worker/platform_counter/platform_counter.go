@@ -1,6 +1,10 @@
 package platform_counter
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
+
 	"tp1/internal/errors"
 	"tp1/internal/worker"
 	"tp1/pkg/amqp"
@@ -12,6 +16,7 @@ import (
 type filter struct {
 	counters map[string]*message.Platform
 	w        *worker.Worker
+	agg      bool
 }
 
 func New() (worker.Filter, error) {
@@ -31,6 +36,8 @@ func (f *filter) Init() error {
 }
 
 func (f *filter) Start() {
+	f.agg = strings.Contains(f.w.Outputs[0].Key, "%d")
+
 	f.w.Start(f)
 }
 
@@ -46,14 +53,13 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 
 	switch headers.MessageId {
 	case message.EofMsg:
-		logs.Logger.Infof("Received EOF for client %s! Sending platform count: %v", headers.ClientId, clientCounter)
-
 		f.publish(headers)
 		delete(f.counters, headers.ClientId)
 
-		_, err := f.w.HandleEofMessage(delivery.Body, headers)
-		if err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
+		if !f.agg {
+			if _, err := f.w.HandleEofMessage(delivery.Body, headers); err != nil {
+				logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
+			}
 		}
 	case message.PlatformID:
 		msg, err := message.PlatfromFromBytes(delivery.Body)
@@ -82,10 +88,14 @@ func (f *filter) publish(headers amqp.Header) {
 		return
 	}
 
-	logs.Logger.Infof("Sending %v for client %s with key %s", *platforms, headers.ClientId, f.w.Outputs[0].Key)
+	output := f.w.Outputs[0]
+	if f.agg {
+		gatewayId, _ := strconv.Atoi(strings.Split(headers.ClientId, "-")[0])
+		output.Key = fmt.Sprintf(output.Key, gatewayId)
+	}
 
 	headers = headers.WithMessageId(message.PlatformID)
-	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
+	if err = f.w.Broker.Publish(output.Exchange, output.Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 }

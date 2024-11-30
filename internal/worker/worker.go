@@ -19,8 +19,6 @@ import (
 	"tp1/pkg/message"
 	"tp1/pkg/recovery"
 	"tp1/pkg/sequence"
-
-	"github.com/pierrec/xxHash/xxHash32"
 )
 
 const (
@@ -397,18 +395,4 @@ func (f *Worker) initQueue(dst amqp.Destination) ([]amqp.Queue, []amqp.Destinati
 	}
 
 	return queues, destinations, nil
-}
-
-func ShardSequenceId(id string, key string, consumers uint8) string {
-	if consumers == 0 {
-		return key
-	}
-	return fmt.Sprintf(key, xxHash32.Checksum([]byte(id), 0)%uint32(consumers))
-}
-
-func ShardGameId(id int64, key string, consumers uint8) string {
-	if consumers == 0 {
-		return key
-	}
-	return fmt.Sprintf(key, xxHash32.Checksum([]byte{byte(id)}, 0)%uint32(consumers))
 }

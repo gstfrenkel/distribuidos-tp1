@@ -3,9 +3,9 @@ package gateway
 import (
 	"net"
 	"tp1/internal/gateway/id_generator"
-	"tp1/pkg/ioutils"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/utils/io"
 )
 
 const (
@@ -56,7 +56,7 @@ func (g *Gateway) handleDataConnection(c net.Conn, msgId message.ID) {
 				break
 			}
 
-			payloadSize := ioutils.ReadU32FromSlice(buf)
+			payloadSize := io.ReadU32FromSlice(buf)
 
 			if uint32(len(buf)) < payloadSize+LenFieldSize {
 				break
@@ -66,7 +66,7 @@ func (g *Gateway) handleDataConnection(c net.Conn, msgId message.ID) {
 
 			sends += 1
 			finished = g.processPayload(msgId, buf[:payloadSize], payloadSize, clientId)
-			buf = ioutils.MoveBuff(buf, int(payloadSize))
+			buf = io.MoveBuff(buf, int(payloadSize))
 		}
 	}
 
@@ -76,14 +76,14 @@ func (g *Gateway) handleDataConnection(c net.Conn, msgId message.ID) {
 
 func (g *Gateway) readClientId(c net.Conn) string {
 	clientId := make([]byte, id_generator.ClientIdLen)
-	if err := ioutils.ReadFull(c, clientId, id_generator.ClientIdLen); err != nil {
+	if err := io.ReadFull(c, clientId, id_generator.ClientIdLen); err != nil {
 		logs.Logger.Errorf("Error reading client id from client: %s", err)
 	}
 	return id_generator.DecodeClientId(clientId)
 }
 
 func readPayloadSize(data []byte) (uint32, []byte) {
-	return ioutils.ReadU32FromSlice(data), ioutils.MoveBuff(data, LenFieldSize)
+	return io.ReadU32FromSlice(data), io.MoveBuff(data, LenFieldSize)
 }
 
 // processPayload parses the data received from the client and appends it to the corresponding chunks

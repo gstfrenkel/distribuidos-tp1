@@ -7,6 +7,7 @@ import (
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 	"tp1/pkg/sequence"
+	"tp1/pkg/utils/shard"
 
 	"github.com/pemistahl/lingua-go"
 )
@@ -99,7 +100,7 @@ func (f *filter) publish(msg message.TextReviews, headers amqp.Header) {
 			continue
 		}
 
-		k := worker.ShardGameId(gameId, f.w.Outputs[0].Key, f.w.Outputs[0].Consumers)
+		k := shard.Int64(gameId, f.w.Outputs[0].Key, f.w.Outputs[0].Consumers)
 		b, err := message.ScoredReview{GameId: gameId, Votes: uint64(count)}.ToBytes()
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())

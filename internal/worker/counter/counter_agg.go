@@ -7,6 +7,7 @@ import (
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 	"tp1/pkg/sequence"
+	"tp1/pkg/utils/shard"
 )
 
 type filter struct {
@@ -81,14 +82,19 @@ func (f *filter) publish(headers amqp.Header, eof bool) {
 }
 
 func (f *filter) sendBatch(headers amqp.Header, b []byte) {
-	if err := f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
+	output := f.w.Outputs[0]
+	output.Key = shard.String(headers.SequenceId, f.w.Outputs[0].Key, f.w.Outputs[0].Consumers)
+
+	if err := f.w.Broker.Publish(output.Exchange, output.Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 }
 
 func (f *filter) sendEof(headers amqp.Header) {
-	_, err := f.w.HandleEofMessage(amqp.EmptyEof, headers)
-	if err != nil {
+	output := f.w.Outputs[0]
+	output.Key = shard.String(headers.SequenceId, f.w.Outputs[0].Key, f.w.Outputs[0].Consumers)
+
+	if _, err := f.w.HandleEofMessage(amqp.EmptyEof, headers, amqp.DestinationEof(output)); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 

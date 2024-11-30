@@ -7,12 +7,12 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 )
 
 func (c *Client) readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interface{}) {
-
 	err := c.sendClientID(conn)
 	if err != nil {
 		logs.Logger.Errorf("Error sending client ID: %s", err)
@@ -117,7 +117,7 @@ func (c *Client) readAndSendCSV(filename string, id uint8, conn net.Conn, dataSt
 		DataLen: 0, // DataLen = 0 for eof message.
 		Data:    nil,
 	}
-	if err := message.SendMessage(conn, eofMsg); err != nil {
+	if err = message.SendMessage(conn, eofMsg); err != nil {
 		logs.Logger.Errorf("Error sending EOF message: %s", err)
 	}
 	logs.Logger.Infof("Sent EOF for: %v", id)
