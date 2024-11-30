@@ -27,7 +27,13 @@ func NewCounter() (worker.Filter, error) {
 }
 
 func (c *counter) Init() error {
-	return c.joiner.w.Init()
+	if err := c.joiner.w.Init(); err != nil {
+		return err
+	}
+
+	c.recover()
+
+	return nil
 }
 
 func (c *counter) Start() {

@@ -22,7 +22,13 @@ func New() (worker.Filter, error) {
 }
 
 func (f *filter) Init() error {
-	return f.w.Init()
+	if err := f.w.Init(); err != nil {
+		return err
+	}
+
+	f.recover()
+
+	return nil
 }
 
 func (f *filter) Start() {
@@ -69,4 +75,8 @@ func (f *filter) publish(headers amqp.Header, msg message.Game) []sequence.Desti
 	}
 
 	return []sequence.Destination{sequence.DstNew(output.Key, sequenceId)}
+}
+
+func (f *filter) recover() {
+	f.w.Recover(nil)
 }
