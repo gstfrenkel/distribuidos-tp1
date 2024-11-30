@@ -20,29 +20,25 @@ import (
 )
 
 const (
-	configFilePath        = "config.toml"
-	GamesListener         = 0
-	ReviewsListener       = 1
-	ResultsListener       = 2
-	ClientIdListener      = 3
-	connections           = 4
-	chunkChans            = 2
-	exchangeNameKey       = "rabbitmq.exchange_name"
-	workerIdKey           = "worker-id"
-	chunkSizeKey          = "gateway.chunk_size"
-	chunkSizeDefault      = 100
-	gamesRoutingKey       = "rabbitmq.games_routing_key"
-	gamesRoutingDefault   = "game"
-	reviewsRoutingKey     = "rabbitmq.reviews_routing_key"
-	reviewsRoutingDefault = "review"
-	signals               = 2
+	configFilePath   = "config.toml"
+	GamesListener    = 0
+	ReviewsListener  = 1
+	ResultsListener  = 2
+	ClientIdListener = 3
+	connections      = 4
+	chunkChans       = 2
+	exchangeNameKey  = "rabbitmq.exchange_name"
+	workerIdKey      = "worker-id"
+	chunkSizeKey     = "gateway.chunk_size"
+	chunkSizeDefault = 100
+	signals          = 2
 )
 
 type Gateway struct {
 	Config                   config.Config
 	broker                   amqp.MessageBroker
 	queues                   []amqp.Queue //order: reviews, games_platform, games_action, games_indie
-	destinations       		 []amqp.Destination
+	destinations             []amqp.Destination
 	exchange                 string
 	Listeners                [connections]net.Listener
 	ChunkChans               [chunkChans]chan ChunkItem
@@ -86,8 +82,8 @@ func New() (*Gateway, error) {
 		Config:                   cfg,
 		broker:                   b,
 		queues:                   queues,
-		exchange:           	  cfg.String(exchangeNameKey, ""),
-		destinations:       	  destinations,
+		exchange:                 cfg.String(exchangeNameKey, ""),
+		destinations:             destinations,
 		ChunkChans:               [chunkChans]chan ChunkItem{make(chan ChunkItem), make(chan ChunkItem)},
 		finished:                 false,
 		finishedMu:               sync.Mutex{},
