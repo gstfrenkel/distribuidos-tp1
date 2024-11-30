@@ -47,8 +47,8 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 	case message.EofMsg:
 		f.eofsRecv[headers.ClientId]++
 		if f.eofsRecv[headers.ClientId] >= f.w.ExpectedEofs {
-			f.publish(headers, true)
-			f.sendEof(headers)
+			sequenceIds = append(sequenceIds, f.publish(headers, true)...)
+			sequenceIds = append(sequenceIds, f.sendEof(headers)...)
 			f.reset(headers.ClientId)
 		}
 	case message.GameNameID:
@@ -57,7 +57,7 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 		} else {
 			f.saveGame(msg, headers.ClientId)
-			f.publish(headers, false)
+			sequenceIds = f.publish(headers, false)
 		}
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
@@ -66,8 +66,11 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 	return sequenceIds, nil
 }
 
-func (f *filter) publish(headers amqp.Header, eof bool) {
-	if len(f.games[headers.ClientId]) > 0 && (len(f.games[headers.ClientId]) >= int(f.batchSize) || eof) {
+func (f *filter) publish(headers amqp.Header, eof bool) []sequence.Destination {
+	gamesLen := len(f.games[headers.ClientId])
+	var sequenceIds []sequence.Destination
+
+	if gamesLen > 0 && (gamesLen >= int(f.batchSize) || eof) {
 		b, err := f.games[headers.ClientId].ToBytes()
 		logs.Logger.Infof("Publishing batch of %d games for client %s", len(f.games), headers.ClientId)
 		if err != nil {
@@ -86,13 +89,14 @@ func (f *filter) sendBatch(headers amqp.Header, b []byte) {
 	}
 }
 
-func (f *filter) sendEof(headers amqp.Header) {
-	_, err := f.w.HandleEofMessage(amqp.EmptyEof, headers)
+func (f *filter) sendEof(headers amqp.Header) []sequence.Destination {
+	seqIds, err := f.w.HandleEofMessage(amqp.EmptyEof, headers)
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 
 	logs.Logger.Infof("Eof message sent for client %s", headers.ClientId)
+	return seqIds
 }
 
 func (f *filter) reset(clientId string) {
