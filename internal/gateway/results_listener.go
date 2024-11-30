@@ -24,9 +24,8 @@ func (g *Gateway) listenResultsRequests() error {
 // SendResults gets reports from the result chan and sends them to the client
 func (g *Gateway) SendResults(cliConn net.Conn) {
 	clientId := g.readClientId(cliConn)
-
-	clientChan := make(chan []byte)
-	g.clientChannels.Store(clientId, clientChan)
+	clientChanI, _ := g.clientChannels.LoadOrStore(clientId, make(chan []byte))
+	clientChan := clientChanI.(chan []byte)
 
 	defer func() {
 		g.clientChannels.Delete(clientId)
@@ -156,12 +155,9 @@ func (g *Gateway) handleEof(clientID string, accumulatedResults map[uint8]string
 }
 
 func sendResultThroughChannel(g *Gateway, clientID string, resultStr string) {
-	if clientChanI, exists := g.clientChannels.Load(clientID); exists {
-		clientChan := clientChanI.(chan []byte)
-		clientChan <- []byte(resultStr)
-	} else {
-		logs.Logger.Errorf("No client channel found for clientID %v", clientID)
-	}
+	clientChanI, _ := g.clientChannels.LoadOrStore(clientID, make(chan []byte))
+	clientChan := clientChanI.(chan []byte)
+	clientChan <- []byte(resultStr)
 }
 
 func parseMessageBody(originID uint8, body []byte) (interface{}, error) {

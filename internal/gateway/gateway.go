@@ -42,19 +42,21 @@ const (
 )
 
 type Gateway struct {
-	Config             config.Config
-	broker             amqp.MessageBroker
-	queues             []amqp.Queue //order: reviews, games_platform, games_action, games_indie
-	exchange           string
-	reportsExchange    string
-	Listeners          [connections]net.Listener
-	ChunkChans         [chunkChans]chan ChunkItem
-	finished           bool
-	finishedMu         sync.Mutex
-	IdGenerator        *id_generator.IdGenerator
-	IdGeneratorMu      sync.Mutex
-	clientChannels     sync.Map
-	healthCheckService *healthcheck.Service
+	Config                   config.Config
+	broker                   amqp.MessageBroker
+	queues                   []amqp.Queue //order: reviews, games_platform, games_action, games_indie
+	exchange                 string
+	reportsExchange          string
+	Listeners                [connections]net.Listener
+	ChunkChans               [chunkChans]chan ChunkItem
+	finished                 bool
+	finishedMu               sync.Mutex
+	IdGenerator              *id_generator.IdGenerator
+	IdGeneratorMu            sync.Mutex
+	clientChannels           sync.Map
+	clientGamesAckChannels   sync.Map
+	clientReviewsAckChannels sync.Map
+	healthCheckService       *healthcheck.Service
 }
 
 func New() (*Gateway, error) {
@@ -101,19 +103,21 @@ func New() (*Gateway, error) {
 	}
 
 	return &Gateway{
-		Config:             cfg,
-		broker:             b,
-		queues:             queues,
-		exchange:           GatewayExchangeName,
-		reportsExchange:    ReportsExchangeName,
-		ChunkChans:         [chunkChans]chan ChunkItem{make(chan ChunkItem), make(chan ChunkItem)},
-		finished:           false,
-		finishedMu:         sync.Mutex{},
-		Listeners:          [connections]net.Listener{},
-		IdGenerator:        id_generator.New(uint8(gId)),
-		IdGeneratorMu:      sync.Mutex{},
-		clientChannels:     sync.Map{},
-		healthCheckService: hc,
+		Config:                   cfg,
+		broker:                   b,
+		queues:                   queues,
+		exchange:                 GatewayExchangeName,
+		reportsExchange:          ReportsExchangeName,
+		ChunkChans:               [chunkChans]chan ChunkItem{make(chan ChunkItem), make(chan ChunkItem)},
+		finished:                 false,
+		finishedMu:               sync.Mutex{},
+		Listeners:                [connections]net.Listener{},
+		IdGenerator:              id_generator.New(uint8(gId)),
+		IdGeneratorMu:            sync.Mutex{},
+		clientChannels:           sync.Map{},
+		clientGamesAckChannels:   sync.Map{},
+		clientReviewsAckChannels: sync.Map{},
+		healthCheckService:       hc,
 	}, nil
 }
 
@@ -133,13 +137,13 @@ func (g *Gateway) Start() {
 		return
 	}
 
-	go startChunkSender(GamesListener,
+	go startChunkSender(GamesListener, &g.clientGamesAckChannels,
 		g.ChunkChans[GamesListener], g.broker, g.exchange,
 		g.Config.Uint8(chunkSizeKey, chunkSizeDefault),
 		g.Config.String(gamesRoutingKey, gamesRoutingDefault),
 	)
 
-	go startChunkSender(ReviewsListener,
+	go startChunkSender(ReviewsListener, &g.clientReviewsAckChannels,
 		g.ChunkChans[ReviewsListener], g.broker, g.exchange,
 		g.Config.Uint8(chunkSizeKey, chunkSizeDefault),
 		g.Config.String(reviewsRoutingKey, reviewsRoutingDefault),
