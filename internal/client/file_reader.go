@@ -22,137 +22,63 @@ const (
 
 func (c *Client) readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interface{}, address string) {
 
-	sendBatch := func(startLine int, batchSize int, reader *csv.Reader, dataStruct interface{}, currentBatch uint32) (int, error) {
-		lineCount := startLine
-		for lineCount < startLine+batchSize {
-			record, err := reader.Read()
-			if err == io.EOF {
-				return lineCount, err
-			}
-			if err != nil {
-				return lineCount, fmt.Errorf("error reading CSV: %w", err)
-			}
-
-			// Populate the dataStruct with appropriate type conversion
-			v := reflect.ValueOf(dataStruct).Elem()
-			for i := 0; i < v.NumField(); i++ {
-				if i < len(record) {
-					field := v.Field(i)
-					switch field.Kind() {
-					case reflect.String:
-						field.SetString(record[i])
-					case reflect.Int64:
-						if value, err := strconv.ParseInt(record[i], 10, 64); err == nil {
-							field.SetInt(value)
-						}
-					case reflect.Int:
-						if value, err := strconv.Atoi(record[i]); err == nil {
-							field.SetInt(int64(value))
-						}
-					case reflect.Float64:
-						if value, err := strconv.ParseFloat(record[i], 64); err == nil {
-							field.SetFloat(value)
-						}
-					case reflect.Bool:
-						if value, err := strconv.ParseBool(record[i]); err == nil {
-							field.SetBool(value)
-						}
-					default:
-						logs.Logger.Infof("Unsupported type: %s", field.Kind())
-					}
-				}
-			}
-
-			// Prepare data for sending
-			var dataBuf []byte
-			if id == uint8(message.ReviewIdMsg) {
-				dataBuf, err = message.DataCSVReviews.ToBytes(*dataStruct.(*message.DataCSVReviews))
-			} else {
-				dataBuf, err = message.DataCSVGames.ToBytes(*dataStruct.(*message.DataCSVGames))
-			}
-			if err != nil {
-				logs.Logger.Errorf("Error encoding data: %s", err)
-				continue
-			}
-
-			msg := message.ClientMessage{
-				BatchNum: uint32(currentBatch),
-				DataLen:  uint32(len(dataBuf)),
-				Data:     dataBuf,
-			}
-
-			if err = message.SendMessage(conn, msg); err != nil {
-				return lineCount, fmt.Errorf("error sending message: %w", err)
-			}
-
-			lineCount++
-		}
-		return lineCount, nil
-	}
-
-	var batchStartLine, currentLine int
-	batchSize := c.cfg.Int(chunkSizeKey, chunkSizeDefault)
-	currentBatch := uint32(0)
-
-	// Open CSV and initialize reader
-	file, err := os.Open(filename)
+	file, reader, err := c.openAndPrepareCSVFile(filename)
 	if err != nil {
-		logs.Logger.Errorf("Error opening CSV file: %s", err)
 		return
 	}
 	defer file.Close()
 
-	reader := csv.NewReader(file)
+	timeout := c.cfg.Int(timeoutKey, timeoutDefault)
+	batchSize := c.cfg.Int(chunkSizeKey, chunkSizeDefault)
 
-	// Read and ignore the first line (headers)
-	if _, err = reader.Read(); err != nil {
-		if err == io.EOF {
-			logs.Logger.Error("CSV file is empty.")
-			return
-		}
-		logs.Logger.Errorf("Error reading CSV file: %s", err)
-		return
+	batchProcessor := &csvBatchProcessor{
+		client:     c,
+		file:       file,
+		reader:     reader,
+		conn:       conn,
+		id:         id,
+		dataStruct: dataStruct,
+		batchSize:  batchSize,
+		address:    address,
+		timeout:    timeout,
 	}
 
-	timeout := c.cfg.Int(timeoutKey, timeoutDefault)
+	batchProcessor.processCSVBatches()
+}
+
+type csvBatchProcessor struct {
+	client     *Client
+	file       *os.File
+	reader     *csv.Reader
+	conn       net.Conn
+	id         uint8
+	dataStruct interface{}
+	batchSize  int
+	address    string
+	timeout    int
+}
+
+func (p *csvBatchProcessor) processCSVBatches() {
+	var batchStartLine int
+	currentBatch := uint32(0)
 
 	for {
-		currentLine, err = sendBatch(batchStartLine, batchSize, reader, dataStruct, currentBatch)
+		currentLine, err := p.sendBatch(batchStartLine, currentBatch)
 		if err == io.EOF {
-
-			eofMsg := message.ClientMessage{
-				BatchNum: uint32(currentBatch),
-				DataLen:  0,
-				Data:     nil,
-			}
-
-			if err := message.SendMessage(conn, eofMsg); err != nil {
-				logs.Logger.Errorf("Error sending EOF message: %s", err)
-				rewindReader(file, &reader, batchStartLine)
-				conn = c.reconnect(address, timeout)
-				continue
-			}
-
-			if err := readAck(conn); err != nil {
-				logs.Logger.Errorf("Error reading final ACK: %s", err)
-				rewindReader(file, &reader, batchStartLine)
-				conn = c.reconnect(address, timeout)
+			if err := p.handleFinalBatch(currentBatch); err != nil {
 				continue
 			}
 			break
 		}
 		if err != nil {
 			logs.Logger.Errorf("Error sending data: %s", err)
-			rewindReader(file, &reader, batchStartLine)
-			conn = c.reconnect(address, timeout)
+			p.rewindAndReconnect(batchStartLine)
 			continue
 		}
 
-		// Read ACK for batch
-		if err := readAck(conn); err != nil {
+		if err := readAck(p.conn); err != nil {
 			logs.Logger.Errorf("ACK error: %s", err)
-			rewindReader(file, &reader, batchStartLine)
-			conn = c.reconnect(address, timeout)
+			p.rewindAndReconnect(batchStartLine)
 			continue
 		}
 
@@ -160,14 +86,153 @@ func (c *Client) readAndSendCSV(filename string, id uint8, conn net.Conn, dataSt
 		batchStartLine = currentLine
 	}
 
-	logs.Logger.Infof("Received EOF ACK for: %v", id)
+	logs.Logger.Infof("Received EOF ACK for: %v", p.id)
+}
+
+func (p *csvBatchProcessor) sendBatch(startLine int, currentBatch uint32) (int, error) {
+	lineCount := startLine
+	for lineCount < startLine+p.batchSize {
+		record, err := p.reader.Read()
+		if err == io.EOF {
+			return lineCount, err
+		}
+		if err != nil {
+			return lineCount, fmt.Errorf("error reading CSV: %w", err)
+		}
+
+		if err := p.populateDataStruct(record); err != nil {
+			logs.Logger.Errorf("Error populating data struct: %s", err)
+			continue
+		}
+
+		if err := p.sendMessage(currentBatch); err != nil {
+			return lineCount, err
+		}
+
+		lineCount++
+	}
+	return lineCount, nil
+}
+
+func (p *csvBatchProcessor) populateDataStruct(record []string) error {
+	v := reflect.ValueOf(p.dataStruct).Elem()
+	for i := 0; i < v.NumField(); i++ {
+		if i < len(record) {
+			field := v.Field(i)
+			if err := setFieldValue(field, record[i]); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func setFieldValue(field reflect.Value, value string) error {
+	switch field.Kind() {
+	case reflect.String:
+		field.SetString(value)
+	case reflect.Int64:
+		intVal, err := strconv.ParseInt(value, 10, 64)
+		if err == nil {
+			field.SetInt(intVal)
+		}
+	case reflect.Int:
+		intVal, err := strconv.Atoi(value)
+		if err == nil {
+			field.SetInt(int64(intVal))
+		}
+	case reflect.Float64:
+		floatVal, err := strconv.ParseFloat(value, 64)
+		if err == nil {
+			field.SetFloat(floatVal)
+		}
+	case reflect.Bool:
+		boolVal, err := strconv.ParseBool(value)
+		if err == nil {
+			field.SetBool(boolVal)
+		}
+	default:
+		logs.Logger.Infof("Unsupported type: %s", field.Kind())
+	}
+	return nil
+}
+
+func (p *csvBatchProcessor) sendMessage(currentBatch uint32) error {
+	var dataBuf []byte
+	var err error
+
+	if p.id == uint8(message.ReviewIdMsg) {
+		dataBuf, err = message.DataCSVReviews.ToBytes(*p.dataStruct.(*message.DataCSVReviews))
+	} else {
+		dataBuf, err = message.DataCSVGames.ToBytes(*p.dataStruct.(*message.DataCSVGames))
+	}
+
+	if err != nil {
+		return fmt.Errorf("error encoding data: %w", err)
+	}
+
+	msg := message.ClientMessage{
+		BatchNum: currentBatch,
+		DataLen:  uint32(len(dataBuf)),
+		Data:     dataBuf,
+	}
+
+	return message.SendMessage(p.conn, msg)
+}
+
+func (p *csvBatchProcessor) handleFinalBatch(currentBatch uint32) error {
+	eofMsg := message.ClientMessage{
+		BatchNum: currentBatch,
+		DataLen:  0,
+		Data:     nil,
+	}
+
+	if err := message.SendMessage(p.conn, eofMsg); err != nil {
+		logs.Logger.Errorf("Error sending EOF message: %s", err)
+		p.rewindAndReconnect(0)
+		return err
+	}
+
+	if err := readAck(p.conn); err != nil {
+		logs.Logger.Errorf("Error reading final ACK: %s", err)
+		p.rewindAndReconnect(0)
+		return err
+	}
+
+	return nil
+}
+
+func (p *csvBatchProcessor) rewindAndReconnect(batchStartLine int) {
+	rewindReader(p.file, &p.reader, batchStartLine)
+	p.conn = p.client.reconnect(p.address, p.timeout)
+}
+
+func (c *Client) openAndPrepareCSVFile(filename string) (*os.File, *csv.Reader, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		logs.Logger.Errorf("Error opening CSV file: %s", err)
+		return nil, nil, err
+	}
+
+	reader := csv.NewReader(file)
+
+	if _, err = reader.Read(); err != nil {
+		file.Close()
+		if err == io.EOF {
+			logs.Logger.Error("CSV file is empty.")
+			return nil, nil, err
+		}
+		logs.Logger.Errorf("Error reading CSV file: %s", err)
+		return nil, nil, err
+	}
+
+	return file, reader, nil
 }
 
 func rewindReader(file *os.File, reader **csv.Reader, batchStartLine int) {
 	file.Seek(0, io.SeekStart)
 	*reader = csv.NewReader(file)
 
-	// Skip header
 	_, _ = (*reader).Read()
 
 	for i := 0; i < batchStartLine; i++ {

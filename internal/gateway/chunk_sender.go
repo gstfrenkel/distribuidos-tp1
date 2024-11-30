@@ -79,8 +79,6 @@ func (s *ChunkSender) sendChunk(clientAckChannels *sync.Map, eof bool, clientId 
 			logs.Logger.Errorf("Error publishing chunks: %s", err.Error())
 		}
 
-		//logs.Logger.Infof("Sent chunk with SequenceId %v", sequenceId)
-
 		s.chunks[clientId] = make([]any, 0, s.maxChunkSize)
 		sendAckThroughChannel(clientAckChannels, clientId)
 		ackSent = true
@@ -99,8 +97,6 @@ func (s *ChunkSender) sendChunk(clientAckChannels *sync.Map, eof bool, clientId 
 		if !ackSent {
 			sendAckThroughChannel(clientAckChannels, clientId)
 		}
-		//logs.Logger.Infof("Sent chunk with SequenceId %v", sequenceId)
-
 	}
 
 }
