@@ -52,7 +52,13 @@ func (f *filter) Init() error {
 	f.detector = lingua.NewLanguageDetectorBuilder().FromLanguages(lang...).Build()
 	f.target = target
 
-	return f.w.Init()
+	if err := f.w.Init(); err != nil {
+		return err
+	}
+
+	f.recover()
+
+	return nil
 }
 
 func (f *filter) Start() {
@@ -61,12 +67,12 @@ func (f *filter) Start() {
 
 func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
-
+	var err error
 	headers = headers.WithOriginId(amqp.ReviewOriginId)
 
 	switch headers.MessageId {
 	case message.EofMsg:
-		_, err := f.w.HandleEofMessage(delivery.Body, headers)
+		sequenceIds, err = f.w.HandleEofMessage(delivery.Body, headers)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
@@ -75,7 +81,7 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 		} else {
-			f.publish(msg, headers)
+			sequenceIds = f.publish(msg, headers)
 		}
 	default:
 		logs.Logger.Infof(errors.InvalidMessageId.Error(), headers.MessageId)
@@ -84,32 +90,46 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 	return sequenceIds, nil
 }
 
-func (f *filter) publish(msg message.TextReviews, headers amqp.Header) {
+func (f *filter) publish(msg message.TextReviews, headers amqp.Header) []sequence.Destination {
+	sequenceIds := make([]sequence.Destination, 0, len(msg))
+
 	for gameId, reviews := range msg {
 		count := 0
-
-		for _, review := range reviews {
-			lang, valid := f.detector.DetectLanguageOf(review)
-			if valid && lang == f.target {
-				count += 1
-			}
-		}
+		count = f.detectLang(reviews, count)
 
 		if count == 0 {
 			continue
 		}
 
 		k := worker.ShardGameId(gameId, f.w.Outputs[0].Key, f.w.Outputs[0].Consumers)
+		sequenceId := f.w.NextSequenceId(k)
+		sequenceIds = append(sequenceIds, sequence.DstNew(k, sequenceId))
 		b, err := message.ScoredReview{GameId: gameId, Votes: uint64(count)}.ToBytes()
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 			continue
 		}
 
-		headers = headers.WithMessageId(message.ScoredReviewID)
+		headers = headers.WithMessageId(message.ScoredReviewID).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
 
 		if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, k, b, headers); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	}
+
+	return sequenceIds
+}
+
+func (f *filter) detectLang(reviews []string, count int) int {
+	for _, review := range reviews {
+		lang, valid := f.detector.DetectLanguageOf(review)
+		if valid && lang == f.target {
+			count += 1
+		}
+	}
+	return count
+}
+
+func (f *filter) recover() {
+	f.w.Recover(nil)
 }

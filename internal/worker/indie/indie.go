@@ -74,8 +74,9 @@ func (f *filter) publish(headers amqp.Header, msg message.Game) []sequence.Desti
 
 func (f *filter) publishGameNames(headers amqp.Header, msg message.Game, genre string) []sequence.Destination {
 	gameNames := msg.ToGameNamesMessage(genre)
-	sequenceIdsNames := make([]sequence.Destination, 0, len(gameNames)*len(f.w.Outputs))
+	sequenceIdsNames := make([]sequence.Destination, 0, len(gameNames))
 	headers = headers.WithMessageId(message.GameNameID)
+	output := f.w.Outputs[query3]
 
 	for _, game := range gameNames {
 		b, err := game.ToBytes()
@@ -84,11 +85,11 @@ func (f *filter) publishGameNames(headers amqp.Header, msg message.Game, genre s
 			continue
 		}
 
-		k := worker.ShardGameId(game.GameId, f.w.Outputs[query3].Key, f.w.Outputs[query3].Consumers)
+		k := worker.ShardGameId(game.GameId, output.Key, output.Consumers)
 		sequenceId := f.w.NextSequenceId(k)
 		sequenceIdsNames = append(sequenceIdsNames, sequence.DstNew(k, sequenceId))
 
-		if err = f.w.Broker.Publish(f.w.Outputs[query3].Exchange, k, b, headers.WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))); err != nil {
+		if err = f.w.Broker.Publish(output.Exchange, k, b, headers.WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	}
@@ -98,21 +99,22 @@ func (f *filter) publishGameNames(headers amqp.Header, msg message.Game, genre s
 
 func (f *filter) publishGameReleases(headers amqp.Header, msg message.Game, genre string) []sequence.Destination {
 	gameReleases := msg.ToGameReleasesMessage(genre)
-	sequenceId := f.w.NextSequenceId(f.w.Outputs[query2].Key)
-	sequenceIds := []sequence.Destination{sequence.DstNew(f.w.Outputs[query2].Key, sequenceId)}
-	headers = headers.WithMessageId(message.GameReleaseID).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
+	output := f.w.Outputs[query2]
+	sequenceId := f.w.NextSequenceId(output.Key)
 
 	b, err := gameReleases.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-		return sequenceIds
+		return []sequence.Destination{}
 	}
 
-	if err = f.w.Broker.Publish(f.w.Outputs[query2].Exchange, f.w.Outputs[query2].Key, b, headers); err != nil {
+	headers = headers.WithMessageId(message.GameReleaseID).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
+
+	if err = f.w.Broker.Publish(output.Exchange, output.Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 
-	return sequenceIds
+	return []sequence.Destination{sequence.DstNew(output.Key, sequenceId)}
 }
 
 func getGenre(f *filter) string {
