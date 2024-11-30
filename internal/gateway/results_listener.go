@@ -5,15 +5,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+
 	"tp1/pkg/amqp"
 	"tp1/pkg/ioutils"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
-)
-
-const (
-	reportsQ        = "rabbit_q.reports_q"
-	defaultReportsQ = "reports"
 )
 
 // ListenResultsRequests waits until a client connects to the results listener and sends the results to the client
@@ -54,8 +50,7 @@ func (g *Gateway) SendResults(cliConn net.Conn) {
 
 // ListenResults listens for results from the "reports" queue and sends them to the results channel
 func (g *Gateway) ListenResults() {
-	reportsQueue := g.Config.String(reportsQ, defaultReportsQ)
-	messages, err := g.broker.Consume(reportsQueue, "", true, false)
+	messages, err := g.broker.Consume(g.queues[len(g.queues)-1].Name, "", true, false)
 	if err != nil {
 		logs.Logger.Errorf("Failed to start consuming messages from reports_queue: %s", err.Error())
 		return

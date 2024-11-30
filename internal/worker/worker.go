@@ -37,6 +37,7 @@ const (
 	manyConsumersSubstr = "%d"
 	exchangesKey        = "exchanges"
 	outputQKey          = "output-queues"
+	outputQEofKey       = "output-queues-eof"
 )
 
 type Filter interface {
@@ -216,8 +217,9 @@ func (f *Worker) HandleEofMessage(msg []byte, headers amqp.Header, output ...amq
 	var sequenceIds []sequence.Destination
 
 	if uint8(len(workersVisited)) < f.peers {
-		sequenceId := f.NextSequenceId(f.inputEof.Key)
-		sequenceIds = append(sequenceIds, sequence.DstNew(f.inputEof.Key, sequenceId))
+		key := fmt.Sprintf(f.inputEof.Key, f.Id)
+		sequenceId := f.NextSequenceId(key)
+		sequenceIds = append(sequenceIds, sequence.DstNew(key, sequenceId))
 
 		bytes, err := workersVisited.ToBytes()
 		if err != nil {
@@ -225,7 +227,7 @@ func (f *Worker) HandleEofMessage(msg []byte, headers amqp.Header, output ...amq
 		}
 		return sequenceIds, f.Broker.Publish(
 			f.inputEof.Exchange,
-			f.inputEof.Key,
+			key,
 			bytes,
 			headers.WithMessageId(message.EofMsg).WithSequenceId(sequence.SrcNew(f.Id, sequenceId)),
 		)
@@ -314,13 +316,25 @@ func (f *Worker) initQueues() error {
 
 	for _, dst := range f.Outputs {
 		// Queue declaration and binding.
-		_, destination, err := f.initQueue(dst)
+		_, _, err := f.initQueue(dst)
+		if err != nil {
+			return err
+		}
+	}
+
+	var outputQueuesEof []amqp.Destination
+	if err := f.config.Unmarshal(outputQEofKey, &outputQueuesEof); err != nil {
+		return err
+	}
+
+	for _, output := range outputQueuesEof {
+		_, destination, err := f.initQueue(output)
 		if err != nil {
 			return err
 		}
 		// EOF Output queue processing.
-		for _, aux := range destination {
-			f.outputsEof = append(f.outputsEof, amqp.DestinationEof(aux))
+		for _, dst := range destination {
+			f.outputsEof = append(f.outputsEof, amqp.DestinationEof(dst))
 		}
 	}
 
@@ -332,15 +346,21 @@ func (f *Worker) initQueues() error {
 	}
 
 	for _, q := range inputQ {
-		if q.Exchange != "" {
-			if _, err = f.Broker.QueueDeclare(q.Name); err != nil {
-				return err
-			}
-			f.inputEof = amqp.DestinationEof(q)
-			if err = f.Broker.QueueBind(amqp.QueueBind{Exchange: f.inputEof.Exchange, Name: f.inputEof.Name, Key: f.inputEof.Key}); err != nil {
-				return err
-			}
-			break
+		if q.Exchange == "" {
+			continue
+		}
+
+		if strings.Contains(q.Name, manyConsumersSubstr) && strings.Contains(q.Key, manyConsumersSubstr) {
+			q.Name = fmt.Sprintf(q.Name, f.Id)
+			q.Key = fmt.Sprintf(q.Key, f.Id)
+		}
+
+		if _, err = f.Broker.QueueDeclare(q.Name); err != nil {
+			return err
+		}
+		f.inputEof = amqp.DestinationEof(q)
+		if err = f.Broker.QueueBind(amqp.QueueBind{Exchange: f.inputEof.Exchange, Name: f.inputEof.Name, Key: f.inputEof.Key}); err != nil {
+			return err
 		}
 	}
 
@@ -377,6 +397,13 @@ func (f *Worker) initQueue(dst amqp.Destination) ([]amqp.Queue, []amqp.Destinati
 	}
 
 	return queues, destinations, nil
+}
+
+func ShardSequenceId(id string, key string, consumers uint8) string {
+	if consumers == 0 {
+		return key
+	}
+	return fmt.Sprintf(key, xxHash32.Checksum([]byte(id), 0)%uint32(consumers))
 }
 
 func ShardGameId(id int64, key string, consumers uint8) string {

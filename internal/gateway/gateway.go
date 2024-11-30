@@ -7,16 +7,16 @@ import (
 	"strconv"
 	"sync"
 	"syscall"
-	"tp1/internal/gateway/id_generator"
-	"tp1/internal/healthcheck"
-	"tp1/pkg/message"
 
+	"tp1/internal/gateway/id_generator"
 	"tp1/internal/gateway/rabbit"
+	"tp1/internal/healthcheck"
 	"tp1/pkg/amqp"
 	"tp1/pkg/amqp/broker"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
 	"tp1/pkg/logs"
+	"tp1/pkg/message"
 )
 
 const (
@@ -28,9 +28,6 @@ const (
 	connections           = 4
 	chunkChans            = 2
 	exchangeNameKey       = "rabbitmq.exchange_name"
-	exchangeDefault       = "gateway"
-	reportsKey            = "rabbitmq.reports"
-	reportsDefault        = "reports"
 	workerIdKey           = "worker-id"
 	chunkSizeKey          = "gateway.chunk_size"
 	chunkSizeDefault      = 100
@@ -44,9 +41,9 @@ const (
 type Gateway struct {
 	Config             config.Config
 	broker             amqp.MessageBroker
-	queues             []amqp.Queue //order: reviews, games_platform, games_action, games_indie
 	exchange           string
-	reportsExchange    string
+	destinations       []amqp.Destination
+	queues             []amqp.Queue
 	Listeners          [connections]net.Listener
 	ChunkChans         [chunkChans]chan ChunkItem
 	finished           bool
@@ -63,37 +60,26 @@ func New() (*Gateway, error) {
 		return nil, err
 	}
 
+	gId, err := strconv.Atoi(os.Getenv(workerIdKey))
+	if err != nil {
+		return nil, err
+	}
+
 	b, err := broker.NewBroker()
 	if err != nil {
 		return nil, err
 	}
 
-	queues, err := rabbit.CreateGatewayQueues(b, cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	// Gateway exchange
-	GatewayExchangeName, err := rabbit.CreateExchange(cfg, b, cfg.String(exchangeNameKey, exchangeDefault))
+	destinations, queues, err := rabbit.CreateGatewayQueues(uint8(gId), b, cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	// Reports exchange
-	ReportsExchangeName, err := rabbit.CreateExchange(cfg, b, cfg.String(reportsKey, reportsDefault))
+	/*ReportsExchangeName, err := rabbit.CreateExchange(cfg, b, cfg.String(reportsKey, reportsDefault))
 	if err != nil {
 		return nil, err
-	}
-
-	err = rabbit.BindGatewayQueuesToExchange(b, queues, cfg, GatewayExchangeName, ReportsExchangeName)
-	if err != nil {
-		return nil, err
-	}
-
-	gId, err := strconv.Atoi(os.Getenv(workerIdKey))
-	if err != nil {
-		return nil, err
-	}
+	}*/
 
 	hc, err := healthcheck.NewService()
 	if err != nil {
@@ -103,9 +89,9 @@ func New() (*Gateway, error) {
 	return &Gateway{
 		Config:             cfg,
 		broker:             b,
+		exchange:           cfg.String(exchangeNameKey, ""),
+		destinations:       destinations,
 		queues:             queues,
-		exchange:           GatewayExchangeName,
-		reportsExchange:    ReportsExchangeName,
 		ChunkChans:         [chunkChans]chan ChunkItem{make(chan ChunkItem), make(chan ChunkItem)},
 		finished:           false,
 		finishedMu:         sync.Mutex{},
@@ -134,15 +120,13 @@ func (g *Gateway) Start() {
 	}
 
 	go startChunkSender(GamesListener,
-		g.ChunkChans[GamesListener], g.broker, g.exchange,
+		g.ChunkChans[GamesListener], g.broker, g.destinations[1:],
 		g.Config.Uint8(chunkSizeKey, chunkSizeDefault),
-		g.Config.String(gamesRoutingKey, gamesRoutingDefault),
 	)
 
 	go startChunkSender(ReviewsListener,
-		g.ChunkChans[ReviewsListener], g.broker, g.exchange,
+		g.ChunkChans[ReviewsListener], g.broker, g.destinations[0:1],
 		g.Config.Uint8(chunkSizeKey, chunkSizeDefault),
-		g.Config.String(reviewsRoutingKey, reviewsRoutingDefault),
 	)
 
 	go g.ListenResults()

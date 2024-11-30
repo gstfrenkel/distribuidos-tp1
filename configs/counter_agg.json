@@ -2,23 +2,18 @@
   "query": 10,
   "peers": 0,
   "expected_eofs": 2,
-  "input-queues": [
-    {
-      "name": "joined_counted"
-    }
-  ],
-  "output-queues": [
-    {
-      "exchange": "reports",
-      "name": "reports",
-      "key": ""
-    }
-  ],
-  "exchanges": [
-    {
-      "name": "reports",
-      "kind": "direct"
-    }
-  ],
+  "input-queues": [{
+    "name": "joined_counted"
+  }],
+  "output-queues": [{
+    "exchange": "reports",
+    "name": "reports_%d",
+    "key": "%d",
+    "consumers": 1
+  }],
+  "exchanges": [{
+    "name": "reports",
+    "kind": "direct"
+  }],
   "log-level": "INFO"
 }

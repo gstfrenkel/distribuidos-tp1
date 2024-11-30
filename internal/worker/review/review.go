@@ -74,7 +74,11 @@ func (f *filter) publish(msg message.Review, headers amqp.Header) {
 	b, err := msg.ToReviewWithTextMessage(f.scores[query4]).ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-	} else if err = f.w.Broker.Publish(f.w.Outputs[query4].Exchange, "", b, headers); err != nil {
+	}
+
+	output := f.w.Outputs[query4]
+	key := worker.ShardSequenceId(headers.SequenceId, output.Key, output.Consumers)
+	if err = f.w.Broker.Publish(output.Exchange, key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 

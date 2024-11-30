@@ -4,18 +4,15 @@
     "name": "platform_counts",
     "key": "input"
   },
-  "output-queues": [
-    {
-      "exchange": "reports",
-      "name": "reports",
-      "key": ""
-    }
-  ],
-  "exchanges": [
-    {
-      "name": "reports",
-      "kind": "direct"
-    }
-  ],
+  "output-queues": [{
+    "exchange": "reports",
+    "name": "reports_%d",
+    "key": "%d",
+    "consumers": 1
+  }],
+  "exchanges": [{
+    "name": "reports",
+    "kind": "direct"
+  }],
   "log-level": "INFO"
 }

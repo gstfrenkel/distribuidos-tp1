@@ -1,6 +1,9 @@
 package gateway
 
 import (
+	"fmt"
+	"github.com/pierrec/xxHash/xxHash32"
+
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
@@ -10,10 +13,9 @@ type ChunkSender struct {
 	id           int //0 for games, 1 for reviews
 	channel      <-chan ChunkItem
 	broker       amqp.MessageBroker
-	exchange     string
+	dst          []amqp.Destination
 	maxChunkSize uint8
 	chunks       map[string][]any
-	routingKey   string
 }
 
 type ChunkItem struct {
@@ -21,20 +23,19 @@ type ChunkItem struct {
 	ClientId string
 }
 
-func newChunkSender(id int, channel <-chan ChunkItem, broker amqp.MessageBroker, exchange string, chunkMaxSize uint8, routingKey string) *ChunkSender {
+func newChunkSender(id int, channel <-chan ChunkItem, broker amqp.MessageBroker, dst []amqp.Destination, chunkMaxSize uint8) *ChunkSender {
 	return &ChunkSender{
 		id:           id,
 		channel:      channel,
 		broker:       broker,
-		exchange:     exchange,
+		dst:          dst,
 		chunks:       make(map[string][]any),
 		maxChunkSize: chunkMaxSize,
-		routingKey:   routingKey,
 	}
 }
 
-func startChunkSender(id int, channel <-chan ChunkItem, broker amqp.MessageBroker, exchange string, chunkMaxSize uint8, routingKey string) {
-	s := newChunkSender(id, channel, broker, exchange, chunkMaxSize, routingKey)
+func startChunkSender(id int, channel <-chan ChunkItem, broker amqp.MessageBroker, dst []amqp.Destination, chunkMaxSize uint8) {
+	s := newChunkSender(id, channel, broker, dst, chunkMaxSize)
 	for {
 		item := <-channel
 		s.updateChunk(item, item.Msg == nil)
@@ -67,8 +68,8 @@ func (s *ChunkSender) sendChunk(eof bool, clientId string) {
 		}
 
 		headers := amqp.Header{MessageId: messageId, ClientId: clientId}
-		err = s.broker.Publish(s.exchange, s.routingKey, bytes, headers)
-		if err != nil {
+
+		if err = s.publish(bytes, headers); err != nil {
 			logs.Logger.Errorf("Error publishing chunks: %s", err.Error())
 		}
 
@@ -77,13 +78,23 @@ func (s *ChunkSender) sendChunk(eof bool, clientId string) {
 
 	if eof {
 		headers := amqp.Header{MessageId: message.EofMsg, ClientId: clientId}
-		err := s.broker.Publish(s.exchange, s.routingKey, amqp.EmptyEof, headers)
-		if err != nil {
+
+		if err := s.publish(amqp.EmptyEof, headers); err != nil {
 			logs.Logger.Errorf("Error publishing EOF: %s", err.Error())
 		}
-		logs.Logger.Infof("Sent eof with key %v", s.routingKey)
+
 		delete(s.chunks, clientId)
 	}
+}
+
+func (s *ChunkSender) publish(msg []byte, headers amqp.Header) error {
+	for _, dst := range s.dst {
+		key := shardSequenceId(headers.SequenceId, dst.Key, dst.Consumers)
+		if err := s.broker.Publish(dst.Exchange, key, msg, headers); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func toBytes(msgId message.ID, chunk []any) ([]byte, error) {
@@ -99,4 +110,11 @@ func toBytes(msgId message.ID, chunk []any) ([]byte, error) {
 		games = append(games, v.(ChunkItem).Msg.(message.DataCSVGames))
 	}
 	return message.GamesFromClientGames(games)
+}
+
+func shardSequenceId(id string, key string, consumers uint8) string {
+	if consumers == 0 {
+		return key
+	}
+	return fmt.Sprintf(key, xxHash32.Checksum([]byte(id), 0)%uint32(consumers))
 }

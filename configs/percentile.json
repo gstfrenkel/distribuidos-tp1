@@ -5,18 +5,15 @@
   "input-queues": [{
     "name": "joined_percentile"
   }],
-  "output-queues": [
-    {
-      "exchange": "reports",
-      "name": "reports",
-      "key": ""
-    }
-  ],
-  "exchanges": [
-    {
-      "name": "reports",
-      "kind": "direct"
-    }
-  ],
+  "output-queues": [{
+    "exchange": "reports",
+    "name": "reports_%d",
+    "key": "",
+    "consumers": 1
+  }],
+  "exchanges": [{
+    "name": "reports",
+    "kind": "direct"
+  }],
   "log-level": "INFO"
 }
