@@ -9,11 +9,6 @@
     "name": "platform_counts",
     "key": ""
   }],
-  "output-queues-eof": [{
-    "exchange": "platform_count",
-    "name": "platform_counts",
-    "key": ""
-  }],
   "exchanges": [{
     "name": "platform_count",
     "kind": "direct"

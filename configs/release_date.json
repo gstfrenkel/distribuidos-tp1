@@ -10,12 +10,8 @@
     "exchange": "release",
     "name": "release_date_%d",
     "key": "%d",
+    "single": true,
     "consumers": 1
-  }],
-  "output-queues-eof": [{
-    "exchange": "release",
-    "name": "release_date_0",
-    "key": "0"
   }],
   "exchanges": [{
     "name": "release",

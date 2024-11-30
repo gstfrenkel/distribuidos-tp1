@@ -9,11 +9,6 @@
     "name": "joined_percentile",
     "key": ""
   }],
-  "output-queues-eof": [{
-    "exchange": "join_percentile",
-    "name": "joined_percentile",
-    "key": ""
-  }],
   "exchanges": [{
     "name": "join_percentile",
     "kind": "direct"

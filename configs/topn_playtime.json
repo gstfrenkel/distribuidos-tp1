@@ -10,11 +10,6 @@
     "name": "topn_playtime_q2",
     "key": ""
   }],
-  "output-queues-eof": [{
-    "exchange": "topn_playtime",
-    "name": "topn_playtime_q2",
-    "key": ""
-  }],
   "exchanges": [{
     "name": "topn_playtime",
     "kind": "direct"

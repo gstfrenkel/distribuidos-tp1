@@ -8,11 +8,6 @@
     "name": "top_queue",
     "key": ""
   }],
-  "output-queues-eof": [{
-    "exchange": "top",
-    "name": "top_queue",
-    "key": ""
-  }],
   "exchanges": [{
     "name": "top",
     "kind": "direct"

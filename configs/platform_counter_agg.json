@@ -1,8 +1,6 @@
 {
   "input-queues": {
-    "exchange": "reports",
-    "name": "platform_counts",
-    "key": "input"
+    "name": "platform_counts"
   },
   "output-queues": [{
     "exchange": "reports",

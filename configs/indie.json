@@ -10,17 +10,8 @@
     "exchange": "indie",
     "name": "indie_q2_%d",
     "key": "q2-%d",
+    "single": true,
     "consumers": 1
-  }, {
-    "exchange": "indie",
-    "name": "indie_q3_%d",
-    "key": "q3-%d",
-    "consumers": 2
-  }],
-  "output-queues-eof": [{
-    "exchange": "indie",
-    "name": "indie_q2_0",
-    "key": "q2-0"
   }, {
     "exchange": "indie",
     "name": "indie_q3_%d",

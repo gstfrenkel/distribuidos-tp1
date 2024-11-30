@@ -47,6 +47,7 @@ type Destination struct {
 	Key       string `json:"key"`       // Routing key format. MUST contain "%d" at the end if Consumers > 0.
 	Name      string `json:"name"`      // Queue name format. MUST contain "%d" at the end if Consumers > 0.
 	Consumers uint8  `json:"consumers"` // May be 0 if the number of queues does not scale up with the number of consumer workers.
+	Single    bool   `json:"single"`
 }
 
 type MessageBroker interface {

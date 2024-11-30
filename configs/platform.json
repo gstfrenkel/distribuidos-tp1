@@ -9,12 +9,8 @@
     "exchange": "platform",
     "name": "platforms_%d",
     "key": "%d",
+    "single": true,
     "consumers": 1
-  }],
-  "output-queues-eof": [{
-    "exchange": "platform",
-    "name": "platforms_0",
-    "key": "0"
   }],
   "exchanges": [{
     "name": "platform",

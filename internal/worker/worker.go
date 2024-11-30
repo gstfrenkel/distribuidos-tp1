@@ -318,26 +318,14 @@ func (f *Worker) initQueues() error {
 		return err
 	}
 
-	for _, dst := range f.Outputs {
+	for _, output := range f.Outputs {
 		// Queue declaration and binding.
-		_, _, err := f.initQueue(dst)
-		if err != nil {
-			return err
-		}
-	}
-
-	var outputQueuesEof []amqp.Destination
-	if err := f.config.Unmarshal(outputQEofKey, &outputQueuesEof); err != nil {
-		return err
-	}
-
-	for _, output := range outputQueuesEof {
-		_, destination, err := f.initQueue(output)
+		_, destinations, err := f.initQueue(output)
 		if err != nil {
 			return err
 		}
 		// EOF Output queue processing.
-		for _, dst := range destination {
+		for _, dst := range destinations {
 			f.outputsEof = append(f.outputsEof, amqp.DestinationEof(dst))
 		}
 	}
@@ -392,12 +380,17 @@ func (f *Worker) initQueue(dst amqp.Destination) ([]amqp.Queue, []amqp.Destinati
 		if err != nil {
 			return nil, nil, err
 		}
+
 		key := fmt.Sprintf(dst.Key, i)
 		if err = f.Broker.QueueBind(amqp.QueueBind{Exchange: dst.Exchange, Name: name, Key: key}); err != nil {
 			return nil, nil, err
 		}
+
 		queues = append(queues, q...)
-		destinations = append(destinations, amqp.Destination{Exchange: dst.Exchange, Key: key})
+
+		if !dst.Single || i == 0 {
+			destinations = append(destinations, amqp.Destination{Exchange: dst.Exchange, Key: key})
+		}
 	}
 
 	return queues, destinations, nil

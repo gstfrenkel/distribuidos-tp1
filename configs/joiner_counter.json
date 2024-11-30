@@ -10,11 +10,6 @@
     "name": "joined_counted",
     "key": ""
   }],
-  "output-queues-eof": [{
-    "exchange": "join_counter",
-    "name": "joined_counted",
-    "key": ""
-  }],
   "exchanges": [{
     "name": "join_counter",
     "kind": "direct"
