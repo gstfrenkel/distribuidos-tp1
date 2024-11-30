@@ -88,14 +88,5 @@ func (f *filter) publish(headers amqp.Header, msg message.Game) []sequence.Desti
 }
 
 func (f *filter) recover() {
-	f.w.Recover(nil) // Usar sólo si no se necesita procesar nada excepto duplicados y sequence numbers.
-
-	/* Ejemplo de uso en caso de que sí se necesite procesar mensajes.
-	ch := make(chan recovery.Message, 32)
-	go f.w.Recover(ch)
-
-	for msg := range ch {
-		// Procesar mensaje.
-	}
-	*/
+	f.w.Recover(nil)
 }

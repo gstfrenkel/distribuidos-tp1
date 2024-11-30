@@ -9,3 +9,6 @@ ids_port = 5053
 games_path = "data/games_reduced.csv"
 reviews_path = "data/reviews_reduced.csv"
 max_messages = 5
+timeout = 5
+chunk_size = 100
+

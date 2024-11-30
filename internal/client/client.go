@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
 	"tp1/pkg/logs"
@@ -36,6 +37,7 @@ type Client struct {
 	stoppedMutex sync.Mutex
 	resultsFile  *os.File
 	clientId     string
+	gatewayAddr  string
 }
 
 func New() (*Client, error) {
@@ -98,46 +100,67 @@ func (c *Client) Start() {
 
 	wg.Add(csvsToSend)
 
-	c.sendGames(&wg, gamesConn)
-	c.sendReviews(&wg, reviewsConn)
+	c.sendGames(&wg, gamesConn, gamesFullAddress)
+	c.sendReviews(&wg, reviewsConn, reviewsFullAddress)
 
 	wg.Wait()
 	logs.Logger.Info("Client exit...")
 	c.Close(gamesConn, reviewsConn)
 }
 
-func (c *Client) sendData(wg *sync.WaitGroup, conn net.Conn, pathKey string, pathDef string, id uint8, dataStruct interface{}) {
+func (c *Client) sendData(wg *sync.WaitGroup, conn net.Conn, pathKey string, pathDef string, id uint8, dataStruct interface{}, address string) {
 	go func() {
 		defer wg.Done()
 		defer conn.Close()
-		c.readAndSendCSV(c.cfg.String(pathKey, pathDef), id, conn, dataStruct)
-		ackMsg := make([]byte, ackBytes)
-		if _, err := conn.Read(ackMsg); err != nil {
-			logs.Logger.Errorf("Failed to read message: %v", err.Error())
-		}
+		c.readAndSendCSV(c.cfg.String(pathKey, pathDef), id, conn, dataStruct, address)
 	}()
 }
 
-func (c *Client) sendGames(wg *sync.WaitGroup, gamesConn net.Conn) {
-	c.sendData(wg, gamesConn, gamesCsvPathKey, gamesCsvPathDef, uint8(message.GameIdMsg), &message.DataCSVGames{})
+func (c *Client) sendGames(wg *sync.WaitGroup, gamesConn net.Conn, address string) {
+	c.sendData(wg, gamesConn, gamesCsvPathKey, gamesCsvPathDef, uint8(message.GameIdMsg), &message.DataCSVGames{}, address)
 }
 
-func (c *Client) sendReviews(wg *sync.WaitGroup, reviewsConn net.Conn) {
-	c.sendData(wg, reviewsConn, reviewsCsvPathKey, reviewsCsvPathDef, uint8(message.ReviewIdMsg), &message.DataCSVReviews{})
-}
-
-func (c *Client) setupConnection(address string) (net.Conn, error) {
-	conn, err := net.Dial(transportProtocol, address)
-	if err != nil {
-		logs.Logger.Errorf("Connection error: %v", err)
-		return nil, err
-	}
-
-	logs.Logger.Infof("Connection established: %s", address)
-	return conn, nil
+func (c *Client) sendReviews(wg *sync.WaitGroup, reviewsConn net.Conn, address string) {
+	c.sendData(wg, reviewsConn, reviewsCsvPathKey, reviewsCsvPathDef, uint8(message.ReviewIdMsg), &message.DataCSVReviews{}, address)
 }
 
 func (c *Client) getFullAddress(gatewayAddress, portKey, portDef string) string {
 	port := c.cfg.String(portKey, portDef)
 	return gatewayAddress + ":" + port
+}
+
+func (c *Client) reconnect(address string, timeout int) net.Conn {
+
+	var newConn net.Conn
+	for {
+		conn, err := c.setupConnection(address)
+		if err == nil {
+			logs.Logger.Infof("Reconnected successfully.")
+			newConn = conn
+			break
+		}
+		logs.Logger.Errorf("Reconnect failed, retrying...")
+		time.Sleep(time.Duration(timeout) * time.Second)
+	}
+	return newConn
+}
+
+func (c *Client) setupConnection(address string) (net.Conn, error) {
+	logs.Logger.Infof("Connecting to %s", address)
+
+	conn, err := net.Dial(transportProtocol, address)
+	if err != nil {
+		return nil, err
+	}
+
+	logs.Logger.Infof("Connection established: %s", address)
+
+	err = c.sendClientID(conn)
+	if err != nil {
+		logs.Logger.Errorf("Error sending client ID: %s", err)
+		conn.Close()
+		return nil, err
+	}
+
+	return conn, nil
 }

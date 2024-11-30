@@ -1,12 +1,14 @@
 package gateway
 
 import (
-	"fmt"
-	"github.com/pierrec/xxHash/xxHash32"
+	"strconv"
+	"strings"
+	"sync"
 
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/utils/shard"
 )
 
 type ChunkSender struct {
@@ -21,6 +23,7 @@ type ChunkSender struct {
 type ChunkItem struct {
 	Msg      any //DataCSVGames or DataCSVReviews
 	ClientId string
+	BatchNum uint32
 }
 
 func newChunkSender(id int, channel <-chan ChunkItem, broker amqp.MessageBroker, dst []amqp.Destination, chunkMaxSize uint8) *ChunkSender {
@@ -34,16 +37,17 @@ func newChunkSender(id int, channel <-chan ChunkItem, broker amqp.MessageBroker,
 	}
 }
 
-func startChunkSender(id int, channel <-chan ChunkItem, broker amqp.MessageBroker, dst []amqp.Destination, chunkMaxSize uint8) {
+func startChunkSender(id int, clientAckChannels *sync.Map, channel <-chan ChunkItem, broker amqp.MessageBroker, dst []amqp.Destination, chunkMaxSize uint8) {
 	s := newChunkSender(id, channel, broker, dst, chunkMaxSize)
 	for {
 		item := <-channel
-		s.updateChunk(item, item.Msg == nil)
+		s.updateChunk(clientAckChannels, item, item.Msg == nil)
 	}
 }
 
-func (s *ChunkSender) updateChunk(item ChunkItem, eof bool) {
+func (s *ChunkSender) updateChunk(clientAckChannels *sync.Map, item ChunkItem, eof bool) {
 	clientId := item.ClientId
+
 	if !eof {
 		if _, ok := s.chunks[clientId]; !ok {
 			s.chunks[clientId] = make([]any, 0, s.maxChunkSize)
@@ -51,15 +55,16 @@ func (s *ChunkSender) updateChunk(item ChunkItem, eof bool) {
 		s.chunks[clientId] = append(s.chunks[clientId], item)
 	}
 
-	s.sendChunk(eof, clientId)
+	s.sendChunk(clientAckChannels, eof, clientId, item.BatchNum)
 }
 
 // sendChunk sends a chunks of data to the broker if the chunks is full or the eof flag is true
 // In case eof is true, it sends an EOF message to the broker
 // if a chunks was sent restarts count
-func (s *ChunkSender) sendChunk(eof bool, clientId string) {
+func (s *ChunkSender) sendChunk(clientAckChannels *sync.Map, eof bool, clientId string, batchNum uint32) {
 	messageId := matchMessageId(s.id)
 	chunk := s.chunks[clientId]
+	ackSent := false
 
 	if len(chunk) >= int(s.maxChunkSize) || eof {
 		bytes, err := toBytes(messageId, chunk)
@@ -67,29 +72,36 @@ func (s *ChunkSender) sendChunk(eof bool, clientId string) {
 			logs.Logger.Errorf("Error converting chunks to bytes: %s", err.Error())
 		}
 
-		headers := amqp.Header{MessageId: messageId, ClientId: clientId}
-
+		sequenceId := strings.Replace(clientId, "-", "", -1) + "-" + strconv.FormatUint(uint64(batchNum), 10)
+		headers := amqp.Header{MessageId: messageId, ClientId: clientId, SequenceId: sequenceId}
 		if err = s.publish(bytes, headers); err != nil {
 			logs.Logger.Errorf("Error publishing chunks: %s", err.Error())
 		}
 
 		s.chunks[clientId] = make([]any, 0, s.maxChunkSize)
+		sendAckThroughChannel(clientAckChannels, clientId)
+		ackSent = true
+
 	}
 
 	if eof {
-		headers := amqp.Header{MessageId: message.EofMsg, ClientId: clientId}
+		sequenceId := strings.Replace(clientId, "-", "", -1) + "-" + strconv.FormatUint(uint64(batchNum+1), 10)
+		headers := amqp.Header{MessageId: message.EofMsg, ClientId: clientId, SequenceId: sequenceId}
 
 		if err := s.publish(amqp.EmptyEof, headers); err != nil {
 			logs.Logger.Errorf("Error publishing EOF: %s", err.Error())
 		}
-
 		delete(s.chunks, clientId)
+
+		if !ackSent {
+			sendAckThroughChannel(clientAckChannels, clientId)
+		}
 	}
 }
 
 func (s *ChunkSender) publish(msg []byte, headers amqp.Header) error {
 	for _, dst := range s.dst {
-		key := shardSequenceId(headers.SequenceId, dst.Key, dst.Consumers)
+		key := shard.String(headers.SequenceId, dst.Key, dst.Consumers)
 		if err := s.broker.Publish(dst.Exchange, key, msg, headers); err != nil {
 			return err
 		}
@@ -112,9 +124,11 @@ func toBytes(msgId message.ID, chunk []any) ([]byte, error) {
 	return message.GamesFromClientGames(games)
 }
 
-func shardSequenceId(id string, key string, consumers uint8) string {
-	if consumers == 0 {
-		return key
+func sendAckThroughChannel(clientAckChannels *sync.Map, clientID string) {
+	if clientChanI, exists := clientAckChannels.Load(clientID); exists {
+		clientChan := clientChanI.(chan []byte)
+		clientChan <- []byte{0x01}
+	} else {
+		logs.Logger.Errorf("No client channel found for clientID %v", clientID)
 	}
-	return fmt.Sprintf(key, xxHash32.Checksum([]byte(id), 0)%uint32(consumers))
 }

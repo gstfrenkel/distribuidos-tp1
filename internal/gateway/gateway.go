@@ -39,19 +39,21 @@ const (
 )
 
 type Gateway struct {
-	Config             config.Config
-	broker             amqp.MessageBroker
-	exchange           string
-	destinations       []amqp.Destination
-	queues             []amqp.Queue
-	Listeners          [connections]net.Listener
-	ChunkChans         [chunkChans]chan ChunkItem
-	finished           bool
-	finishedMu         sync.Mutex
-	IdGenerator        *id_generator.IdGenerator
-	IdGeneratorMu      sync.Mutex
-	clientChannels     sync.Map
-	healthCheckService *healthcheck.Service
+	Config                   config.Config
+	broker                   amqp.MessageBroker
+	queues                   []amqp.Queue //order: reviews, games_platform, games_action, games_indie
+	destinations       		 []amqp.Destination
+	exchange                 string
+	Listeners                [connections]net.Listener
+	ChunkChans               [chunkChans]chan ChunkItem
+	finished                 bool
+	finishedMu               sync.Mutex
+	IdGenerator              *id_generator.IdGenerator
+	IdGeneratorMu            sync.Mutex
+	clientChannels           sync.Map
+	clientGamesAckChannels   sync.Map
+	clientReviewsAckChannels sync.Map
+	healthCheckService       *healthcheck.Service
 }
 
 func New() (*Gateway, error) {
@@ -75,31 +77,27 @@ func New() (*Gateway, error) {
 		return nil, err
 	}
 
-	// Reports exchange
-	/*ReportsExchangeName, err := rabbit.CreateExchange(cfg, b, cfg.String(reportsKey, reportsDefault))
-	if err != nil {
-		return nil, err
-	}*/
-
 	hc, err := healthcheck.NewService()
 	if err != nil {
 		return nil, err
 	}
 
 	return &Gateway{
-		Config:             cfg,
-		broker:             b,
-		exchange:           cfg.String(exchangeNameKey, ""),
-		destinations:       destinations,
-		queues:             queues,
-		ChunkChans:         [chunkChans]chan ChunkItem{make(chan ChunkItem), make(chan ChunkItem)},
-		finished:           false,
-		finishedMu:         sync.Mutex{},
-		Listeners:          [connections]net.Listener{},
-		IdGenerator:        id_generator.New(uint8(gId)),
-		IdGeneratorMu:      sync.Mutex{},
-		clientChannels:     sync.Map{},
-		healthCheckService: hc,
+		Config:                   cfg,
+		broker:                   b,
+		queues:                   queues,
+		exchange:           	  cfg.String(exchangeNameKey, ""),
+		destinations:       	  destinations,
+		ChunkChans:               [chunkChans]chan ChunkItem{make(chan ChunkItem), make(chan ChunkItem)},
+		finished:                 false,
+		finishedMu:               sync.Mutex{},
+		Listeners:                [connections]net.Listener{},
+		IdGenerator:              id_generator.New(uint8(gId)),
+		IdGeneratorMu:            sync.Mutex{},
+		clientChannels:           sync.Map{},
+		clientGamesAckChannels:   sync.Map{},
+		clientReviewsAckChannels: sync.Map{},
+		healthCheckService:       hc,
 	}, nil
 }
 
@@ -119,12 +117,12 @@ func (g *Gateway) Start() {
 		return
 	}
 
-	go startChunkSender(GamesListener,
+	go startChunkSender(GamesListener, &g.clientGamesAckChannels,
 		g.ChunkChans[GamesListener], g.broker, g.destinations[1:],
 		g.Config.Uint8(chunkSizeKey, chunkSizeDefault),
 	)
 
-	go startChunkSender(ReviewsListener,
+	go startChunkSender(ReviewsListener, &g.clientReviewsAckChannels,
 		g.ChunkChans[ReviewsListener], g.broker, g.destinations[0:1],
 		g.Config.Uint8(chunkSizeKey, chunkSizeDefault),
 	)
@@ -194,11 +192,11 @@ func matchListenerId(msgId message.ID) int {
 
 func (g *Gateway) free(sigs chan os.Signal) {
 	g.broker.Close()
-	g.Listeners[ReviewsListener].Close()
-	g.Listeners[GamesListener].Close()
-	g.Listeners[ResultsListener].Close()
-	g.Listeners[ClientIdListener].Close()
-	g.healthCheckService.Close()
+	_ = g.Listeners[ReviewsListener].Close()
+	_ = g.Listeners[GamesListener].Close()
+	_ = g.Listeners[ResultsListener].Close()
+	_ = g.Listeners[ClientIdListener].Close()
+	_ = g.healthCheckService.Close()
 	close(g.ChunkChans[ReviewsListener])
 	close(g.ChunkChans[GamesListener])
 	close(sigs)
