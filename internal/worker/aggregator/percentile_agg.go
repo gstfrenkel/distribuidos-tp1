@@ -110,7 +110,7 @@ func (p *percentile) reset(clientId string) {
 
 func (p *percentile) sendEof(headers amqp.Header) []sequence.Destination {
 	output := shardOutput(p.agg.w.Outputs[0], headers.ClientId)
-	sequenceIds, err := p.agg.w.HandleEofMessage(amqp.EmptyEof, headers.WithOriginId(amqp.Query5originId), amqp.DestinationEof(output)) // TODO: Return sequence IDs
+	sequenceIds, err := p.agg.w.HandleEofMessage(amqp.EmptyEof, headers.WithOriginId(amqp.Query5originId), amqp.DestinationEof(output))
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
