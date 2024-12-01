@@ -81,6 +81,14 @@ func (c *Client) readResults(resultsConn net.Conn, messageCount int, maxMessages
 
 		receivedData := string(payload)
 		prefix := receivedData[:ResultPrefixSize]
+
+		_, err = resultsConn.Write([]byte{0x01})
+		if err != nil {
+			logs.Logger.Errorf("Error sending result ack: %v", err)
+			resultsConn = c.reconnect(resultsFullAddress, timeout)
+			continue
+		}
+
 		if received, exists := receivedMap[prefix]; !exists || !received {
 			c.writeDataToFile(receivedData)
 			receivedMap[prefix] = true

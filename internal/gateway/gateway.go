@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"tp1/internal/gateway/id_generator"
 	"tp1/internal/healthcheck"
-	"tp1/pkg/message"
 
 	"tp1/internal/gateway/rabbit"
 	"tp1/pkg/amqp"
@@ -17,6 +16,8 @@ import (
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
 	"tp1/pkg/logs"
+	"tp1/pkg/message"
+	"tp1/pkg/recovery"
 )
 
 const (
@@ -57,6 +58,8 @@ type Gateway struct {
 	clientGamesAckChannels   sync.Map
 	clientReviewsAckChannels sync.Map
 	healthCheckService       *healthcheck.Service
+	recovery                 recovery.Handler
+	recoveryMu               sync.Mutex
 }
 
 func New() (*Gateway, error) {
@@ -102,6 +105,11 @@ func New() (*Gateway, error) {
 		return nil, err
 	}
 
+	recoveryHandler, err := recovery.NewHandler()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Gateway{
 		Config:                   cfg,
 		broker:                   b,
@@ -118,6 +126,8 @@ func New() (*Gateway, error) {
 		clientGamesAckChannels:   sync.Map{},
 		clientReviewsAckChannels: sync.Map{},
 		healthCheckService:       hc,
+		recovery:                 recoveryHandler,
+		recoveryMu:               sync.Mutex{},
 	}, nil
 }
 
