@@ -27,7 +27,13 @@ func NewTop() (worker.Filter, error) {
 }
 
 func (t *top) Init() error {
-	return t.joiner.w.Init()
+	if err := t.joiner.w.Init(); err != nil {
+		return err
+	}
+
+	t.recover()
+
+	return nil
 }
 
 func (t *top) Start() {

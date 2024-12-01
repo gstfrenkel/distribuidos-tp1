@@ -25,7 +25,13 @@ func New() (worker.Filter, error) {
 }
 
 func (f *filter) Init() error {
-	return f.w.Init()
+	if err := f.w.Init(); err != nil {
+		return err
+	}
+
+	f.recover()
+
+	return nil
 }
 
 func (f *filter) Start() {
@@ -37,10 +43,11 @@ func (f *filter) Start() {
 
 func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
+	var err error
 
 	switch headers.MessageId {
 	case message.EofMsg:
-		_, err := f.w.HandleEofMessage(delivery.Body, headers)
+		sequenceIds, err = f.w.HandleEofMessage(delivery.Body, headers)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
@@ -49,7 +56,7 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 		} else {
-			f.publish(msg, headers)
+			sequenceIds = f.publish(msg, headers)
 		}
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
@@ -58,20 +65,28 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 	return sequenceIds, nil
 }
 
-func (f *filter) publish(msg message.Releases, headers amqp.Header) {
+func (f *filter) publish(msg message.Releases, headers amqp.Header) []sequence.Destination {
 	dateFilteredGames := msg.ToPlaytimeMessage(f.startYear, f.endYear)
+	output := f.w.Outputs[0]
 
 	b, err := dateFilteredGames.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-		return
+		return []sequence.Destination{}
 	}
 
-	key := shard.String(headers.SequenceId, f.w.Outputs[0].Key, f.w.Outputs[0].Consumers)
+	key := shard.String(headers.SequenceId, output.Key, output.Consumers)
+	sequenceId := f.w.NextSequenceId(key)
 
-	headers = headers.WithMessageId(message.GameWithPlaytimeID) // TODO: Add sequence ID.
+	headers = headers.WithMessageId(message.GameWithPlaytimeID).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
 
-	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, key, b, headers); err != nil {
+	if err = f.w.Broker.Publish(output.Exchange, key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
+
+	return []sequence.Destination{sequence.DstNew(key, sequenceId)}
+}
+
+func (f *filter) recover() {
+	f.w.Recover(nil)
 }

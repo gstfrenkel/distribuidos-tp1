@@ -29,7 +29,13 @@ func New() (worker.Filter, error) {
 }
 
 func (f *filter) Init() error {
-	return f.w.Init()
+	if err := f.w.Init(); err != nil {
+		return err
+	}
+
+	f.recover()
+
+	return nil
 }
 
 func (f *filter) Start() {
@@ -51,7 +57,7 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 		} else {
-			f.publish(headers, msg)
+			sequenceIds = f.publish(headers, msg)
 		}
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
@@ -60,38 +66,64 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 	return sequenceIds, nil
 }
 
-func (f *filter) publish(headers amqp.Header, msg message.Game) {
+func (f *filter) publish(headers amqp.Header, msg message.Game) []sequence.Destination {
 	genre := getGenre(f)
-	gameReleases := msg.ToGameReleasesMessage(genre)
-	b, err := gameReleases.ToBytes()
-	if err != nil {
-		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-		return
-	}
+	sequenceIdsRelease := f.publishGameReleases(headers, msg, genre)
+	sequenceIdsNames := f.publishGameNames(headers, msg, genre)
+	return append(sequenceIdsRelease, sequenceIdsNames...)
+}
 
-	output := f.w.Outputs[query2]
-	key := shard.String(headers.SequenceId, output.Key, output.Consumers)
-
-	if err = f.w.Broker.Publish(output.Exchange, key, b, headers.WithMessageId(message.GameReleaseID)); err != nil {
-		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
-	}
-
+func (f *filter) publishGameNames(headers amqp.Header, msg message.Game, genre string) []sequence.Destination {
 	gameNames := msg.ToGameNamesMessage(genre)
+	sequenceIdsNames := make([]sequence.Destination, 0, len(gameNames))
+	headers = headers.WithMessageId(message.GameNameID)
+	output := f.w.Outputs[query3]
+
 	for _, game := range gameNames {
-		b, err = game.ToBytes()
+		b, err := game.ToBytes()
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 			continue
 		}
 
 		output = f.w.Outputs[query3]
-		key = shard.Int64(game.GameId, output.Key, output.Consumers)
-		if err = f.w.Broker.Publish(output.Exchange, key, b, headers.WithMessageId(message.GameNameID)); err != nil {
+		key := shard.Int64(game.GameId, output.Key, output.Consumers)
+		sequenceId := f.w.NextSequenceId(key)
+		sequenceIdsNames = append(sequenceIdsNames, sequence.DstNew(key, sequenceId))
+
+		if err = f.w.Broker.Publish(output.Exchange, key, b, headers.WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	}
+
+	return sequenceIdsNames
+}
+
+func (f *filter) publishGameReleases(headers amqp.Header, msg message.Game, genre string) []sequence.Destination {
+	gameReleases := msg.ToGameReleasesMessage(genre)
+	output := f.w.Outputs[query2]
+
+	b, err := gameReleases.ToBytes()
+	if err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+		return []sequence.Destination{}
+	}
+
+	key := shard.String(headers.SequenceId, output.Key, output.Consumers)
+	sequenceId := f.w.NextSequenceId(key)
+	headers = headers.WithMessageId(message.GameReleaseID).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
+
+	if err = f.w.Broker.Publish(output.Exchange, key, b, headers.WithMessageId(message.GameReleaseID)); err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
+	}
+
+	return []sequence.Destination{sequence.DstNew(key, sequenceId)}
 }
 
 func getGenre(f *filter) string {
 	return f.w.Query.(string)
+}
+
+func (f *filter) recover() {
+	f.w.Recover(nil)
 }

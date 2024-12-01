@@ -27,7 +27,13 @@ func NewPercentile() (worker.Filter, error) {
 }
 
 func (p *percentile) Init() error {
-	return p.joiner.w.Init()
+	if err := p.joiner.w.Init(); err != nil {
+		return err
+	}
+
+	p.recover()
+
+	return nil
 }
 
 func (p *percentile) Start() {
