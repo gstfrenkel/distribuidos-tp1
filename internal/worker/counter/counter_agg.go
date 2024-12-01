@@ -91,7 +91,6 @@ func (f *filter) sendBatch(headers amqp.Header, b []byte) {
 
 func (f *filter) sendEof(headers amqp.Header) {
 	output := shardOutput(f.w.Outputs[0], headers.ClientId)
-	//output.Key = shard.String(headers.SequenceId, f.w.Outputs[0].Key, f.w.Outputs[0].Consumers)
 
 	if _, err := f.w.HandleEofMessage(amqp.EmptyEof, headers, amqp.DestinationEof(output)); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)

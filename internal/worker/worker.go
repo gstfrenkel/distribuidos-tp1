@@ -218,34 +218,42 @@ func (f *Worker) HandleEofMessage(msg []byte, headers amqp.Header, output ...amq
 		workersVisited = append(workersVisited, f.Id)
 	}
 
-	var sequenceIds []sequence.Destination
-
 	if uint8(len(workersVisited)) < f.peers {
-		key := fmt.Sprintf(f.inputEof.Key, f.Id)
-		sequenceId := f.NextSequenceId(key)
-		sequenceIds = append(sequenceIds, sequence.DstNew(key, sequenceId))
-
-		bytes, err := workersVisited.ToBytes()
-		if err != nil {
-			return nil, err
-		}
-		return sequenceIds, f.Broker.Publish(
-			f.inputEof.Exchange,
-			key,
-			bytes,
-			headers.WithMessageId(message.EofMsg).WithSequenceId(sequence.SrcNew(f.Id, sequenceId)),
-		)
+		return f.handleEofToInput(headers, workersVisited)
 	}
 
+	return f.handleEofToOutputs(headers, output...)
+}
+
+func (f *Worker) handleEofToInput(headers amqp.Header, workersVisited message.Eof) ([]sequence.Destination, error) {
+	key := fmt.Sprintf(f.inputEof.Key, f.Id)
+	sequenceId := f.NextSequenceId(key)
+	sequenceIds := []sequence.Destination{sequence.DstNew(key, sequenceId)}
+
+	bytes, err := workersVisited.ToBytes()
+	if err != nil {
+		return nil, err
+	}
+	return sequenceIds, f.Broker.Publish(
+		f.inputEof.Exchange,
+		key,
+		bytes,
+		headers.WithMessageId(message.EofMsg).WithSequenceId(sequence.SrcNew(f.Id, sequenceId)),
+	)
+}
+
+func (f *Worker) handleEofToOutputs(headers amqp.Header, output ...amqp.DestinationEof) ([]sequence.Destination, error) {
 	outputs := f.outputsEof
 	if output != nil && len(output) > 0 {
 		outputs = output
 	}
 
+	sequenceIds := make([]sequence.Destination, 0, len(outputs))
+
 	for _, o := range outputs {
 		sequenceId := f.NextSequenceId(f.inputEof.Key)
 		sequenceIds = append(sequenceIds, sequence.DstNew(o.Key, sequenceId))
-		if err = f.Broker.Publish(
+		if err := f.Broker.Publish(
 			o.Exchange,
 			o.Key,
 			amqp.EmptyEof,
@@ -313,6 +321,14 @@ func (f *Worker) initExchanges() error {
 }
 
 func (f *Worker) initQueues() error {
+	if err := f.initOutputQueues(); err != nil {
+		return err
+	}
+
+	return f.initInputQueues()
+}
+
+func (f *Worker) initOutputQueues() error {
 	// Output queue unmarshalling.
 	if err := f.config.Unmarshal(outputQKey, &f.Outputs); err != nil {
 		return err
@@ -330,6 +346,10 @@ func (f *Worker) initQueues() error {
 		}
 	}
 
+	return nil
+}
+
+func (f *Worker) initInputQueues() error {
 	// Input queue unmarshalling and binding.
 	var inputQ []amqp.Destination
 	err := f.config.Unmarshal(inputQKey, &inputQ)
@@ -342,7 +362,7 @@ func (f *Worker) initQueues() error {
 			continue
 		}
 
-		if strings.Contains(q.Name, manyConsumersSubstr) && strings.Contains(q.Key, manyConsumersSubstr) {
+		if isInputDestinationScalable(q) {
 			q.Name = fmt.Sprintf(q.Name, f.Id)
 			q.Key = fmt.Sprintf(q.Key, f.Id)
 		}
@@ -361,16 +381,24 @@ func (f *Worker) initQueues() error {
 
 func (f *Worker) initQueue(dst amqp.Destination) ([]amqp.Queue, []amqp.Destination, error) {
 	if dst.Consumers == 0 {
-		q, err := f.Broker.QueueDeclare(dst.Name)
-		if err != nil {
-			return nil, nil, err
-		}
-		if err = f.Broker.QueueBind(amqp.QueueBind{Exchange: dst.Exchange, Name: dst.Name, Key: dst.Key}); err != nil {
-			return nil, nil, err
-		}
-		return q, []amqp.Destination{{Exchange: dst.Exchange, Key: dst.Key}}, nil
+		return f.initNonScalableQueue(dst)
 	}
 
+	return f.initScalableQueue(dst)
+}
+
+func (f *Worker) initNonScalableQueue(dst amqp.Destination) ([]amqp.Queue, []amqp.Destination, error) {
+	q, err := f.Broker.QueueDeclare(dst.Name)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err = f.Broker.QueueBind(amqp.QueueBind{Exchange: dst.Exchange, Name: dst.Name, Key: dst.Key}); err != nil {
+		return nil, nil, err
+	}
+	return q, []amqp.Destination{{Exchange: dst.Exchange, Key: dst.Key}}, nil
+}
+
+func (f *Worker) initScalableQueue(dst amqp.Destination) ([]amqp.Queue, []amqp.Destination, error) {
 	queues := make([]amqp.Queue, 0, dst.Consumers)
 	destinations := make([]amqp.Destination, 0, dst.Consumers)
 
@@ -388,10 +416,18 @@ func (f *Worker) initQueue(dst amqp.Destination) ([]amqp.Queue, []amqp.Destinati
 
 		queues = append(queues, q...)
 
-		if !dst.Single || i == 0 {
+		if isEofOutputDestination(dst, i) {
 			destinations = append(destinations, amqp.Destination{Exchange: dst.Exchange, Key: key})
 		}
 	}
 
 	return queues, destinations, nil
+}
+
+func isInputDestinationScalable(dst amqp.Destination) bool {
+	return strings.Contains(dst.Name, manyConsumersSubstr) && strings.Contains(dst.Key, manyConsumersSubstr)
+}
+
+func isEofOutputDestination(dst amqp.Destination, id uint8) bool {
+	return !dst.Single || id == 0
 }
