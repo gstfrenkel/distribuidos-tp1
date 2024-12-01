@@ -2,6 +2,7 @@ package percentile
 
 import (
 	"testing"
+
 	"tp1/pkg/message"
 )
 
@@ -82,7 +83,7 @@ func TestSortScoredReviewsSortsCorrectly(t *testing.T) {
 		},
 	}
 
-	f.sortScoredReviews(clientId)
+	f.scoredReviews[clientId].Sort(true)
 
 	if f.scoredReviews[clientId][0].Votes != 10 || f.scoredReviews[clientId][1].Votes != 20 || f.scoredReviews[clientId][2].Votes != 30 {
 		t.Errorf("Scored reviews not sorted correctly")

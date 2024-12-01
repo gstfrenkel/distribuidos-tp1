@@ -7,6 +7,7 @@ import (
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 	"tp1/pkg/sequence"
+	"tp1/pkg/utils/shard"
 )
 
 const (
@@ -85,11 +86,12 @@ func (f *filter) publishGameNames(headers amqp.Header, msg message.Game, genre s
 			continue
 		}
 
-		k := worker.ShardGameId(game.GameId, output.Key, output.Consumers)
-		sequenceId := f.w.NextSequenceId(k)
-		sequenceIdsNames = append(sequenceIdsNames, sequence.DstNew(k, sequenceId))
+		output = f.w.Outputs[query3]
+		key := shard.Int64(game.GameId, output.Key, output.Consumers)
+		sequenceId := f.w.NextSequenceId(key)
+		sequenceIdsNames = append(sequenceIdsNames, sequence.DstNew(key, sequenceId))
 
-		if err = f.w.Broker.Publish(output.Exchange, k, b, headers.WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))); err != nil {
+		if err = f.w.Broker.Publish(output.Exchange, key, b, headers.WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	}
@@ -100,7 +102,6 @@ func (f *filter) publishGameNames(headers amqp.Header, msg message.Game, genre s
 func (f *filter) publishGameReleases(headers amqp.Header, msg message.Game, genre string) []sequence.Destination {
 	gameReleases := msg.ToGameReleasesMessage(genre)
 	output := f.w.Outputs[query2]
-	sequenceId := f.w.NextSequenceId(output.Key)
 
 	b, err := gameReleases.ToBytes()
 	if err != nil {
@@ -108,13 +109,15 @@ func (f *filter) publishGameReleases(headers amqp.Header, msg message.Game, genr
 		return []sequence.Destination{}
 	}
 
+	key := shard.String(headers.SequenceId, output.Key, output.Consumers)
+	sequenceId := f.w.NextSequenceId(key)
 	headers = headers.WithMessageId(message.GameReleaseID).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
 
-	if err = f.w.Broker.Publish(output.Exchange, output.Key, b, headers); err != nil {
+	if err = f.w.Broker.Publish(output.Exchange, key, b, headers.WithMessageId(message.GameReleaseID)); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 
-	return []sequence.Destination{sequence.DstNew(output.Key, sequenceId)}
+	return []sequence.Destination{sequence.DstNew(key, sequenceId)}
 }
 
 func getGenre(f *filter) string {

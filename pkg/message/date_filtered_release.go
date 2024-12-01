@@ -25,7 +25,7 @@ func (releases DateFilteredReleases) ToResultString() string {
 	header := "Q2:\n"
 	var gamesInfo []string
 	for _, release := range releases {
-		gamesInfo = append(gamesInfo, fmt.Sprintf("Juego: [%s], AvgPlaytime: [%d] \n", release.GameName, release.AvgPlaytime))
+		gamesInfo = append(gamesInfo, fmt.Sprintf("Juego: [%s], AvgPlaytime: [%d]", release.GameName, release.AvgPlaytime))
 	}
-	return header + strings.Join(gamesInfo, "")
+	return header + strings.Join(gamesInfo, "\n")
 }

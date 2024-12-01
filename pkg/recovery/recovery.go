@@ -2,10 +2,11 @@ package recovery
 
 import (
 	"io"
+
 	"tp1/pkg/amqp"
-	"tp1/pkg/ioutils"
 	"tp1/pkg/logs"
 	"tp1/pkg/sequence"
+	ioutils "tp1/pkg/utils/io"
 )
 
 type Handler interface {

@@ -7,6 +7,7 @@ import (
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 	"tp1/pkg/sequence"
+	"tp1/pkg/utils/shard"
 )
 
 type filter struct {
@@ -67,7 +68,6 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 func (f *filter) publish(msg message.Releases, headers amqp.Header) []sequence.Destination {
 	dateFilteredGames := msg.ToPlaytimeMessage(f.startYear, f.endYear)
 	output := f.w.Outputs[0]
-	sequenceId := f.w.NextSequenceId(output.Key)
 
 	b, err := dateFilteredGames.ToBytes()
 	if err != nil {
@@ -75,13 +75,16 @@ func (f *filter) publish(msg message.Releases, headers amqp.Header) []sequence.D
 		return []sequence.Destination{}
 	}
 
+	key := shard.String(headers.SequenceId, output.Key, output.Consumers)
+	sequenceId := f.w.NextSequenceId(key)
+
 	headers = headers.WithMessageId(message.GameWithPlaytimeID).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
 
-	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
+	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 
-	return []sequence.Destination{sequence.DstNew(output.Key, sequenceId)}
+	return []sequence.Destination{sequence.DstNew(key, sequenceId)}
 }
 
 func (f *filter) recover() {

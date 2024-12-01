@@ -3,8 +3,8 @@ package client
 import (
 	"encoding/binary"
 	"net"
-	"tp1/pkg/ioutils"
 	"tp1/pkg/logs"
+	"tp1/pkg/utils/io"
 )
 
 const (
@@ -62,7 +62,7 @@ func (c *Client) readResults(resultsConn net.Conn, messageCount int, maxMessages
 
 		// Read payload size
 		lenBuffer := make([]byte, LenFieldSize)
-		err := ioutils.ReadFull(resultsConn, lenBuffer, LenFieldSize)
+		err := io.ReadFull(resultsConn, lenBuffer, LenFieldSize)
 		if err != nil {
 			logs.Logger.Errorf("Error reading length of message: %v", err)
 			resultsConn = c.reconnect(resultsFullAddress, timeout)
@@ -72,7 +72,7 @@ func (c *Client) readResults(resultsConn net.Conn, messageCount int, maxMessages
 		// Read message payload
 		dataLen := binary.BigEndian.Uint32(lenBuffer)
 		payload := make([]byte, dataLen)
-		err = ioutils.ReadFull(resultsConn, payload, int(dataLen))
+		err = io.ReadFull(resultsConn, payload, int(dataLen))
 		if err != nil {
 			logs.Logger.Errorf("Error reading payload: %v", err)
 			resultsConn = c.reconnect(resultsFullAddress, timeout)

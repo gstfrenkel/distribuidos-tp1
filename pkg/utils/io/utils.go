@@ -1,4 +1,4 @@
-package ioutils
+package io
 
 import (
 	"encoding/binary"

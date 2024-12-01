@@ -4,19 +4,20 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/utils/shard"
 )
 
 type ChunkSender struct {
 	id           int //0 for games, 1 for reviews
 	channel      <-chan ChunkItem
 	broker       amqp.MessageBroker
-	exchange     string
+	dst          []amqp.Destination
 	maxChunkSize uint8
 	chunks       map[string][]any
-	routingKey   string
 }
 
 type ChunkItem struct {
@@ -25,20 +26,19 @@ type ChunkItem struct {
 	BatchNum uint32
 }
 
-func newChunkSender(id int, channel <-chan ChunkItem, broker amqp.MessageBroker, exchange string, chunkMaxSize uint8, routingKey string) *ChunkSender {
+func newChunkSender(id int, channel <-chan ChunkItem, broker amqp.MessageBroker, dst []amqp.Destination, chunkMaxSize uint8) *ChunkSender {
 	return &ChunkSender{
 		id:           id,
 		channel:      channel,
 		broker:       broker,
-		exchange:     exchange,
+		dst:          dst,
 		chunks:       make(map[string][]any),
 		maxChunkSize: chunkMaxSize,
-		routingKey:   routingKey,
 	}
 }
 
-func startChunkSender(id int, clientAckChannels *sync.Map, channel <-chan ChunkItem, broker amqp.MessageBroker, exchange string, chunkMaxSize uint8, routingKey string) {
-	s := newChunkSender(id, channel, broker, exchange, chunkMaxSize, routingKey)
+func startChunkSender(id int, clientAckChannels *sync.Map, channel <-chan ChunkItem, broker amqp.MessageBroker, dst []amqp.Destination, chunkMaxSize uint8) {
+	s := newChunkSender(id, channel, broker, dst, chunkMaxSize)
 	for {
 		item := <-channel
 		s.updateChunk(clientAckChannels, item, item.Msg == nil)
@@ -74,8 +74,7 @@ func (s *ChunkSender) sendChunk(clientAckChannels *sync.Map, eof bool, clientId 
 
 		sequenceId := strings.Replace(clientId, "-", "", -1) + "-" + strconv.FormatUint(uint64(batchNum), 10)
 		headers := amqp.Header{MessageId: messageId, ClientId: clientId, SequenceId: sequenceId}
-		err = s.broker.Publish(s.exchange, s.routingKey, bytes, headers)
-		if err != nil {
+		if err = s.publish(bytes, headers); err != nil {
 			logs.Logger.Errorf("Error publishing chunks: %s", err.Error())
 		}
 
@@ -88,17 +87,26 @@ func (s *ChunkSender) sendChunk(clientAckChannels *sync.Map, eof bool, clientId 
 	if eof {
 		sequenceId := strings.Replace(clientId, "-", "", -1) + "-" + strconv.FormatUint(uint64(batchNum+1), 10)
 		headers := amqp.Header{MessageId: message.EofMsg, ClientId: clientId, SequenceId: sequenceId}
-		err := s.broker.Publish(s.exchange, s.routingKey, amqp.EmptyEof, headers)
-		if err != nil {
+
+		if err := s.publish(amqp.EmptyEof, headers); err != nil {
 			logs.Logger.Errorf("Error publishing EOF: %s", err.Error())
 		}
-		logs.Logger.Infof("Sent eof with key %v", s.routingKey)
 		delete(s.chunks, clientId)
+
 		if !ackSent {
 			sendAckThroughChannel(clientAckChannels, clientId)
 		}
 	}
+}
 
+func (s *ChunkSender) publish(msg []byte, headers amqp.Header) error {
+	for _, dst := range s.dst {
+		key := shard.String(headers.SequenceId, dst.Key, dst.Consumers)
+		if err := s.broker.Publish(dst.Exchange, key, msg, headers); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func toBytes(msgId message.ID, chunk []any) ([]byte, error) {
