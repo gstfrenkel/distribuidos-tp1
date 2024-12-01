@@ -80,7 +80,7 @@ func (f *filter) publish(msg message.Releases, headers amqp.Header) []sequence.D
 
 	headers = headers.WithMessageId(message.GameWithPlaytimeID).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
 
-	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, key, b, headers); err != nil {
+	if err = f.w.Broker.Publish(output.Exchange, key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 
