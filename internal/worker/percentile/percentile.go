@@ -1,14 +1,13 @@
 package percentile
 
 import (
-	"sort"
-	"tp1/pkg/sequence"
-
 	"tp1/internal/errors"
 	"tp1/internal/worker"
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/sequence"
+	"tp1/pkg/utils/shard"
 )
 
 type filter struct {
@@ -76,38 +75,35 @@ func (f *filter) saveScoredReview(msg message.ScoredReviews, clientId string) {
 }
 
 func (f *filter) publish(headers amqp.Header) {
-	if games := f.getGamesInPercentile(headers.ClientId); games != nil {
-		SendBatches(games.ToAny(), f.batchSize, message.ScoredRevFromAnyToBytes, f.sendBatch, headers)
+	output, err := shard.AggregatorOutput(f.w.Outputs[0], headers.ClientId)
+	if err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 	}
 
-	f.sendEof(headers)
+	if games := f.getGamesInPercentile(headers.ClientId); games != nil {
+		f.sendBatches(headers, output, games)
+	}
+
+	f.sendEof(headers, output)
 	f.reset(headers.ClientId)
 }
 
-func (f *filter) sendBatch(bytes []byte, headers amqp.Header) {
+func (f *filter) sendBatch(bytes []byte, headers amqp.Header, output amqp.Destination) {
 	headers = headers.WithMessageId(message.ScoredReviewID)
-	if err := f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, bytes, headers); err != nil {
+
+	if err := f.w.Broker.Publish(output.Exchange, output.Key, bytes, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
+
 	logs.Logger.Infof("Games in percentile %d published", f.n)
 }
 
 func (f *filter) getGamesInPercentile(clientId string) message.ScoredReviews {
 	if reviews, ok := f.scoredReviews[clientId]; ok {
-		f.sortScoredReviews(clientId)
+		reviews.Sort(true)
 		return reviews[f.percentileIdx(clientId):]
 	}
 	return nil
-}
-
-func (f *filter) sortScoredReviews(clientId string) {
-	sort.Slice(f.scoredReviews[clientId], func(i, j int) bool {
-		if f.scoredReviews[clientId][i].Votes != f.scoredReviews[clientId][j].Votes {
-			return f.scoredReviews[clientId][i].Votes < f.scoredReviews[clientId][j].Votes
-		}
-
-		return f.scoredReviews[clientId][i].GameId < f.scoredReviews[clientId][j].GameId
-	})
 }
 
 func (f *filter) percentileIdx(clientId string) int {
@@ -124,11 +120,32 @@ func (f *filter) reset(clientId string) {
 	delete(f.eofsRecv, clientId)
 }
 
-func (f *filter) sendEof(headers amqp.Header) {
-	_, err := f.w.HandleEofMessage(amqp.EmptyEof, headers) // TODO: Return sequence IDs
+func (f *filter) sendEof(headers amqp.Header, output amqp.Destination) {
+	_, err := f.w.HandleEofMessage(amqp.EmptyEof, headers, amqp.DestinationEof(output)) // TODO: Return sequence IDs
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 
 	logs.Logger.Infof("Eof message sent for client %s", headers.ClientId)
+}
+
+func (f *filter) sendBatches(headers amqp.Header, output amqp.Destination, msg message.ScoredReviews) {
+	for start := 0; start < len(msg); {
+		batch, nextStart := f.nextBatch(msg, start, len(msg))
+		bytes, err := batch.ToBytes()
+		if err != nil {
+			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err)
+			return
+		}
+		f.sendBatch(bytes, headers, output)
+		start = nextStart
+	}
+}
+
+func (f *filter) nextBatch(data message.ScoredReviews, start int, gamesLen int) (message.ScoredReviews, int) {
+	end := start + int(f.batchSize)
+	if end > gamesLen {
+		end = gamesLen
+	}
+	return data[start:end], end
 }

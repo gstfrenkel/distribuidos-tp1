@@ -5,15 +5,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"tp1/pkg/utils/io"
+
 	"tp1/pkg/amqp"
-	"tp1/pkg/ioutils"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
-)
-
-const (
-	reportsQ        = "rabbit_q.reports_q"
-	defaultReportsQ = "reports"
 )
 
 // ListenResultsRequests waits until a client connects to the results listener and sends the results to the client
@@ -44,7 +40,7 @@ func (g *Gateway) SendResults(cliConn net.Conn) {
 		binary.BigEndian.PutUint32(data[:LenFieldSize], clientMsg.DataLen)
 		copy(data[LenFieldSize:], clientMsg.Data)
 
-		if err := ioutils.SendAll(cliConn, data); err != nil {
+		if err := io.SendAll(cliConn, data); err != nil {
 			logs.Logger.Errorf("Error sending message to client: %s", err)
 			return
 		}
@@ -53,8 +49,7 @@ func (g *Gateway) SendResults(cliConn net.Conn) {
 
 // ListenResults listens for results from the "reports" queue and sends them to the results channel
 func (g *Gateway) ListenResults() {
-	reportsQueue := g.Config.String(reportsQ, defaultReportsQ)
-	messages, err := g.broker.Consume(reportsQueue, "", true, false)
+	messages, err := g.broker.Consume(g.queues[len(g.queues)-1].Name, "", true, false)
 	if err != nil {
 		logs.Logger.Errorf("Failed to start consuming messages from reports_queue: %s", err.Error())
 		return
@@ -123,22 +118,24 @@ func (g *Gateway) handleResultMsg(clientID string, originIDUint8 uint8, result i
 }
 
 func handleAppendMsg(originIDUint8 uint8, m amqp.Delivery, accumulatedResults map[uint8]string) {
+	var body string
+
 	switch originIDUint8 {
 	case amqp.Query4originId:
 		parsedBody, err := message.GameNamesFromBytes(m.Body)
 		if err != nil {
 			logs.Logger.Errorf("Failed to parse scored reviews: %v", err)
-
 		}
-		accumulatedResults[originIDUint8] = accumulatedResults[originIDUint8] + parsedBody.ToStringAux()
+		body = parsedBody.ToStringAux()
 	case amqp.Query5originId:
 		parsedBody, err := message.ScoredReviewsFromBytes(m.Body)
 		if err != nil {
 			logs.Logger.Errorf("Failed to parse games names: %v", err)
-
 		}
-		accumulatedResults[originIDUint8] = accumulatedResults[originIDUint8] + parsedBody.ToStringAux()
+		body = parsedBody.ToStringAux()
 	}
+
+	accumulatedResults[originIDUint8] = accumulatedResults[originIDUint8] + body
 }
 
 func (g *Gateway) handleEof(clientID string, accumulatedResults map[uint8]string, originIDUint8 uint8) {

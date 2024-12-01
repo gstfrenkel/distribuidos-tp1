@@ -7,6 +7,7 @@ import (
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 	"tp1/pkg/sequence"
+	"tp1/pkg/utils/shard"
 )
 
 const (
@@ -68,7 +69,10 @@ func (f *filter) publish(headers amqp.Header, msg message.Game) {
 		return
 	}
 
-	if err = f.w.Broker.Publish(f.w.Outputs[query2].Exchange, f.w.Outputs[query2].Key, b, headers.WithMessageId(message.GameReleaseID)); err != nil {
+	output := f.w.Outputs[query2]
+	key := shard.String(headers.SequenceId, output.Key, output.Consumers)
+
+	if err = f.w.Broker.Publish(output.Exchange, key, b, headers.WithMessageId(message.GameReleaseID)); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 
@@ -80,8 +84,9 @@ func (f *filter) publish(headers amqp.Header, msg message.Game) {
 			continue
 		}
 
-		k := worker.ShardGameId(game.GameId, f.w.Outputs[query3].Key, f.w.Outputs[query3].Consumers)
-		if err = f.w.Broker.Publish(f.w.Outputs[query3].Exchange, k, b, headers.WithMessageId(message.GameNameID)); err != nil {
+		output = f.w.Outputs[query3]
+		key = shard.Int64(game.GameId, output.Key, output.Consumers)
+		if err = f.w.Broker.Publish(output.Exchange, key, b, headers.WithMessageId(message.GameNameID)); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	}

@@ -9,14 +9,29 @@ chunk_size = 100
 log_level = "INFO"
 
 [rabbitmq]
-reviews_q = "reviews"
-games_platform_q = "games_platform"
-games_action_q = "games_action"
-games_indie_q = "games_indie"
 exchange_name = "gateway"
 exchange_kind = "direct"
-reviews_routing_key = "review"
-games_routing_key = "game"
-reports = "reports"
 
+[rabbitmq.reviews]
+queue = "reviews_%d"
+key = "reviews-%d"
+consumers = 1
+reviews_q = "reviews_%d"
 
+[rabbitmq.action]
+queue = "games_action_%d"
+key = "games-action-%d"
+consumers = 1
+
+[rabbitmq.indie]
+queue = "games_indie_%d"
+key = "games-indie-%d"
+consumers = 1
+
+[rabbitmq.platform]
+queue = "games_platform_%d"
+key = "games-platform-%d"
+consumers = 1
+
+[rabbitmq.reports]
+queue = "reports_%d"

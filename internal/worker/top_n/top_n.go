@@ -2,12 +2,14 @@ package top_n
 
 import (
 	"container/heap"
+
 	"tp1/internal/errors"
 	"tp1/internal/worker"
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 	"tp1/pkg/sequence"
+	"tp1/pkg/utils/shard"
 )
 
 type GameId int64
@@ -17,6 +19,7 @@ type filter struct {
 	top      map[string]PriorityQueue //<client id, top n games>
 	n        int
 	eofsRecv map[string]uint8 //<client id, eofs received>
+	agg      bool
 }
 
 func New() (worker.Filter, error) {
@@ -39,6 +42,8 @@ func (f *filter) Init() error {
 }
 
 func (f *filter) Start() {
+	f.agg = f.w.ExpectedEofs > 0
+
 	f.w.Start(f)
 }
 
@@ -67,8 +72,8 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 	return sequenceIds, nil
 }
 
-func (f *filter) updateTop(msg message.ScoredReviews, clientId string) {
-	for _, msg := range msg {
+func (f *filter) updateTop(messages message.ScoredReviews, clientId string) {
+	for _, msg := range messages {
 		notInTop := f.fixHeap(msg, clientId)
 		clientTop, _ := f.top[clientId]
 		if notInTop {
@@ -117,13 +122,22 @@ func (f *filter) publish(headers amqp.Header) {
 		return
 	}
 
-	if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, bytes, headers); err != nil {
+	output := f.w.Outputs[0]
+	if f.agg {
+		output, err = shard.AggregatorOutput(output, headers.ClientId)
+		if err != nil {
+			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+		}
+		//output.Key = shard.String(headers.SequenceId, f.w.Outputs[0].Key, f.w.Outputs[0].Consumers)
+	}
+
+	if err = f.w.Broker.Publish(output.Exchange, output.Key, bytes, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 
 	delete(f.top, headers.ClientId)
 
-	if f.w.ExpectedEofs == 0 { //it is not an aggregator
+	if !f.agg {
 		_, err = f.w.HandleEofMessage(amqp.EmptyEof, headers, amqp.DestinationEof(f.w.Outputs[0]))
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())

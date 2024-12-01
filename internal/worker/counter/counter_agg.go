@@ -7,6 +7,7 @@ import (
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 	"tp1/pkg/sequence"
+	"tp1/pkg/utils/shard"
 )
 
 type filter struct {
@@ -81,14 +82,17 @@ func (f *filter) publish(headers amqp.Header, eof bool) {
 }
 
 func (f *filter) sendBatch(headers amqp.Header, b []byte) {
-	if err := f.w.Broker.Publish(f.w.Outputs[0].Exchange, f.w.Outputs[0].Key, b, headers); err != nil {
+	output := shardOutput(f.w.Outputs[0], headers.ClientId)
+
+	if err := f.w.Broker.Publish(output.Exchange, output.Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 }
 
 func (f *filter) sendEof(headers amqp.Header) {
-	_, err := f.w.HandleEofMessage(amqp.EmptyEof, headers)
-	if err != nil {
+	output := shardOutput(f.w.Outputs[0], headers.ClientId)
+
+	if _, err := f.w.HandleEofMessage(amqp.EmptyEof, headers, amqp.DestinationEof(output)); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 
@@ -106,4 +110,12 @@ func (f *filter) saveGame(msg message.GameName, clientId string) {
 	}
 
 	f.games[clientId] = append(f.games[clientId], msg)
+}
+
+func shardOutput(output amqp.Destination, clientId string) amqp.Destination {
+	output, err := shard.AggregatorOutput(output, clientId)
+	if err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+	}
+	return output
 }

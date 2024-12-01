@@ -7,6 +7,7 @@ import (
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 	"tp1/pkg/sequence"
+	"tp1/pkg/utils/shard"
 )
 
 const (
@@ -74,7 +75,11 @@ func (f *filter) publish(msg message.Review, headers amqp.Header) {
 	b, err := msg.ToReviewWithTextMessage(f.scores[query4]).ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-	} else if err = f.w.Broker.Publish(f.w.Outputs[query4].Exchange, "", b, headers); err != nil {
+	}
+
+	output := f.w.Outputs[query4]
+	key := shard.String(headers.SequenceId, output.Key, output.Consumers)
+	if err = f.w.Broker.Publish(output.Exchange, key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 
@@ -97,7 +102,7 @@ func (f *filter) shardPublish(reviews message.ScoredReviews, output amqp.Destina
 			continue
 		}
 
-		k := worker.ShardGameId(rv.GameId, output.Key, output.Consumers)
+		k := shard.Int64(rv.GameId, output.Key, output.Consumers)
 		if err = f.w.Broker.Publish(output.Exchange, k, b, headers); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
