@@ -116,6 +116,6 @@ func TestSaveScoredReviewAppendsMessagesToManyClients(t *testing.T) {
 	}
 }
 
-func fakeFilter(n uint8) filter {
-	return filter{n: n, scoredReviews: make(map[string]message.ScoredReviews)}
+func fakeFilter(n uint8) counter {
+	return counter{n: n, scoredReviews: make(map[string]message.ScoredReviews)}
 }

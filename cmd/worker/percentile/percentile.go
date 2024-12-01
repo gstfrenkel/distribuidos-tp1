@@ -1,12 +1,12 @@
 package main
 
 import (
-	"tp1/internal/worker/percentile"
+	"tp1/internal/worker/aggregator"
 	"tp1/pkg/logs"
 )
 
 func main() {
-	filter, err := percentile.New()
+	filter, err := aggregator.NewPercentile()
 	if err != nil {
 		logs.Logger.Errorf("Failed to create new games filter: %s", err.Error())
 		return

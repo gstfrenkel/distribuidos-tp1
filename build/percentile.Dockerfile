@@ -10,7 +10,8 @@ COPY cmd/worker/percentile/percentile.go ./main.go
 COPY pkg/ ./pkg/
 COPY internal/errors/ ./internal/errors/
 COPY internal/worker/worker.go ./internal/worker/
-COPY internal/worker/aggregator/percentile_agg.go ./internal/worker/percentile/
+COPY internal/worker/aggregator/aggregator.go ./internal/worker/aggregator/
+COPY internal/worker/aggregator/percentile_agg.go ./internal/worker/aggregator/
 COPY internal/healthcheck/service.go ./internal/healthcheck/service.go
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /main

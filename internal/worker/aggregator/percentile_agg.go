@@ -9,10 +9,9 @@ import (
 	"tp1/pkg/message"
 	"tp1/pkg/recovery"
 	"tp1/pkg/sequence"
-	"tp1/pkg/utils/shard"
 )
 
-type filter struct {
+type percentile struct {
 	w             *worker.Worker
 	n             uint8                            //percentile value (0-100)
 	scoredReviews map[string]message.ScoredReviews // <clientid, scoredReviews>
@@ -20,7 +19,7 @@ type filter struct {
 	eofsRecv      map[string]uint8 // <clientid, eofsRecv>
 }
 
-func New() (worker.Filter, error) {
+func NewPercentile() (worker.Filter, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err
@@ -28,7 +27,7 @@ func New() (worker.Filter, error) {
 
 	params := w.Query.([]any)
 
-	return &filter{
+	return &percentile{
 		w:             w,
 		n:             uint8(params[0].(float64)),
 		batchSize:     uint16(params[1].(float64)),
@@ -37,7 +36,7 @@ func New() (worker.Filter, error) {
 	}, nil
 }
 
-func (f *filter) Init() error {
+func (f *percentile) Init() error {
 	if err := f.w.Init(); err != nil {
 		return err
 	}
@@ -47,11 +46,11 @@ func (f *filter) Init() error {
 	return nil
 }
 
-func (f *filter) Start() {
+func (f *percentile) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+func (f *percentile) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
 
 	switch headers.MessageId {
@@ -66,7 +65,7 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 	return sequenceIds, nil
 }
 
-func (f *filter) processEof(headers amqp.Header, recovery bool) []sequence.Destination {
+func (f *percentile) processEof(headers amqp.Header, recovery bool) []sequence.Destination {
 	var sequenceIds []sequence.Destination
 	f.eofsRecv[headers.ClientId]++
 	if f.eofsReached(headers) {
@@ -80,11 +79,11 @@ func (f *filter) processEof(headers amqp.Header, recovery bool) []sequence.Desti
 	return sequenceIds
 }
 
-func (f *filter) eofsReached(headers amqp.Header) bool {
+func (f *percentile) eofsReached(headers amqp.Header) bool {
 	return f.eofsRecv[headers.ClientId] >= f.w.ExpectedEofs
 }
 
-func (f *filter) saveScoredReview(msgBytes []byte, clientId string) {
+func (f *percentile) saveScoredReview(msgBytes []byte, clientId string) {
 	msg, err := message.ScoredReviewsFromBytes(msgBytes)
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
@@ -98,7 +97,7 @@ func (f *filter) saveScoredReview(msgBytes []byte, clientId string) {
 	f.scoredReviews[clientId] = append(f.scoredReviews[clientId], msg...)
 }
 
-func (f *filter) publish(headers amqp.Header, recovery bool) []sequence.Destination {
+func (f *percentile) publish(headers amqp.Header, recovery bool) []sequence.Destination {
 	output := shardOutput(f.w.Outputs[0], headers.ClientId)
 	var sequenceIds []sequence.Destination
 
@@ -109,7 +108,7 @@ func (f *filter) publish(headers amqp.Header, recovery bool) []sequence.Destinat
 	return sequenceIds
 }
 
-func (f *filter) getGamesInPercentile(clientId string) message.ScoredReviews {
+func (f *percentile) getGamesInPercentile(clientId string) message.ScoredReviews {
 	if reviews, ok := f.scoredReviews[clientId]; ok {
 		reviews.Sort(true)
 		return reviews[f.percentileIdx(clientId):]
@@ -117,7 +116,7 @@ func (f *filter) getGamesInPercentile(clientId string) message.ScoredReviews {
 	return nil
 }
 
-func (f *filter) percentileIdx(clientId string) int {
+func (f *percentile) percentileIdx(clientId string) int {
 	length := len(f.scoredReviews[clientId])
 	percentileIndex := int((float64(f.n) / 100) * float64(length))
 	if percentileIndex >= length {
@@ -126,13 +125,13 @@ func (f *filter) percentileIdx(clientId string) int {
 	return percentileIndex
 }
 
-func (f *filter) reset(clientId string) {
+func (f *percentile) reset(clientId string) {
 	delete(f.scoredReviews, clientId)
 	delete(f.eofsRecv, clientId)
 }
 
 // TODO extract
-func (f *filter) sendEof(headers amqp.Header) []sequence.Destination {
+func (f *percentile) sendEof(headers amqp.Header) []sequence.Destination {
 	output := shardOutput(f.w.Outputs[0], headers.ClientId)
 	sequenceIds, err := f.w.HandleEofMessage(amqp.EmptyEof, headers.WithOriginId(amqp.Query5originId), amqp.DestinationEof(output)) // TODO: Return sequence IDs
 	if err != nil {
@@ -143,7 +142,7 @@ func (f *filter) sendEof(headers amqp.Header) []sequence.Destination {
 	return sequenceIds
 }
 
-func (f *filter) sendBatches(headers amqp.Header, output amqp.Destination, msg message.ScoredReviews) []sequence.Destination {
+func (f *percentile) sendBatches(headers amqp.Header, output amqp.Destination, msg message.ScoredReviews) []sequence.Destination {
 	numberOfBatches := int(math.Ceil(float64(len(msg)) / float64(f.batchSize)))
 	sequenceIds := make([]sequence.Destination, 0, numberOfBatches)
 	headers = headers.WithMessageId(message.ScoredReviewID).WithOriginId(amqp.Query5originId)
@@ -167,7 +166,7 @@ func (f *filter) sendBatches(headers amqp.Header, output amqp.Destination, msg m
 	return sequenceIds
 }
 
-func (f *filter) sendBatch(bytes []byte, headers amqp.Header, output amqp.Destination) {
+func (f *percentile) sendBatch(bytes []byte, headers amqp.Header, output amqp.Destination) {
 	if err := f.w.Broker.Publish(output.Exchange, output.Key, bytes, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
@@ -175,7 +174,7 @@ func (f *filter) sendBatch(bytes []byte, headers amqp.Header, output amqp.Destin
 	logs.Logger.Infof("Games in percentile %d published", f.n)
 }
 
-func (f *filter) nextBatch(data message.ScoredReviews, start int, gamesLen int) (message.ScoredReviews, int) {
+func (f *percentile) nextBatch(data message.ScoredReviews, start int, gamesLen int) (message.ScoredReviews, int) {
 	end := start + int(f.batchSize)
 	if end > gamesLen {
 		end = gamesLen
@@ -183,7 +182,7 @@ func (f *filter) nextBatch(data message.ScoredReviews, start int, gamesLen int) 
 	return data[start:end], end
 }
 
-func (f *filter) recover() {
+func (f *percentile) recover() {
 	ch := make(chan recovery.Message, worker.ChanSize)
 	go f.w.Recover(ch)
 
@@ -197,13 +196,4 @@ func (f *filter) recover() {
 			logs.Logger.Errorf(errors.InvalidMessageId.Error(), recoveredMsg.Header().MessageId)
 		}
 	}
-}
-
-func shardOutput(output amqp.Destination, clientId string) amqp.Destination {
-	output, err := shard.AggregatorOutput(output, clientId)
-
-	if err != nil {
-		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-	}
-	return output
 }
