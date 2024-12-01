@@ -1,4 +1,4 @@
-package percentile
+package aggregator
 
 import (
 	"math"
@@ -131,7 +131,7 @@ func (f *filter) reset(clientId string) {
 	delete(f.eofsRecv, clientId)
 }
 
-//TODO extract
+// TODO extract
 func (f *filter) sendEof(headers amqp.Header) []sequence.Destination {
 	output := shardOutput(f.w.Outputs[0], headers.ClientId)
 	sequenceIds, err := f.w.HandleEofMessage(amqp.EmptyEof, headers.WithOriginId(amqp.Query5originId), amqp.DestinationEof(output)) // TODO: Return sequence IDs

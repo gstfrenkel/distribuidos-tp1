@@ -1,4 +1,4 @@
-package percentile
+package aggregator
 
 import (
 	"testing"
@@ -14,7 +14,8 @@ func TestSaveScoredReviewAppendsMessages(t *testing.T) {
 	}
 
 	clientId := "0-0"
-	f.saveScoredReview(msg, clientId)
+	bytes, _ := msg.ToBytes()
+	f.saveScoredReview(bytes, clientId)
 
 	if len(f.scoredReviews[clientId]) != 2 {
 		t.Errorf("Expected 2 scored reviews, got %d", len(f.scoredReviews[clientId]))
@@ -97,8 +98,10 @@ func TestSaveScoredReviewAppendsMessagesToManyClients(t *testing.T) {
 		{GameId: 2, Votes: 20},
 	}
 
-	f.saveScoredReview(msg, "0-0")
-	f.saveScoredReview(msg, "0-1")
+	bytes, _ := msg.ToBytes()
+
+	f.saveScoredReview(bytes, "0-0")
+	f.saveScoredReview(bytes, "0-1")
 
 	if len(f.scoredReviews) != 2 {
 		t.Errorf("Expected map len 2, got %d", len(f.scoredReviews))

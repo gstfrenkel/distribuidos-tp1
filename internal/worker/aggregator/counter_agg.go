@@ -1,4 +1,4 @@
-package counter
+package aggregator
 
 import (
 	"tp1/internal/errors"
@@ -105,6 +105,7 @@ func (f *filter) sendBatch(headers amqp.Header, b []byte) []sequence.Destination
 	return []sequence.Destination{sequence.DstNew(key, sequenceId)}
 }
 
+// TODO extract
 func (f *filter) sendEof(headers amqp.Header) []sequence.Destination {
 	output := shardOutput(f.w.Outputs[0], headers.ClientId)
 	sequenceIds, err := f.w.HandleEofMessage(amqp.EmptyEof, headers.WithOriginId(amqp.Query4originId), amqp.DestinationEof(output))

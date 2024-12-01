@@ -11,7 +11,7 @@ COPY cmd/worker/counter/counter.go ./main.go
 COPY pkg/ ./pkg/
 COPY internal/errors/ ./internal/errors/
 COPY internal/worker/worker.go ./internal/worker/
-COPY internal/worker/counter/counter_agg.go ./internal/worker/counter/
+COPY internal/worker/aggregator/counter_agg.go ./internal/worker/counter/
 COPY internal/healthcheck/service.go ./internal/healthcheck/service.go
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /main
