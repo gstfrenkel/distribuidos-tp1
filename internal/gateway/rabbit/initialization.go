@@ -2,6 +2,7 @@ package rabbit
 
 import (
 	"fmt"
+
 	"tp1/pkg/amqp"
 	"tp1/pkg/config"
 )
@@ -75,14 +76,8 @@ func CreateGatewayQueues(id uint8, b amqp.MessageBroker, cfg config.Config) ([]a
 		}
 	}
 
-	name, k := buildQueue(
-		cfg.String(buildKey(reportsKey, queue), ""),
-		cfg.String(buildKey(reportsKey, key), ""),
-		id,
-	)
-
+	name, _ := buildQueue(cfg.String(buildKey(reportsKey, queue), ""), "", id)
 	names = append(names, name)
-	binds = append(binds, amqp.QueueBind{Exchange: exchange, Name: name, Key: k})
 
 	queues, err := b.QueueDeclare(names...)
 	if err != nil {

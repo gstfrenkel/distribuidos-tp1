@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"sync"
 	"syscall"
+	"tp1/pkg/utils/encoding"
 
-	"tp1/internal/gateway/id_generator"
 	"tp1/internal/gateway/rabbit"
 	"tp1/internal/healthcheck"
 	"tp1/pkg/amqp"
@@ -44,7 +44,7 @@ type Gateway struct {
 	ChunkChans               [chunkChans]chan ChunkItem
 	finished                 bool
 	finishedMu               sync.Mutex
-	IdGenerator              *id_generator.IdGenerator
+	IdGenerator              *encoding.IdGenerator
 	IdGeneratorMu            sync.Mutex
 	clientChannels           sync.Map
 	clientGamesAckChannels   sync.Map
@@ -88,7 +88,7 @@ func New() (*Gateway, error) {
 		finished:                 false,
 		finishedMu:               sync.Mutex{},
 		Listeners:                [connections]net.Listener{},
-		IdGenerator:              id_generator.New(uint8(gId)),
+		IdGenerator:              encoding.New(uint8(gId)),
 		IdGeneratorMu:            sync.Mutex{},
 		clientChannels:           sync.Map{},
 		clientGamesAckChannels:   sync.Map{},

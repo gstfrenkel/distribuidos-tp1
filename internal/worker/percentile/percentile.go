@@ -75,8 +75,10 @@ func (f *filter) saveScoredReview(msg message.ScoredReviews, clientId string) {
 }
 
 func (f *filter) publish(headers amqp.Header) {
-	output := f.w.Outputs[0]
-	output.Key = shard.String(headers.SequenceId, f.w.Outputs[0].Key, f.w.Outputs[0].Consumers)
+	output, err := shard.AggregatorOutput(f.w.Outputs[0], headers.ClientId)
+	if err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+	}
 
 	if games := f.getGamesInPercentile(headers.ClientId); games != nil {
 		f.sendBatches(headers, output, games)

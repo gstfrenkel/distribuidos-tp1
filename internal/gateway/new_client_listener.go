@@ -2,8 +2,8 @@ package gateway
 
 import (
 	"net"
-	"tp1/internal/gateway/id_generator"
 	"tp1/pkg/logs"
+	"tp1/pkg/utils/encoding"
 	"tp1/pkg/utils/io"
 )
 
@@ -17,7 +17,7 @@ func (g *Gateway) assignClientId(c net.Conn) {
 	clientId := g.IdGenerator.GetId()
 	g.IdGeneratorMu.Unlock()
 
-	err := io.SendAll(c, id_generator.EncodeClientId(clientId))
+	err := io.SendAll(c, encoding.EncodeClientId(clientId))
 	if err != nil {
 		logs.Logger.Errorf("Error sending client id to client: %s", err)
 	}

@@ -1,8 +1,6 @@
 package platform_counter
 
 import (
-	"fmt"
-	"strconv"
 	"strings"
 
 	"tp1/internal/errors"
@@ -11,6 +9,7 @@ import (
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 	"tp1/pkg/sequence"
+	"tp1/pkg/utils/shard"
 )
 
 type filter struct {
@@ -90,9 +89,13 @@ func (f *filter) publish(headers amqp.Header) {
 
 	output := f.w.Outputs[0]
 	if f.agg {
-		gatewayId, _ := strconv.Atoi(strings.Split(headers.ClientId, "-")[0])
-		output.Key = fmt.Sprintf(output.Key, gatewayId)
+		output, err = shard.AggregatorOutput(output, headers.ClientId)
+		if err != nil {
+			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+		}
 	}
+
+	logs.Logger.Infof("Output: %v", output)
 
 	headers = headers.WithMessageId(message.PlatformID)
 	if err = f.w.Broker.Publish(output.Exchange, output.Key, b, headers); err != nil {

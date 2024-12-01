@@ -4,7 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
+
+	"tp1/pkg/utils/encoding"
 )
 
 var errNotEnoughArguments = errors.New("not enough arguments")
@@ -19,18 +20,17 @@ func DstNew(key string, sequenceId uint64) Destination {
 }
 
 func dstFromString(seq string) (*Destination, error) {
-	lastHyphenIndex := strings.LastIndex(seq, separator)
-	if lastHyphenIndex == -1 {
-		return nil, errInvalidSequence(seq)
-	}
-
-	key := seq[:lastHyphenIndex]
-	id, err := strconv.ParseUint(seq[lastHyphenIndex+1:], 10, 64)
+	parts, err := encoding.SplitId(seq)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Destination{key: key, id: id}, nil
+	id, err := strconv.ParseUint(parts[1], 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Destination{key: parts[0], id: id}, nil
 }
 
 func DstsFromStrings(seq []string) ([]Destination, error) {
@@ -69,5 +69,5 @@ func (s Destination) Id() uint64 {
 }
 
 func (s Destination) ToString() string {
-	return fmt.Sprintf("%s%s%d", s.key, separator, s.id)
+	return fmt.Sprintf("%s%s%d", s.key, encoding.Separator, s.id)
 }

@@ -19,6 +19,7 @@ type filter struct {
 	top      map[string]PriorityQueue //<client id, top n games>
 	n        int
 	eofsRecv map[string]uint8 //<client id, eofs received>
+	agg      bool
 }
 
 func New() (worker.Filter, error) {
@@ -41,6 +42,8 @@ func (f *filter) Init() error {
 }
 
 func (f *filter) Start() {
+	f.agg = f.w.ExpectedEofs > 0
+
 	f.w.Start(f)
 }
 
@@ -120,8 +123,12 @@ func (f *filter) publish(headers amqp.Header) {
 	}
 
 	output := f.w.Outputs[0]
-	if f.isAggregator() {
-		output.Key = shard.String(headers.SequenceId, f.w.Outputs[0].Key, f.w.Outputs[0].Consumers)
+	if f.agg {
+		output, err = shard.AggregatorOutput(output, headers.ClientId)
+		if err != nil {
+			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+		}
+		//output.Key = shard.String(headers.SequenceId, f.w.Outputs[0].Key, f.w.Outputs[0].Consumers)
 	}
 
 	if err = f.w.Broker.Publish(output.Exchange, output.Key, bytes, headers); err != nil {
@@ -130,7 +137,7 @@ func (f *filter) publish(headers amqp.Header) {
 
 	delete(f.top, headers.ClientId)
 
-	if !f.isAggregator() {
+	if !f.agg {
 		_, err = f.w.HandleEofMessage(amqp.EmptyEof, headers, amqp.DestinationEof(f.w.Outputs[0]))
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
@@ -153,8 +160,4 @@ func (f *filter) getTopNScoredReviews(clientId string) message.ScoredReviews {
 		topNAsSlice[(length-1)-i] = *heap.Pop(&clientTop).(*message.ScoredReview)
 	}
 	return topNAsSlice
-}
-
-func (f *filter) isAggregator() bool {
-	return f.w.ExpectedEofs > 0
 }

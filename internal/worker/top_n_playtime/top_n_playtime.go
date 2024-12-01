@@ -1,9 +1,8 @@
 package top_n_playtime
 
 import (
-	"fmt"
-	"strconv"
 	"strings"
+	"tp1/pkg/utils/shard"
 
 	"tp1/internal/errors"
 	"tp1/internal/worker"
@@ -99,8 +98,10 @@ func (f *filter) publish(headers amqp.Header) {
 
 	output := f.w.Outputs[0]
 	if f.agg {
-		gatewayId, _ := strconv.Atoi(strings.Split(headers.ClientId, "-")[0])
-		output.Key = fmt.Sprintf(output.Key, gatewayId)
+		output, err = shard.AggregatorOutput(output, headers.ClientId)
+		if err != nil {
+			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+		}
 	}
 
 	headers = headers.WithMessageId(message.GameWithPlaytimeID)
