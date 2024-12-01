@@ -15,7 +15,7 @@ func TestSaveScoredReviewAppendsMessages(t *testing.T) {
 
 	clientId := "0-0"
 	bytes, _ := msg.ToBytes()
-	f.saveScoredReview(bytes, clientId)
+	f.save(bytes, clientId)
 
 	if len(f.scoredReviews[clientId]) != 2 {
 		t.Errorf("Expected 2 scored reviews, got %d", len(f.scoredReviews[clientId]))
@@ -100,8 +100,8 @@ func TestSaveScoredReviewAppendsMessagesToManyClients(t *testing.T) {
 
 	bytes, _ := msg.ToBytes()
 
-	f.saveScoredReview(bytes, "0-0")
-	f.saveScoredReview(bytes, "0-1")
+	f.save(bytes, "0-0")
+	f.save(bytes, "0-1")
 
 	if len(f.scoredReviews) != 2 {
 		t.Errorf("Expected map len 2, got %d", len(f.scoredReviews))
@@ -116,6 +116,6 @@ func TestSaveScoredReviewAppendsMessagesToManyClients(t *testing.T) {
 	}
 }
 
-func fakeFilter(n uint8) counter {
-	return counter{n: n, scoredReviews: make(map[string]message.ScoredReviews)}
+func fakeFilter(n uint8) *percentile {
+	return &percentile{n: n, scoredReviews: make(map[string]message.ScoredReviews)}
 }
