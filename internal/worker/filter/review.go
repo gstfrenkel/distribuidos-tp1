@@ -28,7 +28,7 @@ func NewReview() (worker.Filter, error) {
 		return nil, err
 	}
 
-	return &review{w: w, scores: [3]int8{}}, nil
+	return &review{w: w, scores: [nQueries]int8{}}, nil
 }
 
 func (f *review) Init() error {

@@ -49,7 +49,7 @@ func (c *counter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequen
 		sequenceIds = c.agg.processEof(c, headers, false)
 	case message.GameNameID:
 		c.save(delivery.Body, headers.ClientId)
-		sequenceIds = c.publish(headers, false)
+		sequenceIds = c.publish(headers)
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
@@ -57,9 +57,9 @@ func (c *counter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequen
 	return sequenceIds, nil
 }
 
-func (c *counter) publish(headers amqp.Header, eof bool) []sequence.Destination {
+func (c *counter) publish(headers amqp.Header) []sequence.Destination {
 	var sequenceIds []sequence.Destination
-	if len(c.games[headers.ClientId]) > 0 && (c.batchSizeReached(headers) || eof) {
+	if len(c.games[headers.ClientId]) > 0 && (c.batchSizeReached(headers) || c.agg.eofsReached(headers)) {
 		b, err := c.games[headers.ClientId].ToBytes()
 		logs.Logger.Infof("Publishing batch of %d games for client %s", len(c.games), headers.ClientId)
 		if err != nil {
