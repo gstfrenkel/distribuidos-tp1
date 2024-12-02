@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	query2 uint8 = iota
-	query3
+	q2 uint8 = iota
+	q3
 )
 
 type indie struct {
@@ -77,7 +77,7 @@ func (f *indie) publishGameNames(headers amqp.Header, msg message.Game, genre st
 	gameNames := msg.ToGameNamesMessage(genre)
 	sequenceIdsNames := make([]sequence.Destination, 0, len(gameNames))
 	headers = headers.WithMessageId(message.GameNameID)
-	output := f.w.Outputs[query3]
+	output := f.w.Outputs[q3]
 
 	for _, game := range gameNames {
 		b, err := game.ToBytes()
@@ -86,7 +86,7 @@ func (f *indie) publishGameNames(headers amqp.Header, msg message.Game, genre st
 			continue
 		}
 
-		output = f.w.Outputs[query3]
+		output = f.w.Outputs[q3]
 		key := shard.Int64(game.GameId, output.Key, output.Consumers)
 		sequenceId := f.w.NextSequenceId(key)
 		sequenceIdsNames = append(sequenceIdsNames, sequence.DstNew(key, sequenceId))
@@ -101,7 +101,7 @@ func (f *indie) publishGameNames(headers amqp.Header, msg message.Game, genre st
 
 func (f *indie) publishGameReleases(headers amqp.Header, msg message.Game, genre string) []sequence.Destination {
 	gameReleases := msg.ToGameReleasesMessage(genre)
-	output := f.w.Outputs[query2]
+	output := f.w.Outputs[q2]
 
 	b, err := gameReleases.ToBytes()
 	if err != nil {
