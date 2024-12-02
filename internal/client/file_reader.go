@@ -21,7 +21,6 @@ const (
 )
 
 func (c *Client) readAndSendCSV(filename string, id uint8, conn net.Conn, dataStruct interface{}, address string) {
-
 	file, reader, err := c.openAndPrepareCSVFile(filename)
 	if err != nil {
 		return

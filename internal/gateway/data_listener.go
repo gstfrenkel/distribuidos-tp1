@@ -4,10 +4,10 @@ import (
 	"encoding/binary"
 	"net"
 	"sync"
-	"tp1/internal/gateway/id_generator"
-	"tp1/pkg/ioutils"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/utils/encoding"
+	"tp1/pkg/utils/io"
 )
 
 const (
@@ -93,15 +93,11 @@ func (g *Gateway) handleDataConnection(c net.Conn, msgId message.ID) {
 }
 
 func (g *Gateway) readClientId(c net.Conn) string {
-	clientId := make([]byte, id_generator.ClientIdLen)
-	if err := ioutils.ReadFull(c, clientId, id_generator.ClientIdLen); err != nil {
+	clientId := make([]byte, encoding.ClientIdLen)
+	if err := io.ReadFull(c, clientId, encoding.ClientIdLen); err != nil {
 		logs.Logger.Errorf("Error reading client id from client: %s", err)
 	}
-	return id_generator.DecodeClientId(clientId)
-}
-
-func readPayloadSize(data []byte) (uint32, []byte) {
-	return ioutils.ReadU32FromSlice(data), ioutils.MoveBuff(data, LenFieldSize)
+	return encoding.DecodeClientId(clientId)
 }
 
 // processPayload parses the data received from the client and appends it to the corresponding chunks

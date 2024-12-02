@@ -5,10 +5,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"tp1/pkg/utils/io"
+
 	"tp1/pkg/recovery"
 
 	"tp1/pkg/amqp"
-	"tp1/pkg/ioutils"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 )
@@ -51,7 +52,7 @@ func (g *Gateway) SendResults(cliConn net.Conn) {
 		binary.BigEndian.PutUint32(data[:LenFieldSize], clientMsg.DataLen)
 		copy(data[LenFieldSize:], clientMsg.Data)
 
-		if err := ioutils.SendAll(cliConn, data); err != nil {
+		if err := io.SendAll(cliConn, data); err != nil {
 			logs.Logger.Errorf("Error sending message to client: %s", err)
 			return
 		}
@@ -140,22 +141,24 @@ func (g *Gateway) handleResultMsg(clientID string, originIDUint8 uint8, result i
 }
 
 func handleAppendMsg(originIDUint8 uint8, m amqp.Delivery, accumulatedResults map[uint8]string) {
+	var body string
+
 	switch originIDUint8 {
 	case amqp.Query4originId:
 		parsedBody, err := message.GameNamesFromBytes(m.Body)
 		if err != nil {
 			logs.Logger.Errorf("Failed to parse scored reviews: %v", err)
-
 		}
-		accumulatedResults[originIDUint8] = accumulatedResults[originIDUint8] + parsedBody.ToStringAux()
+		body = parsedBody.ToStringAux()
 	case amqp.Query5originId:
 		parsedBody, err := message.ScoredReviewsFromBytes(m.Body)
 		if err != nil {
 			logs.Logger.Errorf("Failed to parse games names: %v", err)
-
 		}
-		accumulatedResults[originIDUint8] = accumulatedResults[originIDUint8] + parsedBody.ToStringAux()
+		body = parsedBody.ToStringAux()
 	}
+
+	accumulatedResults[originIDUint8] = accumulatedResults[originIDUint8] + body
 }
 
 func (g *Gateway) handleEof(clientID string, accumulatedResults map[uint8]string, originIDUint8 uint8) {

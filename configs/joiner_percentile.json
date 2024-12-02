@@ -4,18 +4,14 @@
     {"name": "reviews_q5_%d"},
     {"name": "action_q5_%d"}
   ],
-  "output-queues": [
-    {
-      "exchange": "join_percentile",
-      "name": "joined_percentile",
-      "key": ""
-    }
-  ],
-  "exchanges": [
-    {
-      "name": "join_percentile",
-      "kind": "direct"
-    }
-  ],
+  "output-queues": [{
+    "exchange": "join_percentile",
+    "name": "joined_percentile",
+    "key": ""
+  }],
+  "exchanges": [{
+    "name": "join_percentile",
+    "kind": "direct"
+  }],
   "log-level": "INFO"
 }

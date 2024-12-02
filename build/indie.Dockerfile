@@ -6,11 +6,11 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Update path to desired entrypoint
-COPY cmd/worker/indie/indie.go ./main.go
+COPY cmd/worker/filter/indie.go ./main.go
 COPY pkg/ ./pkg/
 COPY internal/errors/ ./internal/errors/
 COPY internal/worker/worker.go ./internal/worker/
-COPY internal/worker/indie/indie.go ./internal/worker/indie/
+COPY internal/worker/filter/indie.go ./internal/worker/filter/
 COPY internal/healthcheck/service.go ./internal/healthcheck/service.go
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /main

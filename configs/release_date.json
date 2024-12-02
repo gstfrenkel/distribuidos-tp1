@@ -3,21 +3,19 @@
   "peers": 1,
   "input-queues": {
     "exchange": "release",
-    "name": "indie_q2",
-    "key": "input"
+    "name": "indie_q2_%d",
+    "key": "input-%d"
   },
-  "output-queues": [
-    {
-      "exchange": "release",
-      "name": "release_date",
-      "key": ""
-    }
-  ],
-  "exchanges": [
-    {
-      "name": "release",
-      "kind": "direct"
-    }
-  ],
+  "output-queues": [{
+    "exchange": "release",
+    "name": "release_date_%d",
+    "key": "%d",
+    "single": true,
+    "consumers": 1
+  }],
+  "exchanges": [{
+    "name": "release",
+    "kind": "direct"
+  }],
   "log-level": "INFO"
 }

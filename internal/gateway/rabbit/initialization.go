@@ -1,81 +1,102 @@
 package rabbit
 
 import (
+	"fmt"
+
 	"tp1/pkg/amqp"
 	"tp1/pkg/config"
 )
 
 const (
-	gamesPlatformQKey     = "rabbitmq.games_platform_q"
-	gamesActionQKey       = "rabbitmq.games_action_q"
-	gamesIndieQKey        = "rabbitmq.games_indie_q"
-	reportsKey            = "rabbitmq.reports"
-	reviewsQKey           = "rabbitmq.reviews_q"
-	reviewsQDefault       = "reviews"
-	gamesPlatQDefault     = "games_platform"
-	gamesActionQDefault   = "games_action"
-	gamesIndieQDefault    = "games_indie"
-	reportsDefault        = "reports"
-	exchangeKindKey       = "rabbitmq.exchange_kind"
-	exKindDefault         = "direct"
-	reviewsRoutingKey     = "rabbitmq.reviews_routing_key"
-	reviewsRoutingDefault = "review"
-	gamesRoutingKey       = "rabbitmq.games_routing_key"
-	gamesRoutingDefault   = "game"
+	minSize = 5
+
+	queue     = "queue"
+	key       = "key"
+	consumers = "consumers"
+
+	reviewsKey  = "rabbitmq.reviews"
+	actionKey   = "rabbitmq.action"
+	indieKey    = "rabbitmq.indie"
+	platformKey = "rabbitmq.platform"
+	reportsKey  = "rabbitmq.reports"
+
+	exchangeNameKey = "rabbitmq.exchange_name"
+	exchangeKindKey = "rabbitmq.exchange_kind"
+	exKindDefault   = "direct"
 )
 
-func CreateGatewayQueues(b amqp.MessageBroker, cfg config.Config) ([]amqp.Queue, error) {
-	reviewsAndGamesQ, err := b.QueueDeclare(cfg.String(reviewsQKey, reviewsQDefault),
-		cfg.String(gamesPlatformQKey, gamesPlatQDefault),
-		cfg.String(gamesActionQKey, gamesActionQDefault),
-		cfg.String(gamesIndieQKey, gamesIndieQDefault),
-		cfg.String(reportsKey, reportsDefault))
-	if err != nil {
-		b.Close()
-		return []amqp.Queue{}, err
-	}
-
-	return reviewsAndGamesQ, nil
+var queueKeys = []string{
+	reviewsKey,
+	actionKey,
+	indieKey,
+	platformKey,
 }
 
-func CreateExchange(cfg config.Config, b amqp.MessageBroker, exchangeName string) (string, error) {
-	err := b.ExchangeDeclare(amqp.Exchange{Name: exchangeName, Kind: cfg.String(exchangeKindKey, exKindDefault)})
-	if err != nil {
-		b.Close()
-		return "", err
-	}
-	return exchangeName, nil
+func buildKey(prefix, suffix string) string {
+	return fmt.Sprintf("%s.%s", prefix, suffix)
 }
 
-func BindGatewayQueuesToExchange(b amqp.MessageBroker, queues []amqp.Queue, cfg config.Config, exchangeName string, reportsExchangeName string) error {
-	gamesKey := cfg.String(gamesRoutingKey, gamesRoutingDefault)
-	err := b.QueueBind(
-		amqp.QueueBind{
-			Name:     queues[0].Name,
-			Key:      cfg.String(reviewsRoutingKey, reviewsRoutingDefault),
-			Exchange: exchangeName,
-		}, amqp.QueueBind{
-			Name:     queues[1].Name,
-			Key:      gamesKey,
-			Exchange: exchangeName,
-		}, amqp.QueueBind{
-			Name:     queues[2].Name,
-			Key:      gamesKey,
-			Exchange: exchangeName,
-		}, amqp.QueueBind{
-			Name:     queues[3].Name,
-			Key:      gamesKey,
-			Exchange: exchangeName,
-		}, amqp.QueueBind{
-			Name:     queues[4].Name,
-			Exchange: reportsExchangeName,
-		},
-	)
+func buildQueue(queuePrefix, keyPrefix string, id uint8) (string, string) {
+	return fmt.Sprintf(queuePrefix, id), fmt.Sprintf(keyPrefix, id)
+}
 
+func buildQueues(queuePrefix, keyPrefix string, consumers uint8) ([]string, []string) {
+	names := make([]string, 0, consumers)
+	keys := make([]string, 0, consumers)
+
+	for i := uint8(0); i < consumers; i++ {
+		name, k := buildQueue(queuePrefix, keyPrefix, i)
+		names = append(names, name)
+		keys = append(keys, k)
+	}
+
+	return names, keys
+}
+
+func CreateGatewayQueues(id uint8, b amqp.MessageBroker, cfg config.Config) ([]amqp.Destination, []amqp.Queue, error) {
+	exchange := cfg.String(exchangeNameKey, "")
+	if err := createExchange(b, exchange, cfg.String(exchangeKindKey, exKindDefault)); err != nil {
+		return nil, nil, err
+	}
+
+	destinations := make([]amqp.Destination, 0, minSize)
+	names := make([]string, 0, minSize)
+	binds := make([]amqp.QueueBind, 0, minSize)
+
+	for _, k := range queueKeys {
+		queueKey := cfg.String(buildKey(k, key), "")
+		queueConsumers := cfg.Uint8(buildKey(k, consumers), 1)
+
+		destinations = append(destinations, amqp.Destination{Exchange: exchange, Key: queueKey, Consumers: queueConsumers})
+
+		name, keys := buildQueues(cfg.String(buildKey(k, queue), ""), queueKey, queueConsumers)
+		names = append(names, name...)
+		for i := 0; i < len(keys); i++ {
+			binds = append(binds, amqp.QueueBind{Exchange: exchange, Name: name[i], Key: keys[i]})
+		}
+	}
+
+	name, _ := buildQueue(cfg.String(buildKey(reportsKey, queue), ""), "", id)
+	names = append(names, name)
+
+	queues, err := b.QueueDeclare(names...)
+	if err != nil {
+		b.Close()
+		return nil, nil, err
+	}
+
+	if err = b.QueueBind(binds...); err != nil {
+		return nil, nil, err
+	}
+
+	return destinations, queues, nil
+}
+
+func createExchange(b amqp.MessageBroker, name, kind string) error {
+	err := b.ExchangeDeclare(amqp.Exchange{Name: name, Kind: kind})
 	if err != nil {
 		b.Close()
 		return err
 	}
-
 	return nil
 }

@@ -2,21 +2,19 @@
   "peers": 1,
   "input-queues": [{
     "exchange": "platform",
-    "name": "games_platform",
-    "key": "input"
+    "name": "games_platform_%d",
+    "key": "input-%d"
   }],
-  "output-queues": [
-    {
-      "exchange": "platform",
-      "name": "platforms",
-      "key": ""
-    }
-  ],
-  "exchanges": [
-    {
-      "name": "platform",
-      "kind": "direct"
-    }
-  ],
+  "output-queues": [{
+    "exchange": "platform",
+    "name": "platforms_%d",
+    "key": "%d",
+    "single": true,
+    "consumers": 1
+  }],
+  "exchanges": [{
+    "name": "platform",
+    "kind": "direct"
+  }],
   "log-level": "INFO"
 }

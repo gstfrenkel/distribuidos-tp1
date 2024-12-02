@@ -2,10 +2,11 @@ package recovery
 
 import (
 	"io"
+
 	"tp1/pkg/amqp"
-	"tp1/pkg/ioutils"
 	"tp1/pkg/logs"
 	"tp1/pkg/sequence"
+	ioutils "tp1/pkg/utils/io"
 )
 
 type Handler interface {
@@ -37,9 +38,8 @@ func (h *handler) Recover(ch chan<- Record) {
 		if err != nil {
 			if err == io.EOF {
 				break
-			} else {
-				continue
 			}
+			continue
 		}
 
 		header, err := amqp.HeaderFromStrings(line)

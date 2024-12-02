@@ -12,8 +12,8 @@ import (
 	"time"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
-	"tp1/pkg/ioutils"
 	"tp1/pkg/logs"
+	"tp1/pkg/utils/io"
 )
 
 const (
@@ -201,7 +201,7 @@ func (hc *HealthChecker) connect(nodeAddr string) (*net.UDPConn, error) {
 func (hc *HealthChecker) restartNode(containerName string) {
 	logs.Logger.Errorf("Node %s is down", containerName)
 
-	err := ioutils.ExecCommand(dockerRestart + containerName)
+	err := io.ExecCommand(dockerRestart + containerName)
 	if err != nil {
 		logs.Logger.Errorf("Error restarting node: %s", err)
 		return
