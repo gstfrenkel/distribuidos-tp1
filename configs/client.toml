@@ -6,13 +6,8 @@ results_port = 5052
 ids_port = 5053
 
 [client]
-<<<<<<< HEAD
 games_path = "data/games.csv"
 reviews_path = "data/reviews.csv"
-=======
-games_path = "data/fafa_games.csv"
-reviews_path = "data/fafa_reviews.csv"
->>>>>>> d747ae2 (wip)
 max_messages = 5
 timeout = 5
 chunk_size = 100
