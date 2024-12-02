@@ -61,5 +61,5 @@ func (m ScoredReviews) ToStringAux() string {
 	for _, r := range m {
 		reviewsInfo = append(reviewsInfo, fmt.Sprintf("Juego: [%s], Reseñas negativas: [%d]", r.GameName, r.Votes))
 	}
-	return strings.Join(reviewsInfo, "\n")
+	return strings.Join(reviewsInfo, "\n") + "\n"
 }
