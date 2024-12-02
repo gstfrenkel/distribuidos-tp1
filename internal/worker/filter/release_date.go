@@ -1,4 +1,4 @@
-package release_date
+package filter
 
 import (
 	"tp1/internal/errors"
@@ -10,21 +10,21 @@ import (
 	"tp1/pkg/utils/shard"
 )
 
-type filter struct {
+type releaseDate struct {
 	w         *worker.Worker
 	startYear int
 	endYear   int
 }
 
-func New() (worker.Filter, error) {
+func NewReleaseDate() (worker.Filter, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err
 	}
-	return &filter{w: w}, nil
+	return &releaseDate{w: w}, nil
 }
 
-func (f *filter) Init() error {
+func (f *releaseDate) Init() error {
 	if err := f.w.Init(); err != nil {
 		return err
 	}
@@ -34,14 +34,14 @@ func (f *filter) Init() error {
 	return nil
 }
 
-func (f *filter) Start() {
+func (f *releaseDate) Start() {
 	slice := f.w.Query.([]any)
 	f.startYear = int(slice[0].(float64))
 	f.endYear = int(slice[1].(float64))
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+func (f *releaseDate) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
 	var err error
 
@@ -65,7 +65,7 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 	return sequenceIds, nil
 }
 
-func (f *filter) publish(msg message.Releases, headers amqp.Header) []sequence.Destination {
+func (f *releaseDate) publish(msg message.Releases, headers amqp.Header) []sequence.Destination {
 	dateFilteredGames := msg.ToPlaytimeMessage(f.startYear, f.endYear)
 	output := f.w.Outputs[0]
 
@@ -87,6 +87,6 @@ func (f *filter) publish(msg message.Releases, headers amqp.Header) []sequence.D
 	return []sequence.Destination{sequence.DstNew(key, sequenceId)}
 }
 
-func (f *filter) recover() {
+func (f *releaseDate) recover() {
 	f.w.Recover(nil)
 }

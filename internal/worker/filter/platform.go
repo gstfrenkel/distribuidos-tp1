@@ -1,4 +1,4 @@
-package platform
+package filter
 
 import (
 	"tp1/internal/errors"
@@ -10,19 +10,19 @@ import (
 	"tp1/pkg/utils/shard"
 )
 
-type filter struct {
+type platform struct {
 	w *worker.Worker
 }
 
-func New() (worker.Filter, error) {
+func NewPlatform() (worker.Filter, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err
 	}
-	return &filter{w: w}, nil
+	return &platform{w: w}, nil
 }
 
-func (f *filter) Init() error {
+func (f *platform) Init() error {
 	if err := f.w.Init(); err != nil {
 		return err
 	}
@@ -32,11 +32,11 @@ func (f *filter) Init() error {
 	return nil
 }
 
-func (f *filter) Start() {
+func (f *platform) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+func (f *platform) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
 	var err error
 
@@ -60,7 +60,7 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 	return sequenceIds, nil
 }
 
-func (f *filter) publish(headers amqp.Header, msg message.Game) []sequence.Destination {
+func (f *platform) publish(headers amqp.Header, msg message.Game) []sequence.Destination {
 	output := f.w.Outputs[0]
 	key := shard.String(headers.SequenceId, output.Key, output.Consumers)
 	sequenceId := f.w.NextSequenceId(key)
@@ -79,6 +79,6 @@ func (f *filter) publish(headers amqp.Header, msg message.Game) []sequence.Desti
 	return []sequence.Destination{sequence.DstNew(output.Key, sequenceId)}
 }
 
-func (f *filter) recover() {
+func (f *platform) recover() {
 	f.w.Recover(nil)
 }

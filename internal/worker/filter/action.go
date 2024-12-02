@@ -1,4 +1,4 @@
-package action
+package filter
 
 import (
 	"tp1/internal/errors"
@@ -10,19 +10,19 @@ import (
 	"tp1/pkg/utils/shard"
 )
 
-type filter struct {
+type action struct {
 	w *worker.Worker
 }
 
-func New() (worker.Filter, error) {
+func NewAction() (worker.Filter, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err
 	}
-	return &filter{w: w}, nil
+	return &action{w: w}, nil
 }
 
-func (f *filter) Init() error {
+func (f *action) Init() error {
 	if err := f.w.Init(); err != nil {
 		return err
 	}
@@ -32,11 +32,11 @@ func (f *filter) Init() error {
 	return nil
 }
 
-func (f *filter) Start() {
+func (f *action) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+func (f *action) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
 	var err error
 
@@ -60,7 +60,7 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 	return sequenceIds, nil
 }
 
-func (f *filter) publish(headers amqp.Header, msg message.Game) []sequence.Destination {
+func (f *action) publish(headers amqp.Header, msg message.Game) []sequence.Destination {
 	games := msg.ToGameNamesMessage(f.w.Query.(string))
 	sequenceIds := make([]sequence.Destination, 0, len(games)*len(f.w.Outputs))
 
@@ -87,6 +87,6 @@ func (f *filter) publish(headers amqp.Header, msg message.Game) []sequence.Desti
 	return sequenceIds
 }
 
-func (f *filter) recover() {
+func (f *action) recover() {
 	f.w.Recover(nil)
 }

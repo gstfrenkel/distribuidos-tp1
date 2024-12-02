@@ -1,4 +1,4 @@
-package text
+package filter
 
 import (
 	"tp1/internal/errors"
@@ -24,22 +24,22 @@ var languages = map[string]lingua.Language{
 	"spanish":    lingua.Spanish,
 }
 
-type filter struct {
+type text struct {
 	w        *worker.Worker
 	detector lingua.LanguageDetector
 	target   lingua.Language
 }
 
-func New() (worker.Filter, error) {
+func NewText() (worker.Filter, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err
 	}
 
-	return &filter{w: w}, nil
+	return &text{w: w}, nil
 }
 
-func (f *filter) Init() error {
+func (f *text) Init() error {
 	target, ok := languages[f.w.Query.(string)]
 	if !ok {
 		return errors.UnmappedLanguage
@@ -62,11 +62,11 @@ func (f *filter) Init() error {
 	return nil
 }
 
-func (f *filter) Start() {
+func (f *text) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+func (f *text) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
 	var err error
 	headers = headers.WithOriginId(amqp.ReviewOriginId)
@@ -91,7 +91,7 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 	return sequenceIds, nil
 }
 
-func (f *filter) publish(msg message.TextReviews, headers amqp.Header) []sequence.Destination {
+func (f *text) publish(msg message.TextReviews, headers amqp.Header) []sequence.Destination {
 	sequenceIds := make([]sequence.Destination, 0, len(msg))
 
 	for gameId, reviews := range msg {
@@ -120,7 +120,7 @@ func (f *filter) publish(msg message.TextReviews, headers amqp.Header) []sequenc
 	return sequenceIds
 }
 
-func (f *filter) detectLang(reviews []string) int {
+func (f *text) detectLang(reviews []string) int {
 	count := 0
 	for _, review := range reviews {
 		lang, valid := f.detector.DetectLanguageOf(review)
@@ -131,6 +131,6 @@ func (f *filter) detectLang(reviews []string) int {
 	return count
 }
 
-func (f *filter) recover() {
+func (f *text) recover() {
 	f.w.Recover(nil)
 }

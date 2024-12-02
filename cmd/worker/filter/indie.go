@@ -1,12 +1,12 @@
 package main
 
 import (
-	"tp1/internal/worker/action"
+	f "tp1/internal/worker/filter"
 	"tp1/pkg/logs"
 )
 
 func main() {
-	filter, err := action.New()
+	filter, err := f.NewIndie()
 	if err != nil {
 		logs.Logger.Errorf("Failed to create new games filter: %s", err.Error())
 		return
