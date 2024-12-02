@@ -90,7 +90,7 @@ func (c *Client) readResults(resultsConn net.Conn, messageCount int, maxMessages
 		}
 
 		if messageCount >= maxMessages {
-			logs.Logger.Infof("Max messages (%d) reached. Exiting listener.", maxMessages)
+			logs.Logger.Infof("All queries (%d) processed. Exiting listener.", maxMessages)
 			return
 		}
 	}

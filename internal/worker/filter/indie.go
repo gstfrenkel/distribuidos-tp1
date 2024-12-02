@@ -1,4 +1,4 @@
-package indie
+package filter
 
 import (
 	"tp1/internal/errors"
@@ -11,24 +11,24 @@ import (
 )
 
 const (
-	query2 uint8 = iota
-	query3
+	q2 uint8 = iota
+	q3
 )
 
-type filter struct {
+type indie struct {
 	w *worker.Worker
 }
 
-func New() (worker.Filter, error) {
+func NewIndie() (worker.Filter, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err
 	}
 
-	return &filter{w: w}, nil
+	return &indie{w: w}, nil
 }
 
-func (f *filter) Init() error {
+func (f *indie) Init() error {
 	if err := f.w.Init(); err != nil {
 		return err
 	}
@@ -38,11 +38,11 @@ func (f *filter) Init() error {
 	return nil
 }
 
-func (f *filter) Start() {
+func (f *indie) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+func (f *indie) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
 	var err error
 
@@ -66,18 +66,18 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 	return sequenceIds, nil
 }
 
-func (f *filter) publish(headers amqp.Header, msg message.Game) []sequence.Destination {
+func (f *indie) publish(headers amqp.Header, msg message.Game) []sequence.Destination {
 	genre := getGenre(f)
 	sequenceIdsRelease := f.publishGameReleases(headers, msg, genre)
 	sequenceIdsNames := f.publishGameNames(headers, msg, genre)
 	return append(sequenceIdsRelease, sequenceIdsNames...)
 }
 
-func (f *filter) publishGameNames(headers amqp.Header, msg message.Game, genre string) []sequence.Destination {
+func (f *indie) publishGameNames(headers amqp.Header, msg message.Game, genre string) []sequence.Destination {
 	gameNames := msg.ToGameNamesMessage(genre)
 	sequenceIdsNames := make([]sequence.Destination, 0, len(gameNames))
 	headers = headers.WithMessageId(message.GameNameID)
-	output := f.w.Outputs[query3]
+	output := f.w.Outputs[q3]
 
 	for _, game := range gameNames {
 		b, err := game.ToBytes()
@@ -86,7 +86,7 @@ func (f *filter) publishGameNames(headers amqp.Header, msg message.Game, genre s
 			continue
 		}
 
-		output = f.w.Outputs[query3]
+		output = f.w.Outputs[q3]
 		key := shard.Int64(game.GameId, output.Key, output.Consumers)
 		sequenceId := f.w.NextSequenceId(key)
 		sequenceIdsNames = append(sequenceIdsNames, sequence.DstNew(key, sequenceId))
@@ -99,9 +99,9 @@ func (f *filter) publishGameNames(headers amqp.Header, msg message.Game, genre s
 	return sequenceIdsNames
 }
 
-func (f *filter) publishGameReleases(headers amqp.Header, msg message.Game, genre string) []sequence.Destination {
+func (f *indie) publishGameReleases(headers amqp.Header, msg message.Game, genre string) []sequence.Destination {
 	gameReleases := msg.ToGameReleasesMessage(genre)
-	output := f.w.Outputs[query2]
+	output := f.w.Outputs[q2]
 
 	b, err := gameReleases.ToBytes()
 	if err != nil {
@@ -120,10 +120,10 @@ func (f *filter) publishGameReleases(headers amqp.Header, msg message.Game, genr
 	return []sequence.Destination{sequence.DstNew(key, sequenceId)}
 }
 
-func getGenre(f *filter) string {
+func getGenre(f *indie) string {
 	return f.w.Query.(string)
 }
 
-func (f *filter) recover() {
+func (f *indie) recover() {
 	f.w.Recover(nil)
 }

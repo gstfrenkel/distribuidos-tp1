@@ -95,8 +95,6 @@ func (f *filter) publish(headers amqp.Header) {
 		}
 	}
 
-	logs.Logger.Infof("Output: %v", output)
-
 	headers = headers.WithMessageId(message.PlatformID)
 	if err = f.w.Broker.Publish(output.Exchange, output.Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)

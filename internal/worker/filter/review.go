@@ -1,4 +1,4 @@
-package review
+package filter
 
 import (
 	"tp1/internal/errors"
@@ -17,25 +17,25 @@ const (
 	nQueries
 )
 
-type filter struct {
+type review struct {
 	w      *worker.Worker
 	scores [nQueries]int8
 }
 
-func New() (worker.Filter, error) {
+func NewReview() (worker.Filter, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err
 	}
 
-	return &filter{w: w, scores: [3]int8{}}, nil
+	return &review{w: w, scores: [3]int8{}}, nil
 }
 
-func (f *filter) Init() error {
+func (f *review) Init() error {
 	return f.w.Init()
 }
 
-func (f *filter) Start() {
+func (f *review) Start() {
 	slice := f.w.Query.([]any)
 	f.scores[query3] = int8(slice[query3].(float64))
 	f.scores[query4] = int8(slice[query4].(float64))
@@ -44,7 +44,7 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+func (f *review) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
 
 	headers = headers.WithOriginId(amqp.ReviewOriginId)
@@ -69,7 +69,7 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 	return sequenceIds, nil
 }
 
-func (f *filter) publish(msg message.Review, headers amqp.Header) {
+func (f *review) publish(msg message.Review, headers amqp.Header) {
 	headers = headers.WithMessageId(message.ReviewWithTextID)
 
 	b, err := msg.ToReviewWithTextMessage(f.scores[query4]).ToBytes()
@@ -94,7 +94,7 @@ func (f *filter) publish(msg message.Review, headers amqp.Header) {
 	f.shardPublish(reviews, f.w.Outputs[query5], headers)
 }
 
-func (f *filter) shardPublish(reviews message.ScoredReviews, output amqp.Destination, headers amqp.Header) {
+func (f *review) shardPublish(reviews message.ScoredReviews, output amqp.Destination, headers amqp.Header) {
 	for _, rv := range reviews {
 		b, err := rv.ToBytes()
 		if err != nil {

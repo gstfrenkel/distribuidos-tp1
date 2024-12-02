@@ -1,12 +1,12 @@
 package main
 
 import (
-	"tp1/internal/worker/review"
+	f "tp1/internal/worker/filter"
 	"tp1/pkg/logs"
 )
 
 func main() {
-	filter, err := review.New()
+	filter, err := f.NewReview()
 	if err != nil {
 		logs.Logger.Errorf("Failed to create new reviews filter: %s", err.Error())
 		return
