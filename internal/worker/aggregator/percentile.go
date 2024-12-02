@@ -75,11 +75,11 @@ func (p *percentile) save(msgBytes []byte, clientId string) {
 	p.scoredReviews[clientId] = append(p.scoredReviews[clientId], msg...)
 }
 
-func (p *percentile) publish(headers amqp.Header, recovery bool) []sequence.Destination {
+func (p *percentile) publish(headers amqp.Header) []sequence.Destination {
 	output := shardOutput(p.agg.w.Outputs[0], headers.ClientId)
 	var sequenceIds []sequence.Destination
 
-	if games := p.getGamesInPercentile(headers.ClientId); games != nil && !recovery {
+	if games := p.getGamesInPercentile(headers.ClientId); games != nil {
 		sequenceIds = p.sendBatches(headers, output, games)
 	}
 

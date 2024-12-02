@@ -14,7 +14,7 @@ import (
 type processor interface {
 	sendEof(headers amqp.Header) []sequence.Destination
 	reset(clientId string)
-	publish(headers amqp.Header, eof bool) []sequence.Destination
+	publish(headers amqp.Header) []sequence.Destination
 	save(msgBytes []byte, clientId string)
 }
 
@@ -43,7 +43,7 @@ func (a *aggregator) processEof(instance processor, headers amqp.Header, recover
 	a.eofsRecv[headers.ClientId]++
 	if a.eofsReached(headers) {
 		if !recovery {
-			sequenceIds = instance.publish(headers, true)
+			sequenceIds = instance.publish(headers)
 		}
 		sequenceIds = append(sequenceIds, instance.sendEof(headers)...)
 		a.reset(headers.ClientId)
