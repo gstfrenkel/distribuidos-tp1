@@ -55,17 +55,18 @@ func (f *filter) Start() {
 
 func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
-
+	var msg []byte
 	switch headers.MessageId {
 	case message.EofMsg:
 		sequenceIds = f.processEof(headers, false)
 	case message.ScoredReviewID:
-		f.updateTop(delivery.Body, headers.ClientId)
+		msg = delivery.Body
+		f.updateTop(msg, headers.ClientId)
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
-	return sequenceIds, nil
+	return sequenceIds, msg
 }
 
 func (f *filter) processEof(headers amqp.Header, recovery bool) []sequence.Destination {
