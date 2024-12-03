@@ -101,11 +101,17 @@ func (g *Gateway) recoverResults(
 	ch chan recovery.Record,
 	clientAccumulatedResults map[string]map[uint8]string,
 	recoveredMessages map[string]map[uint8]string,
+	receivedSeqIds map[string]struct{},
 ) {
 	go g.recovery.Recover(ch)
 
 	for recoveredMsg := range ch {
 		originId := recoveredMsg.Header().OriginId
+		sequenceId := recoveredMsg.Header().SequenceId
+		if _, exists := receivedSeqIds[sequenceId]; exists {
+			continue
+		}
+		receivedSeqIds[sequenceId] = struct{}{}
 
 		switch originId {
 		case amqp.Query1originId, amqp.Query2originId, amqp.Query3originId:

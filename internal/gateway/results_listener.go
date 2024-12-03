@@ -65,8 +65,7 @@ func (g *Gateway) SendResults(cliConn net.Conn) {
 
 		readAck(cliConn)
 		originId := idToOriginID[rabbitMsg[idPos]]
-		g.logChannel <- recovery.NewRecord(amqp.Header{ClientId: clientId, OriginId: originId}, nil, rabbitMsg)
-		//logResult(g, clientId, originId, []byte(ack))
+		g.logChannel <- recovery.NewRecord(amqp.Header{ClientId: clientId, OriginId: originId}, nil, []byte(ack))
 	}
 }
 
@@ -81,7 +80,8 @@ func (g *Gateway) ListenResults() {
 	ch := make(chan recovery.Record)
 	clientAccumulatedResults := make(map[string]map[uint8]string)
 	recoveredMessages := make(map[string]map[uint8]string)
-	g.recoverResults(ch, clientAccumulatedResults, recoveredMessages)
+	receivedSeqIds := make(map[string]struct{})
+	g.recoverResults(ch, clientAccumulatedResults, recoveredMessages, receivedSeqIds)
 
 	for clientID, innerMap := range recoveredMessages {
 		for _, resultStr := range innerMap {
@@ -90,7 +90,7 @@ func (g *Gateway) ListenResults() {
 	}
 
 	for m := range messages {
-		g.handleMessage(m, clientAccumulatedResults)
+		g.handleMessage(m, clientAccumulatedResults, receivedSeqIds)
 		err := m.Ack(false)
 		if err != nil {
 			logs.Logger.Errorf("Failed to acknowledge message: %s", err.Error())
@@ -99,7 +99,7 @@ func (g *Gateway) ListenResults() {
 
 }
 
-func (g *Gateway) handleMessage(m amqp.Delivery, clientAccumulatedResults map[string]map[uint8]string) {
+func (g *Gateway) handleMessage(m amqp.Delivery, clientAccumulatedResults map[string]map[uint8]string, receivedSeqIds map[string]struct{}) {
 	clientID := m.Headers[amqp.ClientIdHeader].(string)
 	originID, ok := m.Headers[amqp.OriginIdHeader] //not all workers send this header
 	if !ok {
@@ -108,9 +108,20 @@ func (g *Gateway) handleMessage(m amqp.Delivery, clientAccumulatedResults map[st
 	}
 
 	originIDUint8 := originID.(uint8)
-
 	messageId, ok := m.Headers[amqp.MessageIdHeader]
-	g.logChannel <- recovery.NewRecord(amqp.Header{ClientId: clientID, OriginId: originIDUint8}, nil, m.Body)
+	sequenceId := m.Headers[amqp.SequenceIdHeader].(string)
+
+	logs.Logger.Infof("Read result with seq ID %s, origin id %d, client id %s", sequenceId, originIDUint8, clientID)
+
+	if _, exists := receivedSeqIds[sequenceId]; exists {
+		// dup message
+		logs.Logger.Infof("Duplicate message with sequence ID %s, origin id: %d, client id: %s", sequenceId, originIDUint8, clientID)
+		return
+	} else {
+		receivedSeqIds[sequenceId] = struct{}{}
+	}
+
+	g.logChannel <- recovery.NewRecord(amqp.Header{ClientId: clientID, OriginId: originIDUint8, SequenceId: sequenceId}, nil, m.Body)
 
 	// Handle EOF or message content
 	if originIDUint8 == amqp.Query4originId || originIDUint8 == amqp.Query5originId {
