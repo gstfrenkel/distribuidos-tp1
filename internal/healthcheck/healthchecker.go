@@ -31,7 +31,7 @@ const (
 
 	configFilePath = "config.toml"
 	sleepSecs      = 2
-	maxErrors      = 3
+	maxErrors      = 2
 	hcMsg          = 1
 	dockerRestart  = "docker restart "
 	timeoutSecs    = 3
@@ -160,7 +160,7 @@ func (hc *HealthChecker) sendHcMsg(conn *net.UDPConn) int {
 		_, err = conn.Read(buffer)
 		if err != nil {
 			errCount++
-			logs.Logger.Errorf("Error recv health check ack: %v. Error count: %d", err, errCount)
+			logs.Logger.Debugf("Error recv health check ack: %v. Error count: %d", err, errCount)
 		}
 
 		time.Sleep(sleepSecs * time.Second)
