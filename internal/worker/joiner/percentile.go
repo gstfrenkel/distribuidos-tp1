@@ -14,7 +14,7 @@ type percentile struct {
 	batchSize uint16
 }
 
-func NewPercentile() (worker.Filter, error) {
+func NewPercentile() (worker.W, error) {
 	j, err := newJoiner()
 	if err != nil {
 		return nil, err

@@ -14,7 +14,7 @@ type counter struct {
 	games map[string]message.GameNames // <clientId, []GameName>
 }
 
-func NewCounter() (worker.Filter, error) {
+func NewCounter() (worker.W, error) {
 	a, err := newAggregator()
 	if err != nil {
 		return nil, err

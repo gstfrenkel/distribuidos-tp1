@@ -16,7 +16,7 @@ type releaseDate struct {
 	endYear   int
 }
 
-func NewReleaseDate() (worker.Filter, error) {
+func NewReleaseDate() (worker.W, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err

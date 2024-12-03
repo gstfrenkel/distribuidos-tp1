@@ -14,7 +14,7 @@ type action struct {
 	w *worker.Worker
 }
 
-func NewAction() (worker.Filter, error) {
+func NewAction() (worker.W, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err

@@ -15,7 +15,7 @@ type top struct {
 	output amqp.Destination
 }
 
-func NewTop() (worker.Filter, error) {
+func NewTop() (worker.W, error) {
 	j, err := newJoiner()
 	if err != nil {
 		return nil, err

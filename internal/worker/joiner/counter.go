@@ -14,7 +14,7 @@ type counter struct {
 	target uint64
 }
 
-func NewCounter() (worker.Filter, error) {
+func NewCounter() (worker.W, error) {
 	j, err := newJoiner()
 	if err != nil {
 		return nil, err

@@ -16,7 +16,7 @@ type percentile struct {
 	scoredReviews map[string]message.ScoredReviews // <clientid, scoredReviews>
 }
 
-func NewPercentile() (worker.Filter, error) {
+func NewPercentile() (worker.W, error) {
 	a, err := newAggregator()
 	if err != nil {
 		return nil, err

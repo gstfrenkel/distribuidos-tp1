@@ -19,7 +19,7 @@ type indie struct {
 	w *worker.Worker
 }
 
-func NewIndie() (worker.Filter, error) {
+func NewIndie() (worker.W, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err
