@@ -39,7 +39,7 @@ const (
 	outputQKey          = "output-queues"
 )
 
-type Filter interface {
+type W interface {
 	Init() error
 	Start()
 	Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte)
@@ -125,7 +125,7 @@ func (f *Worker) Init() error {
 	return f.initQueues()
 }
 
-func (f *Worker) Start(filter Filter) {
+func (f *Worker) Start(filter W) {
 	defer f.Broker.Close()
 	defer close(f.signalChan)
 
@@ -254,7 +254,7 @@ func (f *Worker) handleEofToOutputs(headers amqp.Header, output ...amqp.Destinat
 	sequenceIds := make([]sequence.Destination, 0, len(outputs))
 
 	for _, o := range outputs {
-		sequenceId := f.NextSequenceId(f.inputEof.Key)
+		sequenceId := f.NextSequenceId(o.Key)
 		sequenceIds = append(sequenceIds, sequence.DstNew(o.Key, sequenceId))
 		if err := f.Broker.Publish(
 			o.Exchange,
@@ -275,7 +275,7 @@ func (f *Worker) listenHc() {
 	}()
 }
 
-func (f *Worker) consume(filter Filter, signalChan chan os.Signal, deliveryChan ...<-chan amqp.Delivery) {
+func (f *Worker) consume(filter W, signalChan chan os.Signal, deliveryChan ...<-chan amqp.Delivery) {
 	cases := make([]reflect.SelectCase, 0, len(deliveryChan)+1)
 	cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(signalChan)})
 
@@ -298,7 +298,7 @@ func (f *Worker) consume(filter Filter, signalChan chan os.Signal, deliveryChan 
 			continue
 		}*/
 
-		// Filter and only process non-duplicate messages
+		// W and only process non-duplicate messages
 		//if !f.dup.IsDuplicate(*srcSequenceId) {
 		sequenceIds, msg := filter.Process(delivery, header)
 

@@ -9,7 +9,7 @@ import (
 func TestPublishNewGame(t *testing.T) {
 	f := fakeFilter(5)
 	clientId := "0-0"
-	msg := message.ScoredReviews{message.ScoredReview{GameId: 1, Votes: 10}}
+	msg, _ := message.ScoredReviews{message.ScoredReview{GameId: 1, Votes: 10}}.ToBytes()
 	f.updateTop(msg, clientId)
 	priorityQueue := f.top[clientId]
 	if priorityQueue.Len() != 1 {
@@ -23,8 +23,8 @@ func TestPublishNewGame(t *testing.T) {
 func TestPublishExistingGame(t *testing.T) {
 	f := fakeFilter(5)
 	clientId := "0-0"
-	msg1 := message.ScoredReviews{message.ScoredReview{GameId: 1, Votes: 10}}
-	msg2 := message.ScoredReviews{message.ScoredReview{GameId: 1, Votes: 15}}
+	msg1, _ := message.ScoredReviews{message.ScoredReview{GameId: 1, Votes: 10}}.ToBytes()
+	msg2, _ := message.ScoredReviews{message.ScoredReview{GameId: 1, Votes: 15}}.ToBytes()
 	f.updateTop(msg1, clientId)
 	f.updateTop(msg2, clientId)
 	priorityQueue := f.top[clientId]
@@ -40,7 +40,7 @@ func TestPublishTopNLimit(t *testing.T) {
 	f := fakeFilter(5)
 	clientId := "0-0"
 	for i := 1; i <= 6; i++ {
-		msg := message.ScoredReviews{message.ScoredReview{GameId: int64(i), Votes: uint64(i * 10)}}
+		msg, _ := message.ScoredReviews{message.ScoredReview{GameId: int64(i), Votes: uint64(i * 10)}}.ToBytes()
 		f.updateTop(msg, clientId)
 	}
 	priorityQueue := f.top[clientId]
@@ -55,8 +55,8 @@ func TestPublishTopNLimit(t *testing.T) {
 func TestInsertTwoElementsWithSameVotes(t *testing.T) {
 	f := fakeFilter(5)
 	clientId := "0-0"
-	msg1 := message.ScoredReviews{message.ScoredReview{GameId: 1, Votes: 10}}
-	msg2 := message.ScoredReviews{message.ScoredReview{GameId: 2, Votes: 10}}
+	msg1, _ := message.ScoredReviews{message.ScoredReview{GameId: 1, Votes: 10}}.ToBytes()
+	msg2, _ := message.ScoredReviews{message.ScoredReview{GameId: 2, Votes: 10}}.ToBytes()
 
 	f.updateTop(msg1, clientId)
 	f.updateTop(msg2, clientId)
@@ -89,11 +89,11 @@ func TestInsertTwoElementsWithSameVotes(t *testing.T) {
 func TestTopToTopNSlice(t *testing.T) {
 	f := fakeFilter(2)
 	clientId := "0-0"
-	msg := message.ScoredReviews{message.ScoredReview{GameId: 1, Votes: 10}}
+	msg, _ := message.ScoredReviews{message.ScoredReview{GameId: 1, Votes: 10}}.ToBytes()
 	f.updateTop(msg, clientId)
-	msg = message.ScoredReviews{message.ScoredReview{GameId: 2, Votes: 20}}
+	msg, _ = message.ScoredReviews{message.ScoredReview{GameId: 2, Votes: 20}}.ToBytes()
 	f.updateTop(msg, clientId)
-	msg = message.ScoredReviews{message.ScoredReview{GameId: 3, Votes: 30}}
+	msg, _ = message.ScoredReviews{message.ScoredReview{GameId: 3, Votes: 30}}.ToBytes()
 	f.updateTop(msg, clientId)
 
 	top := f.getTopNScoredReviews(clientId)
@@ -109,18 +109,18 @@ func TestManyClientTops(t *testing.T) {
 	f := fakeFilter(2)
 	clientId1 := "0-0"
 	clientId2 := "0-1"
-	msg := message.ScoredReviews{message.ScoredReview{GameId: 1, Votes: 10}}
+	msg, _ := message.ScoredReviews{message.ScoredReview{GameId: 1, Votes: 10}}.ToBytes()
 	f.updateTop(msg, clientId1)
-	msg = message.ScoredReviews{message.ScoredReview{GameId: 2, Votes: 20}}
+	msg, _ = message.ScoredReviews{message.ScoredReview{GameId: 2, Votes: 20}}.ToBytes()
 	f.updateTop(msg, clientId1)
-	msg = message.ScoredReviews{message.ScoredReview{GameId: 3, Votes: 30}}
+	msg, _ = message.ScoredReviews{message.ScoredReview{GameId: 3, Votes: 30}}.ToBytes()
 	f.updateTop(msg, clientId1)
 
-	msg = message.ScoredReviews{message.ScoredReview{GameId: 4, Votes: 40}}
+	msg, _ = message.ScoredReviews{message.ScoredReview{GameId: 4, Votes: 40}}.ToBytes()
 	f.updateTop(msg, clientId2)
-	msg = message.ScoredReviews{message.ScoredReview{GameId: 5, Votes: 50}}
+	msg, _ = message.ScoredReviews{message.ScoredReview{GameId: 5, Votes: 50}}.ToBytes()
 	f.updateTop(msg, clientId2)
-	msg = message.ScoredReviews{message.ScoredReview{GameId: 6, Votes: 60}}
+	msg, _ = message.ScoredReviews{message.ScoredReview{GameId: 6, Votes: 60}}.ToBytes()
 	f.updateTop(msg, clientId2)
 
 	top1 := f.getTopNScoredReviews(clientId1)

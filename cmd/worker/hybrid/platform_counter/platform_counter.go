@@ -1,7 +1,7 @@
 package main
 
 import (
-	"tp1/internal/worker/platform_counter"
+	"tp1/internal/worker/hybrid/platform_counter"
 	"tp1/pkg/logs"
 )
 

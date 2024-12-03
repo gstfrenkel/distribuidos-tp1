@@ -14,8 +14,8 @@ type counter struct {
 	games map[string]message.GameNames // <clientId, []GameName>
 }
 
-func NewCounter() (worker.Filter, error) {
-	a, err := newAggregator()
+func NewCounter() (worker.W, error) {
+	a, err := newAggregator(amqp.Query4originId)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (c *counter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequen
 
 	switch headers.MessageId {
 	case message.EofMsg:
-		sequenceIds = c.agg.processEof(c, headers, false)
+		sequenceIds = c.agg.processEof(c, headers.WithOriginId(c.agg.originId), false)
 	case message.GameNameID:
 		c.save(delivery.Body, headers.ClientId)
 		sequenceIds = c.publish(headers)
@@ -78,24 +78,13 @@ func (c *counter) sendBatch(headers amqp.Header, b []byte) []sequence.Destinatio
 	output := shardOutput(c.agg.w.Outputs[0], headers.ClientId)
 	key := output.Key
 	sequenceId := c.agg.w.NextSequenceId(key)
-	headers = headers.WithSequenceId(sequence.SrcNew(c.agg.w.Uuid, sequenceId)).WithOriginId(amqp.Query4originId)
+	headers = headers.WithSequenceId(sequence.SrcNew(c.agg.w.Uuid, sequenceId)).WithOriginId(c.agg.originId)
 
 	if err := c.agg.w.Broker.Publish(output.Exchange, key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 
 	return []sequence.Destination{sequence.DstNew(key, sequenceId)}
-}
-
-func (c *counter) sendEof(headers amqp.Header) []sequence.Destination {
-	output := shardOutput(c.agg.w.Outputs[0], headers.ClientId)
-	sequenceIds, err := c.agg.w.HandleEofMessage(amqp.EmptyEof, headers.WithOriginId(amqp.Query4originId), amqp.DestinationEof(output))
-	if err != nil {
-		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
-	}
-
-	logs.Logger.Debugf("Eof message sent for client %s", headers.ClientId)
-	return sequenceIds
 }
 
 func (c *counter) reset(clientId string) {

@@ -30,7 +30,7 @@ type text struct {
 	target   lingua.Language
 }
 
-func NewText() (worker.Filter, error) {
+func NewText() (worker.W, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err
