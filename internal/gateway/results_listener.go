@@ -14,25 +14,10 @@ import (
 )
 
 const (
-	ack   = "ACK"
-	idPos = 1
+	ack      = "ACK"
+	idPos    = 1
+	zeroChar = '0'
 )
-
-const (
-	Query1Id = '1' + iota
-	Query2Id
-	Query3Id
-	Query4Id
-	Query5Id
-)
-
-var idToOriginID = map[uint8]uint8{
-	Query1Id: amqp.Query1originId,
-	Query2Id: amqp.Query2originId,
-	Query3Id: amqp.Query3originId,
-	Query4Id: amqp.Query4originId,
-	Query5Id: amqp.Query5originId,
-}
 
 // ListenResultsRequests waits until a client connects to the results listener and sends the results to the client
 func (g *Gateway) listenResultsRequests() error {
@@ -68,7 +53,7 @@ func (g *Gateway) SendResults(cliConn net.Conn) {
 		}
 
 		readAck(cliConn)
-		originId := idToOriginID[rabbitMsg[idPos]]
+		originId := uint8(rabbitMsg[idPos] - zeroChar)
 		g.logChannel <- recovery.NewRecord(amqp.Header{ClientId: clientId, OriginId: originId}, nil, []byte(ack))
 	}
 }
