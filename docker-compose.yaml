@@ -20,6 +20,7 @@ services:
     image: gateway:latest
     environment:
       - worker-id=0
+      - worker-uuid=gateway-1
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -36,6 +37,7 @@ services:
     image: reviews-filter:latest
     environment:
       - worker-id=0
+      - worker-uuid=reviews-filter-1
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -52,6 +54,7 @@ services:
     image: review-text-filter:latest
     environment:
       - worker-id=0
+      - worker-uuid=review-text-filter-1
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -68,6 +71,7 @@ services:
     image: action-filter:latest
     environment:
       - worker-id=0
+      - worker-uuid=action-filter-1
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -84,6 +88,7 @@ services:
     image: indie-filter:latest
     environment:
       - worker-id=0
+      - worker-uuid=indie-filter-1
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -100,6 +105,7 @@ services:
     image: platform-filter:latest
     environment:
       - worker-id=0
+      - worker-uuid=platform-filter-1
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -116,6 +122,7 @@ services:
     image: joiner-counter-filter:latest
     environment:
       - worker-id=0
+      - worker-uuid=joiner-counter-filter-1
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -132,6 +139,7 @@ services:
     image: joiner-counter-filter:latest
     environment:
       - worker-id=1
+      - worker-uuid=joiner-counter-filter-2
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -148,6 +156,7 @@ services:
     image: joiner-top-filter:latest
     environment:
       - worker-id=0
+      - worker-uuid=joiner-top-filter-1
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -164,6 +173,7 @@ services:
     image: joiner-top-filter:latest
     environment:
       - worker-id=1
+      - worker-uuid=joiner-top-filter-2
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -180,6 +190,7 @@ services:
     image: joiner-percentile-filter:latest
     environment:
       - worker-id=0
+      - worker-uuid=joiner-percentile-filter-1
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -196,6 +207,7 @@ services:
     image: joiner-percentile-filter:latest
     environment:
       - worker-id=1
+      - worker-uuid=joiner-percentile-filter-2
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -212,6 +224,7 @@ services:
     image: percentile:latest
     environment:
       - worker-id=0
+      - worker-uuid=percentile-filter-1
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -228,6 +241,7 @@ services:
     image: topn:latest
     environment:
       - worker-id=0
+      - worker-uuid=topn-filter-1
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -244,6 +258,7 @@ services:
     image: topn:latest
     environment:
       - worker-id=1
+      - worker-uuid=topn-filter-2
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -260,6 +275,7 @@ services:
     image: topn:latest
     environment:
       - worker-id=0
+      - worker-uuid=topn-aggregator-1
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -276,6 +292,7 @@ services:
     image: platform-counter:latest
     environment:
       - worker-id=0
+      - worker-uuid=platform-counter-1
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -292,6 +309,7 @@ services:
     image: platform-counter:latest
     environment:
       - worker-id=0
+      - worker-uuid=platform-aggregator-1
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -308,6 +326,7 @@ services:
     image: topn-playtime-filter:latest
     environment:
       - worker-id=0
+      - worker-uuid=topn-playtime-filter-1
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -324,6 +343,7 @@ services:
     image: release-date-filter:latest
     environment:
       - worker-id=0
+      - worker-uuid=release-date-filter-1
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -340,6 +360,7 @@ services:
     image: topn-playtime-filter:latest
     environment:
       - worker-id=0
+      - worker-uuid=topn-playtime-aggregator-1
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -356,6 +377,7 @@ services:
     image: counter:latest
     environment:
       - worker-id=0
+      - worker-uuid=review-counter-agg
     depends_on:
       rabbitmq:
         condition: service_healthy

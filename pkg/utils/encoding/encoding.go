@@ -67,3 +67,12 @@ func SplitId(id string) ([2]string, error) {
 
 	return [2]string{parts[0], parts[1]}, nil
 }
+
+func SplitIdAtLastIndex(id string) ([2]string, error) {
+	index := strings.LastIndex(id, Separator)
+	if index == -1 {
+		return [2]string{}, errInvalidId(id)
+	}
+
+	return [2]string{id[:index], id[index+1:]}, nil
+}

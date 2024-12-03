@@ -76,7 +76,7 @@ func (f *action) publish(headers amqp.Header, msg message.Game) []sequence.Desti
 			sequenceId := f.w.NextSequenceId(key)
 			sequenceIds = append(sequenceIds, sequence.DstNew(key, sequenceId))
 
-			headers = headers.WithMessageId(message.GameNameID).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
+			headers = headers.WithMessageId(message.GameNameID).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 
 			if err = f.w.Broker.Publish(output.Exchange, key, b, headers); err != nil {
 				logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
