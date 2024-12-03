@@ -64,7 +64,7 @@ func (f *platform) publish(headers amqp.Header, msg message.Game) []sequence.Des
 	output := f.w.Outputs[0]
 	key := shard.String(headers.SequenceId, output.Key, output.Consumers)
 	sequenceId := f.w.NextSequenceId(key)
-	headers = headers.WithMessageId(message.PlatformID).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
+	headers = headers.WithMessageId(message.PlatformID).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 
 	platforms := msg.ToPlatformMessage()
 	b, err := platforms.ToBytes()

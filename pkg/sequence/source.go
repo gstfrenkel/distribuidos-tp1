@@ -7,40 +7,36 @@ import (
 )
 
 type Source struct {
-	worker uint8
-	id     uint64
+	workerUuid string
+	sequenceId uint64
 }
 
-func SrcNew(workerId uint8, sequenceId uint64) Source {
-	return Source{worker: workerId, id: sequenceId}
+func SrcNew(workerUuid string, sequenceId uint64) Source {
+	return Source{workerUuid: workerUuid, sequenceId: sequenceId}
 }
 
 func SrcFromString(seq string) (*Source, error) {
-	parts, err := encoding.SplitId(seq)
+	parts, err := encoding.SplitIdAtLastIndex(seq)
 	if err != nil {
 		return nil, err
 	}
 
-	workerId, err := strconv.ParseUint(parts[0], 10, 8)
-	if err != nil {
-		return nil, err
-	}
 	sequenceId, err := strconv.ParseUint(parts[1], 10, 64)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Source{worker: uint8(workerId), id: sequenceId}, nil
+	return &Source{workerUuid: parts[0], sequenceId: sequenceId}, nil
 }
 
-func (s Source) WorkerId() uint8 {
-	return s.worker
+func (s Source) WorkerUuid() string {
+	return s.workerUuid
 }
 
 func (s Source) Id() uint64 {
-	return s.id
+	return s.sequenceId
 }
 
 func (s Source) ToString() string {
-	return fmt.Sprintf("%d%s%d", s.worker, encoding.Separator, s.id)
+	return fmt.Sprintf("%s%s%d", s.workerUuid, encoding.Separator, s.sequenceId)
 }
