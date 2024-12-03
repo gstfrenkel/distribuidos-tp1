@@ -48,9 +48,11 @@ func (p *percentile) Process(delivery amqp.Delivery, headers amqp.Header) ([]seq
 	case message.EofMsg:
 		sequenceIds = p.joiner.processEof(headers, p.processEof)
 	case message.ScoredReviewID:
-		p.processReview(headers, delivery.Body, false)
+		msg = delivery.Body
+		p.processReview(headers, msg, false)
 	case message.GameNameID:
-		p.processGame(headers, delivery.Body, false)
+		msg = delivery.Body
+		p.processGame(headers, msg, false)
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}

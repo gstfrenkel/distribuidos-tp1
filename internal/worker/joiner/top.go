@@ -51,9 +51,11 @@ func (t *top) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.D
 	case message.EofMsg:
 		sequenceIds = t.joiner.processEof(headers, t.processEof)
 	case message.ScoredReviewID:
-		sequenceIds = t.processReview(headers, delivery.Body, false)
+		msg = delivery.Body
+		sequenceIds = t.processReview(headers, msg, false)
 	case message.GameNameID:
-		sequenceIds = t.processGame(headers, delivery.Body, false)
+		msg = delivery.Body
+		sequenceIds = t.processGame(headers, msg, false)
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}

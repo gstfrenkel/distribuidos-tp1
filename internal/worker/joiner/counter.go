@@ -48,9 +48,11 @@ func (c *counter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequen
 	case message.EofMsg:
 		sequenceIds = c.joiner.processEof(headers, c.processEof)
 	case message.ScoredReviewID:
-		sequenceIds = c.processReview(headers, delivery.Body, false)
+		msg = delivery.Body
+		sequenceIds = c.processReview(headers, msg, false)
 	case message.GameNameID:
-		sequenceIds = c.processGame(headers, delivery.Body, false)
+		msg = delivery.Body
+		sequenceIds = c.processGame(headers, msg, false)
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
