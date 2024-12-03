@@ -16,11 +16,11 @@ import (
 const (
 	ack      = "ACK"
 	idPos    = 1
-	Query1Id = '1'
-	Query2Id = '2'
-	Query3Id = '3'
-	Query4Id = '4'
-	Query5Id = '5'
+	Query1Id = '1' + iota
+	Query2Id
+	Query3Id
+	Query4Id
+	Query5Id
 )
 
 var idToOriginID = map[uint8]uint8{
