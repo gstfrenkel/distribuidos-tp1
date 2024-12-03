@@ -66,6 +66,74 @@ services:
       - ./configs/text.json:/app/config.json
       - ./volumes/review-text-filter-1.csv:/app/recovery.csv
 
+  review-text-filter-2:
+    container_name: review-text-filter-2
+    image: review-text-filter:latest
+    environment:
+      - worker-id=1
+      - worker-uuid=review-text-filter-2
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/text.json:/app/config.json
+      - ./volumes/review-text-filter-2.csv:/app/recovery.csv
+
+  review-text-filter-3:
+    container_name: review-text-filter-3
+    image: review-text-filter:latest
+    environment:
+      - worker-id=2
+      - worker-uuid=review-text-filter-3
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/text.json:/app/config.json
+      - ./volumes/review-text-filter-3.csv:/app/recovery.csv
+
+  review-text-filter-4:
+    container_name: review-text-filter-4
+    image: review-text-filter:latest
+    environment:
+      - worker-id=3
+      - worker-uuid=review-text-filter-4
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/text.json:/app/config.json
+      - ./volumes/review-text-filter-4.csv:/app/recovery.csv
+
+  review-text-filter-5:
+    container_name: review-text-filter-5
+    image: review-text-filter:latest
+    environment:
+      - worker-id=4
+      - worker-uuid=review-text-filter-5
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/text.json:/app/config.json
+      - ./volumes/review-text-filter-5.csv:/app/recovery.csv
+
   action-filter-1:
     container_name: action-filter-1
     image: action-filter:latest

@@ -16,7 +16,7 @@
     "name": "text_reviews_q4_%d",
     "key": "q4-%d",
     "single": true,
-    "consumers": 1
+    "consumers": 5
   }, {
     "exchange": "review",
     "name": "reviews_q5_%d",

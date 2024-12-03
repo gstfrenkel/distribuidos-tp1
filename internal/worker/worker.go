@@ -229,7 +229,7 @@ func (f *Worker) HandleEofMessage(msg []byte, headers amqp.Header, output ...amq
 }
 
 func (f *Worker) handleEofToInput(headers amqp.Header, workersVisited message.Eof) ([]sequence.Destination, error) {
-	key := fmt.Sprintf(f.inputEof.Key, f.Id)
+	key := fmt.Sprintf(f.inputEof.Key, f.Id+1)
 	sequenceId := f.NextSequenceId(key)
 	sequenceIds := []sequence.Destination{sequence.DstNew(key, sequenceId)}
 
@@ -237,6 +237,7 @@ func (f *Worker) handleEofToInput(headers amqp.Header, workersVisited message.Eo
 	if err != nil {
 		return nil, err
 	}
+
 	return sequenceIds, f.Broker.Publish(
 		f.inputEof.Exchange,
 		key,
@@ -365,6 +366,8 @@ func (f *Worker) initInputQueues() error {
 			continue
 		}
 
+		f.inputEof = amqp.DestinationEof(q)
+
 		if isInputDestinationScalable(q) {
 			q.Name = fmt.Sprintf(q.Name, f.Id)
 			q.Key = fmt.Sprintf(q.Key, f.Id)
@@ -373,8 +376,7 @@ func (f *Worker) initInputQueues() error {
 		if _, err = f.Broker.QueueDeclare(q.Name); err != nil {
 			return err
 		}
-		f.inputEof = amqp.DestinationEof(q)
-		if err = f.Broker.QueueBind(amqp.QueueBind{Exchange: f.inputEof.Exchange, Name: f.inputEof.Name, Key: f.inputEof.Key}); err != nil {
+		if err = f.Broker.QueueBind(amqp.QueueBind{Exchange: q.Exchange, Name: q.Name, Key: q.Key}); err != nil {
 			return err
 		}
 	}
