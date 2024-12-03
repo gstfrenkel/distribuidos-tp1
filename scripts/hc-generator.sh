@@ -1,17 +1,18 @@
 #!/bin/bash
 
-if [ -z "$1" ]; then
-  echo "Error! Usage: $0 <number_of_healthcheckers>"
+if [ -z "$1" -o -z "$2" ]; then
+  echo "Error! Usage: $0 <number_of_healthcheckers> <net>"
   exit 1
 fi
 
 NUM_HEALTHCHECKERS=$1
+NETWORK=$2
 OUTPUT_FILE="../docker-compose-hc.yaml"
 
 # Función para listar contenedores en la red excluyendo ciertos nombres
 containers_exclude=("client" "rabbitmq")
 list_containers() {
-    docker network inspect distribuidos-tp1_tp1_net -f '{{range .Containers}}{{.Name}}{{"\n"}}{{end}}' | grep -v -E "$(IFS=\|; echo "${containers_exclude[*]}")"
+    docker network inspect $NETWORK -f '{{range .Containers}}{{.Name}}{{"\n"}}{{end}}' | grep -v -E "$(IFS=\|; echo "${containers_exclude[*]}")"
 }
 
 # Obtener la lista de contenedores
@@ -19,7 +20,7 @@ readarray -t CONTAINERS < <(list_containers)
 TOTAL_CONTAINERS=${#CONTAINERS[@]}
 
 if [ $TOTAL_CONTAINERS -eq 0 ]; then
-  echo "No containers found in the network distribuidos-tp1_tp1_net"
+  echo "No containers found in the network $NETWORK"
   exit 1
 fi
 

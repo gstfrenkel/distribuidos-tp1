@@ -1,8 +1,15 @@
 #!/bin/bash
 
+if -z "$1"; then
+    echo "Error! Usage: $0 <network>"
+    exit 1
+fi
+
+NETWORK=$1
+
 containers_exclude=("client" "rabbitmq")
 list_containers() {
-    docker network inspect distribuidos-tp1_tp1_net -f '{{range .Containers}}{{.Name}}{{"\n"}}{{end}}' | grep -v -E "$(IFS=\|; echo "${containers_exclude[*]}")"
+    docker network inspect $NETWORK -f '{{range .Containers}}{{.Name}}{{"\n"}}{{end}}' | grep -v -E "$(IFS=\|; echo "${containers_exclude[*]}")"
 }
 
 
