@@ -22,7 +22,7 @@ type review struct {
 	scores [nQueries]int8
 }
 
-func NewReview() (worker.Filter, error) {
+func NewReview() (worker.W, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err

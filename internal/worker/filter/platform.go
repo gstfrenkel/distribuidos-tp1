@@ -14,7 +14,7 @@ type platform struct {
 	w *worker.Worker
 }
 
-func NewPlatform() (worker.Filter, error) {
+func NewPlatform() (worker.W, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err

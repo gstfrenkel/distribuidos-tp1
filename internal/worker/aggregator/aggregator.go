@@ -12,7 +12,6 @@ import (
 )
 
 type processor interface {
-	sendEof(headers amqp.Header) []sequence.Destination
 	reset(clientId string)
 	publish(headers amqp.Header) []sequence.Destination
 	save(msgBytes []byte, clientId string)
@@ -22,11 +21,12 @@ type aggregator struct {
 	w         *worker.Worker
 	batchSize uint16
 	eofsRecv  map[string]uint8 // <clientId, eofsReceived>
+	originId  uint8
 }
 
 // newAggregator creates a new aggregator.
 // Field batchSize is not set here. It should be set by the caller.
-func newAggregator() (*aggregator, error) {
+func newAggregator(originId uint8) (*aggregator, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err
@@ -35,17 +35,21 @@ func newAggregator() (*aggregator, error) {
 	return &aggregator{
 		w:        w,
 		eofsRecv: make(map[string]uint8),
+		originId: originId,
 	}, nil
 }
 
+// processEof processes an EOF message.
+// If recovery is false, it publishes the EOF message and publishes the saved messages.
+// Note: `headers` must contain the originId
 func (a *aggregator) processEof(instance processor, headers amqp.Header, recovery bool) []sequence.Destination {
 	var sequenceIds []sequence.Destination
 	a.eofsRecv[headers.ClientId]++
 	if a.eofsReached(headers) {
 		if !recovery {
 			sequenceIds = instance.publish(headers)
+			sequenceIds = append(sequenceIds, a.sendEof(headers)...)
 		}
-		sequenceIds = append(sequenceIds, instance.sendEof(headers)...)
 		a.reset(headers.ClientId)
 		instance.reset(headers.ClientId)
 	}
@@ -63,7 +67,7 @@ func (a *aggregator) recover(instance processor, msgId message.ID) {
 	for recoveredMsg := range ch {
 		switch recoveredMsg.Header().MessageId {
 		case message.EofMsg:
-			a.processEof(instance, recoveredMsg.Header(), true)
+			a.processEof(instance, recoveredMsg.Header().WithOriginId(a.originId), true)
 		case msgId:
 			instance.save(recoveredMsg.Message(), recoveredMsg.Header().ClientId)
 		default:
@@ -83,4 +87,15 @@ func shardOutput(output amqp.Destination, clientId string) amqp.Destination {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 	}
 	return output
+}
+
+func (a *aggregator) sendEof(headers amqp.Header) []sequence.Destination {
+	output := shardOutput(a.w.Outputs[0], headers.ClientId)
+	sequenceIds, err := a.w.HandleEofMessage(amqp.EmptyEof, headers, amqp.DestinationEof(output))
+	if err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
+	}
+
+	logs.Logger.Debugf("Eof message sent for client %s", headers.ClientId)
+	return sequenceIds
 }

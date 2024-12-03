@@ -2,12 +2,12 @@ package top_n
 
 import (
 	"container/heap"
-
 	"tp1/internal/errors"
 	"tp1/internal/worker"
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/recovery"
 	"tp1/pkg/sequence"
 	"tp1/pkg/utils/shard"
 )
@@ -22,7 +22,7 @@ type filter struct {
 	agg      bool
 }
 
-func New() (worker.Filter, error) {
+func New() (worker.W, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err
@@ -32,13 +32,19 @@ func New() (worker.Filter, error) {
 			w:        w,
 			top:      make(map[string]PriorityQueue),
 			eofsRecv: make(map[string]uint8),
+			n:        int(w.Query.(float64)),
 		},
 		nil
 }
 
 func (f *filter) Init() error {
-	f.n = int(f.w.Query.(float64))
-	return f.w.Init()
+	if err := f.w.Init(); err != nil {
+		return err
+	}
+
+	f.recover()
+
+	return nil
 }
 
 func (f *filter) Start() {
@@ -50,21 +56,11 @@ func (f *filter) Start() {
 func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
 
-	headers = headers.WithOriginId(amqp.Query3originId)
-
 	switch headers.MessageId {
 	case message.EofMsg:
-		f.eofsRecv[headers.ClientId]++
-		if f.eofsRecv[headers.ClientId] >= f.w.ExpectedEofs {
-			f.publish(headers)
-		}
+		sequenceIds = f.processEof(headers, false)
 	case message.ScoredReviewID:
-		msg, err := message.ScoredReviewsFromBytes(delivery.Body)
-		if err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-		} else {
-			f.updateTop(msg, headers.ClientId)
-		}
+		f.updateTop(delivery.Body, headers.ClientId)
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
@@ -72,7 +68,23 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 	return sequenceIds, nil
 }
 
-func (f *filter) updateTop(messages message.ScoredReviews, clientId string) {
+func (f *filter) processEof(headers amqp.Header, recovery bool) []sequence.Destination {
+	var sequenceIds []sequence.Destination
+	f.eofsRecv[headers.ClientId]++
+	if f.eofsRecv[headers.ClientId] >= f.w.ExpectedEofs {
+		sequenceIds = f.publish(headers, recovery)
+	}
+
+	return sequenceIds
+}
+
+func (f *filter) updateTop(msgBytes []byte, clientId string) {
+	messages, err := message.ScoredReviewsFromBytes(msgBytes)
+	if err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+		return
+	}
+
 	for _, msg := range messages {
 		notInTop := f.fixHeap(msg, clientId)
 		clientTop, _ := f.top[clientId]
@@ -110,41 +122,48 @@ func (f *filter) fixHeap(msg message.ScoredReview, clientId string) bool {
 
 // Eof msg received, so all msgs were received too.
 // Send the top n games to the broker
-func (f *filter) publish(headers amqp.Header) {
-	headers = headers.WithMessageId(message.ScoredReviewID)
+func (f *filter) publish(headers amqp.Header, recovery bool) []sequence.Destination {
+	var sequenceIds []sequence.Destination
+	headers = headers.WithOriginId(amqp.Query3originId)
 
-	topNScoredReviews := f.getTopNScoredReviews(headers.ClientId)
-	logs.Logger.Infof("Top %d games with most votes: %v", f.n, topNScoredReviews)
-
-	bytes, err := topNScoredReviews.ToBytes()
-	if err != nil {
-		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-		return
-	}
-
-	output := f.w.Outputs[0]
-	if f.agg {
-		output, err = shard.AggregatorOutput(output, headers.ClientId)
+	if !recovery {
+		topNScoredReviews := f.getTopNScoredReviews(headers.ClientId)
+		logs.Logger.Infof("Top %d games with most votes: %v", f.n, topNScoredReviews)
+		bytes, err := topNScoredReviews.ToBytes()
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+			return sequenceIds
 		}
-		//output.Key = shard.String(headers.SequenceId, f.w.Outputs[0].Key, f.w.Outputs[0].Consumers)
-	}
 
-	if err = f.w.Broker.Publish(output.Exchange, output.Key, bytes, headers); err != nil {
-		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
+		output := f.w.Outputs[0]
+		if f.agg {
+			output, err = shard.AggregatorOutput(output, headers.ClientId)
+			if err != nil {
+				logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+			}
+		}
+
+		sequenceId := f.w.NextSequenceId(output.Key)
+		headers = headers.WithMessageId(message.ScoredReviewID).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
+		sequenceIds = append(sequenceIds, sequence.DstNew(output.Key, sequenceId))
+
+		if err = f.w.Broker.Publish(output.Exchange, output.Key, bytes, headers); err != nil {
+			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
+		}
+
+		if !f.agg {
+			eofSqIds, err := f.w.HandleEofMessage(amqp.EmptyEof, headers, amqp.DestinationEof(f.w.Outputs[0]))
+			if err != nil {
+				logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
+			} else {
+				sequenceIds = append(sequenceIds, eofSqIds...)
+			}
+		}
 	}
 
 	delete(f.top, headers.ClientId)
-
-	if !f.agg {
-		_, err = f.w.HandleEofMessage(amqp.EmptyEof, headers, amqp.DestinationEof(f.w.Outputs[0]))
-		if err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
-		}
-	}
-
 	delete(f.eofsRecv, headers.ClientId)
+	return sequenceIds
 }
 
 func (f *filter) getTopNScoredReviews(clientId string) message.ScoredReviews {
@@ -160,4 +179,20 @@ func (f *filter) getTopNScoredReviews(clientId string) message.ScoredReviews {
 		topNAsSlice[(length-1)-i] = *heap.Pop(&clientTop).(*message.ScoredReview)
 	}
 	return topNAsSlice
+}
+
+func (f *filter) recover() {
+	ch := make(chan recovery.Message, worker.ChanSize)
+	go f.w.Recover(ch)
+
+	for recoveredMsg := range ch {
+		switch recoveredMsg.Header().MessageId {
+		case message.EofMsg:
+			f.processEof(recoveredMsg.Header(), true)
+		case message.ScoredReviewID:
+			f.updateTop(recoveredMsg.Message(), recoveredMsg.Header().ClientId)
+		default:
+			logs.Logger.Errorf(errors.InvalidMessageId.Error(), recoveredMsg.Header().MessageId)
+		}
+	}
 }
