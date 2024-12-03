@@ -14,8 +14,11 @@ import (
 )
 
 const (
-	ack      = "ACK"
-	idPos    = 1
+	ack   = "ACK"
+	idPos = 1
+)
+
+const (
 	Query1Id = '1' + iota
 	Query2Id
 	Query3Id
