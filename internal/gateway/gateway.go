@@ -13,6 +13,7 @@ import (
 	"tp1/pkg/amqp/broker"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
+	"tp1/pkg/dup"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 	"tp1/pkg/recovery"
@@ -52,6 +53,7 @@ type Gateway struct {
 	healthCheckService       *healthcheck.Service
 	recovery                 recovery.Handler
 	logChannel               chan recovery.Record
+	dup                      dup.Handler
 }
 
 func New() (*Gateway, error) {
@@ -103,6 +105,7 @@ func New() (*Gateway, error) {
 		healthCheckService:       hc,
 		recovery:                 recoveryHandler,
 		logChannel:               make(chan recovery.Record),
+		dup:                      dup.NewHandler(),
 	}, nil
 }
 

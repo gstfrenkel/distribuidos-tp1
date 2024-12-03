@@ -9,6 +9,7 @@ import (
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 	"tp1/pkg/recovery"
+	"tp1/pkg/sequence"
 	"tp1/pkg/utils/io"
 )
 
@@ -80,8 +81,7 @@ func (g *Gateway) ListenResults() {
 	ch := make(chan recovery.Record)
 	clientAccumulatedResults := make(map[string]map[uint8]string)
 	recoveredMessages := make(map[string]map[uint8]string)
-	receivedSeqIds := make(map[string]struct{})
-	g.recoverResults(ch, clientAccumulatedResults, recoveredMessages, receivedSeqIds)
+	g.recoverResults(ch, clientAccumulatedResults, recoveredMessages)
 
 	for clientID, innerMap := range recoveredMessages {
 		for _, resultStr := range innerMap {
@@ -90,7 +90,7 @@ func (g *Gateway) ListenResults() {
 	}
 
 	for m := range messages {
-		g.handleMessage(m, clientAccumulatedResults, receivedSeqIds)
+		g.handleMessage(m, clientAccumulatedResults)
 		err := m.Ack(false)
 		if err != nil {
 			logs.Logger.Errorf("Failed to acknowledge message: %s", err.Error())
@@ -99,7 +99,7 @@ func (g *Gateway) ListenResults() {
 
 }
 
-func (g *Gateway) handleMessage(m amqp.Delivery, clientAccumulatedResults map[string]map[uint8]string, receivedSeqIds map[string]struct{}) {
+func (g *Gateway) handleMessage(m amqp.Delivery, clientAccumulatedResults map[string]map[uint8]string) {
 	clientID := m.Headers[amqp.ClientIdHeader].(string)
 	originID, ok := m.Headers[amqp.OriginIdHeader] //not all workers send this header
 	if !ok {
@@ -111,13 +111,16 @@ func (g *Gateway) handleMessage(m amqp.Delivery, clientAccumulatedResults map[st
 	messageId, ok := m.Headers[amqp.MessageIdHeader]
 	sequenceId := m.Headers[amqp.SequenceIdHeader].(string)
 
-	//logs.Logger.Infof("Read result with seq ID %s, origin id %d, client id %s", sequenceId, originIDUint8, clientID)
+	seqSource, err := sequence.SrcFromString(sequenceId)
+	if err != nil {
+		logs.Logger.Errorf("Failed to parse sequence source: %v", err)
+		return
+	}
 
-	if _, exists := receivedSeqIds[sequenceId]; exists {
-		// dup message
+	if g.dup.IsDuplicate(*seqSource) {
 		return
 	} else {
-		receivedSeqIds[sequenceId] = struct{}{}
+		g.dup.Add(*seqSource)
 	}
 
 	g.logChannel <- recovery.NewRecord(amqp.Header{ClientId: clientID, OriginId: originIDUint8, SequenceId: sequenceId}, nil, m.Body)

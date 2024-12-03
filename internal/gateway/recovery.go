@@ -6,6 +6,7 @@ import (
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 	"tp1/pkg/recovery"
+	"tp1/pkg/sequence"
 )
 
 // Handle recovery for Q1, Q2, and Q3
@@ -101,7 +102,6 @@ func (g *Gateway) recoverResults(
 	ch chan recovery.Record,
 	clientAccumulatedResults map[string]map[uint8]string,
 	recoveredMessages map[string]map[uint8]string,
-	receivedSeqIds map[string]struct{},
 ) {
 	go g.recovery.Recover(ch)
 
@@ -109,11 +109,18 @@ func (g *Gateway) recoverResults(
 		originId := recoveredMsg.Header().OriginId
 		sequenceId := recoveredMsg.Header().SequenceId
 		if string(recoveredMsg.Message()) != ack {
-			if _, exists := receivedSeqIds[sequenceId]; exists {
-				// dup message
+
+			seqSource, err := sequence.SrcFromString(sequenceId)
+			if err != nil {
+				logs.Logger.Errorf("Failed to parse sequence source: %v", err)
 				continue
 			}
-			receivedSeqIds[sequenceId] = struct{}{}
+
+			if g.dup.IsDuplicate(*seqSource) {
+				continue
+			} else {
+				g.dup.Add(*seqSource)
+			}
 		}
 
 		switch originId {
