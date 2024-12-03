@@ -21,7 +21,7 @@ main() {
 
         if [ ${#containers[@]} -gt 0 ]; then
             container_to_kill=${containers[$RANDOM % ${#containers[@]}]}
-            docker kill "$container_to_kill"
+            docker kill "$container_to_kill" &>/dev/null
             echo "Container $container_to_kill has been killed."
         else
             echo "No containers to kill."
