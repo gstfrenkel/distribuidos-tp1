@@ -2,13 +2,12 @@ package platform_counter
 
 import (
 	"strings"
-	"tp1/pkg/recovery"
-
 	"tp1/internal/errors"
 	"tp1/internal/worker"
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/recovery"
 	"tp1/pkg/sequence"
 	"tp1/pkg/utils/shard"
 )
@@ -32,7 +31,13 @@ func New() (worker.W, error) {
 }
 
 func (f *filter) Init() error {
-	return f.w.Init()
+	if err := f.w.Init(); err != nil {
+		return err
+	}
+
+	f.recover()
+
+	return nil
 }
 
 func (f *filter) Start() {

@@ -2,15 +2,14 @@ package top_n_playtime
 
 import (
 	"strings"
-	"tp1/pkg/recovery"
-	"tp1/pkg/utils/shard"
-
 	"tp1/internal/errors"
 	"tp1/internal/worker"
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/recovery"
 	"tp1/pkg/sequence"
+	"tp1/pkg/utils/shard"
 )
 
 type filter struct {
