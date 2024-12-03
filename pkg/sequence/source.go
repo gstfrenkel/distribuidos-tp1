@@ -16,7 +16,7 @@ func SrcNew(workerUuid string, sequenceId uint64) Source {
 }
 
 func SrcFromString(seq string) (*Source, error) {
-	parts, err := encoding.SplitId(seq)
+	parts, err := encoding.SplitIdAtLastIndex(seq)
 	if err != nil {
 		return nil, err
 	}
