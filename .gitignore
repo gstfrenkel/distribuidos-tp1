@@ -3,4 +3,3 @@ data/
 *.txt
 var/
 volumes/
-configs/client.toml/
