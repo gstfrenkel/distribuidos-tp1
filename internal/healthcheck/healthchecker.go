@@ -151,7 +151,6 @@ func (hc *HealthChecker) sendHcMsg(conn *net.UDPConn) int {
 			logs.Logger.Errorf("Error sending health check message: %v. Count: %d", err, errCount)
 			continue
 		}
-		logs.Logger.Infof("Sent health check message to %v", conn.RemoteAddr())
 
 		err = conn.SetReadDeadline(time.Now().Add(timeoutSecs * time.Second))
 		if err != nil {
@@ -162,8 +161,6 @@ func (hc *HealthChecker) sendHcMsg(conn *net.UDPConn) int {
 		if err != nil {
 			errCount++
 			logs.Logger.Errorf("Error recv health check ack: %v. Error count: %d", err, errCount)
-		} else {
-			logs.Logger.Infof("Received health check ack from %v", conn.RemoteAddr())
 		}
 
 		time.Sleep(sleepSecs * time.Second)

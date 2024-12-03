@@ -1,11 +1,11 @@
 package io
 
 import (
-	"encoding/binary"
 	"io"
 	"net"
 	"os/exec"
 	"strings"
+	"tp1/pkg/logs"
 )
 
 // SendAll Sends all data to a connection socket
@@ -39,10 +39,6 @@ func ReadFull(conn net.Conn, buffer []byte, n int) error {
 	return nil
 }
 
-func ReadU32FromSlice(buf []byte) uint32 {
-	return binary.BigEndian.Uint32(buf)
-}
-
 // MoveBuff moves the buffer n positions to the left keeping the original capacity
 func MoveBuff(data []byte, n int) []byte {
 	copy(data, data[n:])
@@ -51,6 +47,7 @@ func MoveBuff(data []byte, n int) []byte {
 
 // ExecCommand executes a command in the shell
 func ExecCommand(command string) error {
+	logs.Logger.Infof("Executing command: %s", command)
 	commands := strings.Split(command, " ")
 	return exec.Command(commands[0], commands[1:]...).Run()
 }
