@@ -145,7 +145,7 @@ func (f *filter) publish(headers amqp.Header, recovery bool) []sequence.Destinat
 		}
 
 		sequenceId := f.w.NextSequenceId(output.Key)
-		headers = headers.WithMessageId(message.ScoredReviewID).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
+		headers = headers.WithMessageId(message.ScoredReviewID).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 		sequenceIds = append(sequenceIds, sequence.DstNew(output.Key, sequenceId))
 
 		if err = f.w.Broker.Publish(output.Exchange, output.Key, bytes, headers); err != nil {

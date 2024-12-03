@@ -112,7 +112,7 @@ func (f *filter) publish(headers amqp.Header) []sequence.Destination {
 	}
 
 	sequenceId := f.w.NextSequenceId(output.Key)
-	headers = headers.WithMessageId(message.PlatformID).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
+	headers = headers.WithMessageId(message.PlatformID).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 	sequenceIds = append(sequenceIds, sequence.DstNew(output.Key, sequenceId))
 
 	if err = f.w.Broker.Publish(output.Exchange, output.Key, b, headers); err != nil {
