@@ -2,6 +2,7 @@ package platform_counter
 
 import (
 	"strings"
+	"tp1/pkg/recovery"
 
 	"tp1/internal/errors"
 	"tp1/internal/worker"
@@ -43,30 +44,11 @@ func (f *filter) Start() {
 func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
 
-	if _, exists := f.counters[headers.ClientId]; !exists {
-		f.counters[headers.ClientId] = &message.Platform{Windows: 0, Linux: 0, Mac: 0}
-	}
-	clientCounter := f.counters[headers.ClientId]
-
-	headers = headers.WithOriginId(amqp.Query1originId) // TODO: Add sequence ID
-
 	switch headers.MessageId {
 	case message.EofMsg:
-		f.publish(headers)
-		delete(f.counters, headers.ClientId)
-
-		if !f.agg {
-			if _, err := f.w.HandleEofMessage(delivery.Body, headers); err != nil {
-				logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
-			}
-		}
+		sequenceIds = f.processEof(delivery.Body, headers, false)
 	case message.PlatformID:
-		msg, err := message.PlatfromFromBytes(delivery.Body)
-		if err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-		} else {
-			clientCounter.Increment(msg)
-		}
+		f.processPlatform(delivery.Body, headers.ClientId)
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
@@ -74,17 +56,51 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 	return sequenceIds, nil
 }
 
-func (f *filter) publish(headers amqp.Header) {
+func (f *filter) processPlatform(msgBytes []byte, clientId string) {
+	if _, exists := f.counters[clientId]; !exists {
+		f.counters[clientId] = &message.Platform{Windows: 0, Linux: 0, Mac: 0}
+	}
+
+	msg, err := message.PlatfromFromBytes(msgBytes)
+	if err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+	} else {
+		f.counters[clientId].Increment(msg)
+	}
+}
+
+func (f *filter) processEof(msgBytes []byte, headers amqp.Header, recovery bool) []sequence.Destination {
+	headers = headers.WithOriginId(amqp.Query1originId)
+	var sequenceIds []sequence.Destination
+	if !recovery {
+		sequenceIds = f.publish(headers)
+		delete(f.counters, headers.ClientId) //TODO: si es recovery se borra?
+	}
+
+	if !f.agg {
+		eofSqIds, err := f.w.HandleEofMessage(msgBytes, headers)
+		if err != nil {
+			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
+		} else {
+			sequenceIds = append(sequenceIds, eofSqIds...)
+		}
+	}
+
+	return sequenceIds
+}
+
+func (f *filter) publish(headers amqp.Header) []sequence.Destination {
+	var sequenceIds []sequence.Destination
 	platforms := f.counters[headers.ClientId]
 
 	if platforms.IsEmpty() {
-		return
+		return sequenceIds
 	}
 
 	b, err := platforms.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-		return
+		return sequenceIds
 	}
 
 	output := f.w.Outputs[0]
@@ -95,8 +111,29 @@ func (f *filter) publish(headers amqp.Header) {
 		}
 	}
 
-	headers = headers.WithMessageId(message.PlatformID)
+	sequenceId := f.w.NextSequenceId(output.Key)
+	headers = headers.WithMessageId(message.PlatformID).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
+	sequenceIds = append(sequenceIds, sequence.DstNew(output.Key, sequenceId))
+
 	if err = f.w.Broker.Publish(output.Exchange, output.Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
+	}
+
+	return sequenceIds
+}
+
+func (f *filter) recover() {
+	ch := make(chan recovery.Message, worker.ChanSize)
+	go f.w.Recover(ch)
+
+	for recoveredMsg := range ch {
+		switch recoveredMsg.Header().MessageId {
+		case message.EofMsg:
+			f.processEof(recoveredMsg.Message(), recoveredMsg.Header(), true)
+		case message.PlatformID:
+			f.processPlatform(recoveredMsg.Message(), recoveredMsg.Header().ClientId)
+		default:
+			logs.Logger.Errorf(errors.InvalidMessageId.Error(), recoveredMsg.Header().MessageId)
+		}
 	}
 }

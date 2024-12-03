@@ -125,6 +125,7 @@ func (f *filter) fixHeap(msg message.ScoredReview, clientId string) bool {
 // Send the top n games to the broker
 func (f *filter) publish(headers amqp.Header, recovery bool) []sequence.Destination {
 	var sequenceIds []sequence.Destination
+	headers = headers.WithOriginId(amqp.Query3originId)
 
 	if !recovery {
 		topNScoredReviews := f.getTopNScoredReviews(headers.ClientId)
@@ -144,7 +145,7 @@ func (f *filter) publish(headers amqp.Header, recovery bool) []sequence.Destinat
 		}
 
 		sequenceId := f.w.NextSequenceId(output.Key)
-		headers = headers.WithMessageId(message.ScoredReviewID).WithOriginId(amqp.Query3originId).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
+		headers = headers.WithMessageId(message.ScoredReviewID).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
 		sequenceIds = append(sequenceIds, sequence.DstNew(output.Key, sequenceId))
 
 		if err = f.w.Broker.Publish(output.Exchange, output.Key, bytes, headers); err != nil {

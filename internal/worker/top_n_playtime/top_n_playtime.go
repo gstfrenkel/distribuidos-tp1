@@ -80,6 +80,8 @@ func (f *filter) processGame(msgBytes []byte, clientId string) {
 
 func (f *filter) processEof(msgBytes []byte, headers amqp.Header, recovery bool) []sequence.Destination {
 	var sequenceIds []sequence.Destination
+	headers = headers.WithOriginId(amqp.Query2originId)
+
 	workersVisited, err := message.EofFromBytes(msgBytes)
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
@@ -129,7 +131,7 @@ func (f *filter) publish(headers amqp.Header) []sequence.Destination {
 	}
 
 	sequenceId := f.w.NextSequenceId(output.Key)
-	headers = headers.WithMessageId(message.GameWithPlaytimeID).WithOriginId(amqp.Query2originId).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
+	headers = headers.WithMessageId(message.GameWithPlaytimeID).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
 	sequenceIds = append(sequenceIds, sequence.DstNew(output.Key, sequenceId))
 
 	if err = f.w.Broker.Publish(output.Exchange, output.Key, b, headers); err != nil {
