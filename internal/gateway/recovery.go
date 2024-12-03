@@ -108,19 +108,15 @@ func (g *Gateway) recoverResults(
 	for recoveredMsg := range ch {
 		originId := recoveredMsg.Header().OriginId
 		sequenceId := recoveredMsg.Header().SequenceId
-		if string(recoveredMsg.Message()) != ack {
 
+		if string(recoveredMsg.Message()) != ack {
 			seqSource, err := sequence.SrcFromString(sequenceId)
 			if err != nil {
 				logs.Logger.Errorf("Failed to parse sequence source: %v", err)
 				continue
 			}
 
-			if g.dup.IsDuplicate(*seqSource) {
-				continue
-			} else {
-				g.dup.Add(*seqSource)
-			}
+			g.dup.Add(*seqSource)
 		}
 
 		switch originId {

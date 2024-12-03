@@ -79,7 +79,7 @@ func (g *Gateway) ListenResults() {
 
 	for m := range messages {
 		g.handleMessage(m, clientAccumulatedResults)
-		err := m.Ack(false)
+		err = m.Ack(false)
 		if err != nil {
 			logs.Logger.Errorf("Failed to acknowledge message: %s", err.Error())
 		}
@@ -111,7 +111,7 @@ func (g *Gateway) handleMessage(m amqp.Delivery, clientAccumulatedResults map[st
 		g.dup.Add(*seqSource)
 	}
 
-	g.logChannel <- recovery.NewRecord(amqp.Header{ClientId: clientID, OriginId: originIDUint8, SequenceId: sequenceId}, nil, m.Body)
+	g.logChannel <- recovery.NewRecord(amqp.HeadersFromDelivery(m), nil, m.Body)
 
 	// Handle EOF or message content
 	if originIDUint8 == amqp.Query4originId || originIDUint8 == amqp.Query5originId {
