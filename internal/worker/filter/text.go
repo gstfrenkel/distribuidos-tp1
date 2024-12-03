@@ -110,7 +110,7 @@ func (f *text) publish(msg message.TextReviews, headers amqp.Header) []sequence.
 			continue
 		}
 
-		headers = headers.WithMessageId(message.ScoredReviewID).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
+		headers = headers.WithMessageId(message.ScoredReviewID).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 
 		if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, k, b, headers); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
