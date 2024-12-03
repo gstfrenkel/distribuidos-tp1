@@ -58,7 +58,7 @@ func (p *percentile) Process(delivery amqp.Delivery, headers amqp.Header) ([]seq
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
-	return sequenceIds, nil
+	return sequenceIds, delivery.Body
 }
 
 func (p *percentile) save(msgBytes []byte, clientId string) {

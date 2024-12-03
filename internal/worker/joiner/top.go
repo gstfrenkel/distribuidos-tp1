@@ -45,7 +45,6 @@ func (t *top) Start() {
 
 func (t *top) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
-	var msg []byte
 
 	switch headers.MessageId {
 	case message.EofMsg:
@@ -58,7 +57,7 @@ func (t *top) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.D
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
-	return sequenceIds, msg
+	return sequenceIds, delivery.Body
 }
 
 func (t *top) processEof(headers amqp.Header) []sequence.Destination {

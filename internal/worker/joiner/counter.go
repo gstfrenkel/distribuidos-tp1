@@ -42,7 +42,6 @@ func (c *counter) Start() {
 
 func (c *counter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
-	var msg []byte
 
 	switch headers.MessageId {
 	case message.EofMsg:
@@ -55,7 +54,7 @@ func (c *counter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequen
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
-	return sequenceIds, msg
+	return sequenceIds, delivery.Body
 }
 
 func (c *counter) processEof(headers amqp.Header) []sequence.Destination {

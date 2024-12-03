@@ -54,7 +54,7 @@ func (c *counter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequen
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
-	return sequenceIds, nil
+	return sequenceIds, delivery.Body
 }
 
 func (c *counter) publish(headers amqp.Header) []sequence.Destination {
