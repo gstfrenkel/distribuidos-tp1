@@ -153,7 +153,7 @@ func (p *percentile) publish(headers amqp.Header, reviews message.ScoredReviews)
 	key := p.joiner.w.Outputs[0].Key
 	sequenceId := p.joiner.w.NextSequenceId(key)
 
-	headers = headers.WithMessageId(message.ScoredReviewID).WithSequenceId(sequence.SrcNew(p.joiner.w.Id, sequenceId))
+	headers = headers.WithMessageId(message.ScoredReviewID).WithSequenceId(sequence.SrcNew(p.joiner.w.Uuid, sequenceId))
 
 	if err = p.joiner.w.Broker.Publish(p.joiner.w.Outputs[0].Exchange, key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())

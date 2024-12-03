@@ -91,7 +91,7 @@ func (f *indie) publishGameNames(headers amqp.Header, msg message.Game, genre st
 		sequenceId := f.w.NextSequenceId(key)
 		sequenceIdsNames = append(sequenceIdsNames, sequence.DstNew(key, sequenceId))
 
-		if err = f.w.Broker.Publish(output.Exchange, key, b, headers.WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))); err != nil {
+		if err = f.w.Broker.Publish(output.Exchange, key, b, headers.WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	}
@@ -111,7 +111,7 @@ func (f *indie) publishGameReleases(headers amqp.Header, msg message.Game, genre
 
 	key := shard.String(headers.SequenceId, output.Key, output.Consumers)
 	sequenceId := f.w.NextSequenceId(key)
-	headers = headers.WithMessageId(message.GameReleaseID).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
+	headers = headers.WithMessageId(message.GameReleaseID).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 
 	if err = f.w.Broker.Publish(output.Exchange, key, b, headers.WithMessageId(message.GameReleaseID)); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())

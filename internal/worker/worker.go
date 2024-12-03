@@ -9,6 +9,7 @@ import (
 	"strings"
 	"syscall"
 
+	"tp1/internal/errors"
 	"tp1/internal/healthcheck"
 	"tp1/pkg/amqp"
 	"tp1/pkg/amqp/broker"
@@ -28,6 +29,7 @@ const (
 	logLevelKey         = "log-level"
 	defaultLogLevel     = "INFO"
 	workerIdKey         = "worker-id"
+	workerUuidKey       = "worker-uuid"
 	queryKey            = "query"
 	peersKey            = "peers"
 	expectedEofsKey     = "expected_eofs"
@@ -54,6 +56,7 @@ type Worker struct {
 	recovery           recovery.Handler
 	dup                dup.Handler
 	sequenceIds        map[string]uint64
+	Uuid               string
 	Id                 uint8
 	peers              uint8
 	ExpectedEofs       uint8
@@ -104,6 +107,7 @@ func New() (*Worker, error) {
 		Query:              query,
 		Broker:             b,
 		signalChan:         signalChan,
+		Uuid:               os.Getenv(workerUuidKey),
 		Id:                 uint8(id),
 		recovery:           recoveryHandler,
 		dup:                dup.NewHandler(),
@@ -237,7 +241,7 @@ func (f *Worker) handleEofToInput(headers amqp.Header, workersVisited message.Eo
 		f.inputEof.Exchange,
 		key,
 		bytes,
-		headers.WithMessageId(message.EofMsg).WithSequenceId(sequence.SrcNew(f.Id, sequenceId)),
+		headers.WithMessageId(message.EofMsg).WithSequenceId(sequence.SrcNew(f.Uuid, sequenceId)),
 	)
 }
 
@@ -256,7 +260,7 @@ func (f *Worker) handleEofToOutputs(headers amqp.Header, output ...amqp.Destinat
 			o.Exchange,
 			o.Key,
 			amqp.EmptyEof,
-			headers.WithMessageId(message.EofMsg).WithSequenceId(sequence.SrcNew(f.Id, sequenceId)),
+			headers.WithMessageId(message.EofMsg).WithSequenceId(sequence.SrcNew(f.Uuid, sequenceId)),
 		); err != nil {
 			return nil, err
 		}
@@ -296,12 +300,12 @@ func (f *Worker) consume(filter W, signalChan chan os.Signal, deliveryChan ...<-
 
 		// W and only process non-duplicate messages
 		//if !f.dup.IsDuplicate(*srcSequenceId) {
-		_, _ = filter.Process(delivery, header)
+		sequenceIds, msg := filter.Process(delivery, header)
 
-		/*if err := f.recovery.Log(recovery.NewRecord(header, sequenceIds, msg)); err != nil {
+		if err := f.recovery.Log(recovery.NewRecord(header, sequenceIds, msg)); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToLog.Error(), err)
 		}
-		}*/
+		//}
 
 		// Acknowledge all duplicate and processed messages
 		if err := delivery.Ack(false); err != nil {

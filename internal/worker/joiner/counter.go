@@ -148,7 +148,7 @@ func (c *counter) publish(headers amqp.Header, msgBytes []byte) []sequence.Desti
 	key := c.joiner.w.Outputs[0].Key
 	sequenceId := c.joiner.w.NextSequenceId(key)
 
-	headers = headers.WithMessageId(message.GameNameID).WithSequenceId(sequence.SrcNew(c.joiner.w.Id, sequenceId))
+	headers = headers.WithMessageId(message.GameNameID).WithSequenceId(sequence.SrcNew(c.joiner.w.Uuid, sequenceId))
 
 	if err := c.joiner.w.Broker.Publish(c.joiner.w.Outputs[0].Exchange, c.joiner.w.Outputs[0].Key, msgBytes, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())

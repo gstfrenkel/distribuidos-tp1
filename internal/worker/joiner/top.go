@@ -154,7 +154,7 @@ func (t *top) publish(headers amqp.Header, b []byte) []sequence.Destination {
 	key := t.output.Key
 	sequenceId := t.joiner.w.NextSequenceId(key)
 
-	headers = headers.WithMessageId(message.ScoredReviewID).WithSequenceId(sequence.SrcNew(t.joiner.w.Id, sequenceId))
+	headers = headers.WithMessageId(message.ScoredReviewID).WithSequenceId(sequence.SrcNew(t.joiner.w.Uuid, sequenceId))
 
 	if err := t.joiner.w.Broker.Publish(t.output.Exchange, key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
