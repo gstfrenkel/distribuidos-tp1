@@ -30,7 +30,7 @@ build-hc:
 .PHONY: build-hc
 
 create-files:
-	python3 ./scripts/recovery-files-creator.py
+	cd ./scripts && python3 recovery-files-creator.py && cd ..
 .PHONY: create-files
 
 docker-compose-up: build create-files
