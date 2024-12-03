@@ -42,22 +42,19 @@ func (c *counter) Start() {
 
 func (c *counter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
-	var msg []byte
 
 	switch headers.MessageId {
 	case message.EofMsg:
 		sequenceIds = c.joiner.processEof(headers, c.processEof)
 	case message.ScoredReviewID:
-		msg = delivery.Body
-		sequenceIds = c.processReview(headers, msg, false)
+		sequenceIds = c.processReview(headers, delivery.Body, false)
 	case message.GameNameID:
-		msg = delivery.Body
-		sequenceIds = c.processGame(headers, msg, false)
+		sequenceIds = c.processGame(headers, delivery.Body, false)
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
-	return sequenceIds, msg
+	return sequenceIds, delivery.Body
 }
 
 func (c *counter) processEof(headers amqp.Header) []sequence.Destination {

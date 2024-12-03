@@ -45,22 +45,19 @@ func (t *top) Start() {
 
 func (t *top) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
-	var msg []byte
 
 	switch headers.MessageId {
 	case message.EofMsg:
 		sequenceIds = t.joiner.processEof(headers, t.processEof)
 	case message.ScoredReviewID:
-		msg = delivery.Body
-		sequenceIds = t.processReview(headers, msg, false)
+		sequenceIds = t.processReview(headers, delivery.Body, false)
 	case message.GameNameID:
-		msg = delivery.Body
-		sequenceIds = t.processGame(headers, msg, false)
+		sequenceIds = t.processGame(headers, delivery.Body, false)
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
-	return sequenceIds, msg
+	return sequenceIds, delivery.Body
 }
 
 func (t *top) processEof(headers amqp.Header) []sequence.Destination {
