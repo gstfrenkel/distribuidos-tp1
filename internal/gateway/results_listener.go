@@ -5,11 +5,18 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
-	"tp1/pkg/utils/io"
-
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/recovery"
+	"tp1/pkg/sequence"
+	"tp1/pkg/utils/io"
+)
+
+const (
+	ack      = "ACK"
+	idPos    = 1
+	zeroChar = '0'
 )
 
 // ListenResultsRequests waits until a client connects to the results listener and sends the results to the client
@@ -44,23 +51,40 @@ func (g *Gateway) SendResults(cliConn net.Conn) {
 			logs.Logger.Errorf("Error sending message to client: %s", err)
 			return
 		}
+
+		readAck(cliConn)
+		originId := uint8(rabbitMsg[idPos] - zeroChar)
+		g.logChannel <- recovery.NewRecord(amqp.Header{ClientId: clientId, OriginId: originId}, nil, []byte(ack))
 	}
 }
 
 // ListenResults listens for results from the "reports" queue and sends them to the results channel
 func (g *Gateway) ListenResults() {
-	messages, err := g.broker.Consume(g.queues[len(g.queues)-1].Name, "", true, false)
+	messages, err := g.broker.Consume(g.queues[len(g.queues)-1].Name, "", false, false)
 	if err != nil {
 		logs.Logger.Errorf("Failed to start consuming messages from reports_queue: %s", err.Error())
 		return
 	}
 
-	// Accumulated results for queries 4 and 5 for each clientID
+	ch := make(chan recovery.Record)
 	clientAccumulatedResults := make(map[string]map[uint8]string)
+	recoveredMessages := make(map[string]map[uint8]string)
+	g.recoverResults(ch, clientAccumulatedResults, recoveredMessages)
+
+	for clientID, innerMap := range recoveredMessages {
+		for _, resultStr := range innerMap {
+			sendResultThroughChannel(g, clientID, resultStr)
+		}
+	}
 
 	for m := range messages {
 		g.handleMessage(m, clientAccumulatedResults)
+		err := m.Ack(false)
+		if err != nil {
+			logs.Logger.Errorf("Failed to acknowledge message: %s", err.Error())
+		}
 	}
+
 }
 
 func (g *Gateway) handleMessage(m amqp.Delivery, clientAccumulatedResults map[string]map[uint8]string) {
@@ -73,6 +97,22 @@ func (g *Gateway) handleMessage(m amqp.Delivery, clientAccumulatedResults map[st
 
 	originIDUint8 := originID.(uint8)
 	messageId, ok := m.Headers[amqp.MessageIdHeader]
+	sequenceId := m.Headers[amqp.SequenceIdHeader].(string)
+
+	seqSource, err := sequence.SrcFromString(sequenceId)
+	if err != nil {
+		logs.Logger.Errorf("Failed to parse sequence source: %v", err)
+		return
+	}
+
+	if g.dup.IsDuplicate(*seqSource) {
+		return
+	} else {
+		g.dup.Add(*seqSource)
+	}
+
+	g.logChannel <- recovery.NewRecord(amqp.Header{ClientId: clientID, OriginId: originIDUint8, SequenceId: sequenceId}, nil, m.Body)
+
 	// Handle EOF or message content
 	if originIDUint8 == amqp.Query4originId || originIDUint8 == amqp.Query5originId {
 		if bytes.Equal(m.Body, amqp.EmptyEof) {
@@ -101,16 +141,8 @@ func initializeAccumulatedResultsForClient(clientAccumulatedResults map[string]m
 }
 
 func (g *Gateway) handleResultMsg(clientID string, originIDUint8 uint8, result interface{}) {
-	var resultStr string
-	switch originIDUint8 {
-	case amqp.Query1originId:
-		resultStr = result.(message.Platform).ToResultString()
-	case amqp.Query2originId:
-		resultStr = result.(message.DateFilteredReleases).ToResultString()
-	case amqp.Query3originId:
-		resultStr = result.(message.ScoredReviews).ToQ3ResultString()
-	default:
-		logs.Logger.Infof("Header x-origin-id does not match any known origin IDs, got: %v", originIDUint8)
+	resultStr, shouldReturn := resultBodyToString(originIDUint8, result)
+	if shouldReturn {
 		return
 	}
 
@@ -170,4 +202,13 @@ func parseMessageBody(originID uint8, body []byte) (interface{}, error) {
 	default:
 		return nil, fmt.Errorf("unknown origin ID: %v", originID)
 	}
+}
+
+func readAck(conn net.Conn) error {
+	ackBuf := make([]byte, 1)
+	_, err := conn.Read(ackBuf)
+	if err != nil {
+		return fmt.Errorf("error reading ACK: %w", err)
+	}
+	return nil
 }

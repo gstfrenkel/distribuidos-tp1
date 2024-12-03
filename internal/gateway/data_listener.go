@@ -4,10 +4,9 @@ import (
 	"encoding/binary"
 	"net"
 	"sync"
-	"tp1/pkg/utils/encoding"
-
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/utils/encoding"
 	"tp1/pkg/utils/io"
 )
 

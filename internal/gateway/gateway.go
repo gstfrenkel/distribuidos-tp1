@@ -7,16 +7,17 @@ import (
 	"strconv"
 	"sync"
 	"syscall"
-	"tp1/pkg/utils/encoding"
-
 	"tp1/internal/gateway/rabbit"
 	"tp1/internal/healthcheck"
 	"tp1/pkg/amqp"
 	"tp1/pkg/amqp/broker"
 	"tp1/pkg/config"
 	"tp1/pkg/config/provider"
+	"tp1/pkg/dup"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/recovery"
+	"tp1/pkg/utils/encoding"
 )
 
 const (
@@ -50,6 +51,9 @@ type Gateway struct {
 	clientGamesAckChannels   sync.Map
 	clientReviewsAckChannels sync.Map
 	healthCheckService       *healthcheck.Service
+	recovery                 recovery.Handler
+	logChannel               chan recovery.Record
+	dup                      dup.Handler
 }
 
 func New() (*Gateway, error) {
@@ -78,6 +82,11 @@ func New() (*Gateway, error) {
 		return nil, err
 	}
 
+	recoveryHandler, err := recovery.NewHandler()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Gateway{
 		Config:                   cfg,
 		broker:                   b,
@@ -94,6 +103,9 @@ func New() (*Gateway, error) {
 		clientGamesAckChannels:   sync.Map{},
 		clientReviewsAckChannels: sync.Map{},
 		healthCheckService:       hc,
+		recovery:                 recoveryHandler,
+		logChannel:               make(chan recovery.Record),
+		dup:                      dup.NewHandler(),
 	}, nil
 }
 
@@ -124,6 +136,8 @@ func (g *Gateway) Start() {
 	)
 
 	go g.ListenResults()
+
+	go g.logResults()
 
 	wg := &sync.WaitGroup{}
 	wg.Add(connections)
