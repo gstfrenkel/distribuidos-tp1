@@ -102,9 +102,6 @@ func (g *Gateway) recoverResults(
 	clientAccumulatedResults map[string]map[uint8]string,
 	recoveredMessages map[string]map[uint8]string,
 ) {
-	g.recoveryMu.Lock()
-	defer g.recoveryMu.Unlock()
-
 	go g.recovery.Recover(ch)
 
 	for recoveredMsg := range ch {
@@ -125,25 +122,6 @@ func (g *Gateway) recoverResults(
 	}
 }
 
-func getOriginID(rabbitMsg []byte) uint8 {
-	var originId uint8
-
-	switch rabbitMsg[idPos] {
-	case Query1Id:
-		originId = amqp.Query1originId
-	case Query2Id:
-		originId = amqp.Query2originId
-	case Query3Id:
-		originId = amqp.Query3originId
-	case Query4Id:
-		originId = amqp.Query4originId
-	case Query5Id:
-		originId = amqp.Query5originId
-	}
-
-	return originId
-}
-
 func resultBodyToString(originIDUint8 uint8, result interface{}) (string, bool) {
 	var resultStr string
 	switch originIDUint8 {
@@ -160,11 +138,10 @@ func resultBodyToString(originIDUint8 uint8, result interface{}) (string, bool) 
 	return resultStr, false
 }
 
-func logResult(g *Gateway, clientID string, originIDUint8 uint8, body []byte) {
-	g.recoveryMu.Lock()
-	header := amqp.Header{ClientId: clientID, OriginId: originIDUint8}
-	if err := g.recovery.Log(recovery.NewRecord(header, nil, body)); err != nil {
-		logs.Logger.Errorf("Failed to Log: %s", err)
+func (g *Gateway) logResults() {
+	for record := range g.logChannel {
+		if err := g.recovery.Log(record); err != nil {
+			logs.Logger.Errorf("Failed to log record: %s", err)
+		}
 	}
-	g.recoveryMu.Unlock()
 }

@@ -5,13 +5,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
-	"tp1/pkg/utils/io"
-
-	"tp1/pkg/recovery"
-
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/recovery"
+	"tp1/pkg/utils/io"
 )
 
 const (
@@ -23,6 +21,14 @@ const (
 	Query4Id = '4'
 	Query5Id = '5'
 )
+
+var idToOriginID = map[uint8]uint8{
+	Query1Id: amqp.Query1originId,
+	Query2Id: amqp.Query2originId,
+	Query3Id: amqp.Query3originId,
+	Query4Id: amqp.Query4originId,
+	Query5Id: amqp.Query5originId,
+}
 
 // ListenResultsRequests waits until a client connects to the results listener and sends the results to the client
 func (g *Gateway) listenResultsRequests() error {
@@ -58,8 +64,9 @@ func (g *Gateway) SendResults(cliConn net.Conn) {
 		}
 
 		readAck(cliConn)
-		originId := getOriginID(rabbitMsg)
-		logResult(g, clientId, originId, []byte(ack))
+		originId := idToOriginID[rabbitMsg[idPos]]
+		g.logChannel <- recovery.NewRecord(amqp.Header{ClientId: clientId, OriginId: originId}, nil, rabbitMsg)
+		//logResult(g, clientId, originId, []byte(ack))
 	}
 }
 
@@ -101,8 +108,9 @@ func (g *Gateway) handleMessage(m amqp.Delivery, clientAccumulatedResults map[st
 	}
 
 	originIDUint8 := originID.(uint8)
+
 	messageId, ok := m.Headers[amqp.MessageIdHeader]
-	logResult(g, clientID, originIDUint8, m.Body)
+	g.logChannel <- recovery.NewRecord(amqp.Header{ClientId: clientID, OriginId: originIDUint8}, nil, m.Body)
 
 	// Handle EOF or message content
 	if originIDUint8 == amqp.Query4originId || originIDUint8 == amqp.Query5originId {
