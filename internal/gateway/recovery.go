@@ -108,10 +108,13 @@ func (g *Gateway) recoverResults(
 	for recoveredMsg := range ch {
 		originId := recoveredMsg.Header().OriginId
 		sequenceId := recoveredMsg.Header().SequenceId
-		if _, exists := receivedSeqIds[sequenceId]; exists {
-			continue
+		if string(recoveredMsg.Message()) != ack {
+			if _, exists := receivedSeqIds[sequenceId]; exists {
+				// dup message
+				continue
+			}
+			receivedSeqIds[sequenceId] = struct{}{}
 		}
-		receivedSeqIds[sequenceId] = struct{}{}
 
 		switch originId {
 		case amqp.Query1originId, amqp.Query2originId, amqp.Query3originId:

@@ -254,7 +254,7 @@ func (f *Worker) handleEofToOutputs(headers amqp.Header, output ...amqp.Destinat
 	sequenceIds := make([]sequence.Destination, 0, len(outputs))
 
 	for _, o := range outputs {
-		sequenceId := f.NextSequenceId(f.inputEof.Key)
+		sequenceId := f.NextSequenceId(o.Key)
 		sequenceIds = append(sequenceIds, sequence.DstNew(o.Key, sequenceId))
 		if err := f.Broker.Publish(
 			o.Exchange,

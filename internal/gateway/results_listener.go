@@ -111,11 +111,10 @@ func (g *Gateway) handleMessage(m amqp.Delivery, clientAccumulatedResults map[st
 	messageId, ok := m.Headers[amqp.MessageIdHeader]
 	sequenceId := m.Headers[amqp.SequenceIdHeader].(string)
 
-	logs.Logger.Infof("Read result with seq ID %s, origin id %d, client id %s", sequenceId, originIDUint8, clientID)
+	//logs.Logger.Infof("Read result with seq ID %s, origin id %d, client id %s", sequenceId, originIDUint8, clientID)
 
 	if _, exists := receivedSeqIds[sequenceId]; exists {
 		// dup message
-		logs.Logger.Infof("Duplicate message with sequence ID %s, origin id: %d, client id: %s", sequenceId, originIDUint8, clientID)
 		return
 	} else {
 		receivedSeqIds[sequenceId] = struct{}{}
