@@ -74,8 +74,8 @@ func (f *filter) processEof(msgBytes []byte, headers amqp.Header, recovery bool)
 	var sequenceIds []sequence.Destination
 	if !recovery {
 		sequenceIds = f.publish(headers)
-		delete(f.counters, headers.ClientId) //TODO: si es recovery se borra?
 	}
+	delete(f.counters, headers.ClientId)
 
 	if !f.agg {
 		eofSqIds, err := f.w.HandleEofMessage(msgBytes, headers)

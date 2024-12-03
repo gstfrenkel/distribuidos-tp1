@@ -1,7 +1,7 @@
 package main
 
 import (
-	"tp1/internal/worker/top_n_playtime"
+	"tp1/internal/worker/hybrid/top_n_playtime"
 	"tp1/pkg/logs"
 )
 
