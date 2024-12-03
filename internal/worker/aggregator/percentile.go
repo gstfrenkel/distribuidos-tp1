@@ -17,7 +17,7 @@ type percentile struct {
 }
 
 func NewPercentile() (worker.W, error) {
-	a, err := newAggregator()
+	a, err := newAggregator(amqp.Query5originId)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func (p *percentile) Process(delivery amqp.Delivery, headers amqp.Header) ([]seq
 
 	switch headers.MessageId {
 	case message.EofMsg:
-		sequenceIds = p.agg.processEof(p, headers, false)
+		sequenceIds = p.agg.processEof(p, headers.WithOriginId(p.agg.originId), false)
 	case message.ScoredReviewID:
 		p.save(delivery.Body, headers.ClientId)
 	default:
@@ -105,24 +105,12 @@ func (p *percentile) percentileIdx(clientId string) int {
 
 func (p *percentile) reset(clientId string) {
 	delete(p.scoredReviews, clientId)
-	delete(p.agg.eofsRecv, clientId)
-}
-
-func (p *percentile) sendEof(headers amqp.Header) []sequence.Destination {
-	output := shardOutput(p.agg.w.Outputs[0], headers.ClientId)
-	sequenceIds, err := p.agg.w.HandleEofMessage(amqp.EmptyEof, headers.WithOriginId(amqp.Query5originId), amqp.DestinationEof(output))
-	if err != nil {
-		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
-	}
-
-	logs.Logger.Debugf("Eof message sent for client %s", headers.ClientId)
-	return sequenceIds
 }
 
 func (p *percentile) sendBatches(headers amqp.Header, output amqp.Destination, msg message.ScoredReviews) []sequence.Destination {
 	numberOfBatches := int(math.Ceil(float64(len(msg)) / float64(p.agg.batchSize)))
 	sequenceIds := make([]sequence.Destination, 0, numberOfBatches)
-	headers = headers.WithMessageId(message.ScoredReviewID).WithOriginId(amqp.Query5originId)
+	headers = headers.WithMessageId(message.ScoredReviewID).WithOriginId(p.agg.originId)
 
 	for start := 0; start < len(msg); {
 		batch, nextStart := p.nextBatch(msg, start, len(msg))

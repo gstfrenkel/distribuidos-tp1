@@ -92,10 +92,10 @@ func (f *filter) processEof(msgBytes []byte, headers amqp.Header, recovery bool)
 		if !recovery {
 			sequenceIds = f.publish(headers)
 		}
-		delete(f.clientHeaps, headers.ClientId) //TODO : DUDA elimino el heap si es recovery?
+		delete(f.clientHeaps, headers.ClientId)
 	}
 
-	if !f.agg {
+	if !f.agg && !recovery {
 		eofSqIds, err := f.w.HandleEofMessage(msgBytes, headers)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)

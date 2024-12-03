@@ -74,18 +74,17 @@ func (f *filter) processEof(msgBytes []byte, headers amqp.Header, recovery bool)
 	var sequenceIds []sequence.Destination
 	if !recovery {
 		sequenceIds = f.publish(headers)
-	}
-	delete(f.counters, headers.ClientId)
-
-	if !f.agg {
-		eofSqIds, err := f.w.HandleEofMessage(msgBytes, headers)
-		if err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
-		} else {
-			sequenceIds = append(sequenceIds, eofSqIds...)
+		if !f.agg {
+			eofSqIds, err := f.w.HandleEofMessage(msgBytes, headers)
+			if err != nil {
+				logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
+			} else {
+				sequenceIds = append(sequenceIds, eofSqIds...)
+			}
 		}
 	}
 
+	delete(f.counters, headers.ClientId)
 	return sequenceIds
 }
 

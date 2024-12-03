@@ -105,7 +105,7 @@ func (f *review) publishReviewWithText(msg message.Review, headers amqp.Header) 
 	output := f.w.Outputs[query4]
 	key := shard.String(headers.SequenceId, output.Key, output.Consumers)
 	sequenceId := f.w.NextSequenceId(key)
-	headers = headers.WithMessageId(message.ReviewWithTextID).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
+	headers = headers.WithMessageId(message.ReviewWithTextID).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 
 	if err = f.w.Broker.Publish(output.Exchange, key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
@@ -126,7 +126,7 @@ func (f *review) shardPublish(reviews message.ScoredReviews, output amqp.Destina
 		k := shard.Int64(rv.GameId, output.Key, output.Consumers)
 		sequenceId := f.w.NextSequenceId(k)
 		sequenceIds = append(sequenceIds, sequence.DstNew(k, sequenceId))
-		headers = headers.WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
+		headers = headers.WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 
 		if err = f.w.Broker.Publish(output.Exchange, k, b, headers); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
