@@ -32,7 +32,13 @@ func NewReview() (worker.Filter, error) {
 }
 
 func (f *review) Init() error {
-	return f.w.Init()
+	if err := f.w.Init(); err != nil {
+		return err
+	}
+
+	f.recover()
+
+	return nil
 }
 
 func (f *review) Start() {
@@ -46,22 +52,19 @@ func (f *review) Start() {
 
 func (f *review) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
+	var err error
 
 	headers = headers.WithOriginId(amqp.ReviewOriginId)
 
 	switch headers.MessageId {
 	case message.EofMsg:
-		_, err := f.w.HandleEofMessage(delivery.Body, headers)
+		sequenceIds, err = f.w.HandleEofMessage(delivery.Body, headers)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	case message.ReviewIdMsg:
-		msg, err := message.ReviewFromBytes(delivery.Body)
-		if err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-		} else {
-			f.publish(msg, headers)
-		}
+		sequenceIds = f.publish(delivery.Body, headers)
+
 	default:
 		logs.Logger.Infof(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
@@ -69,8 +72,30 @@ func (f *review) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 	return sequenceIds, nil
 }
 
-func (f *review) publish(msg message.Review, headers amqp.Header) {
-	headers = headers.WithMessageId(message.ReviewWithTextID)
+func (f *review) publish(msgBytes []byte, headers amqp.Header) []sequence.Destination {
+	msg, err := message.ReviewFromBytes(msgBytes)
+	if err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+		return []sequence.Destination{}
+	}
+
+	return append(f.publishReviewWithText(msg, headers), f.publishScoredReview(msg, headers)...)
+}
+
+func (f *review) publishScoredReview(msg message.Review, headers amqp.Header) []sequence.Destination {
+	headers = headers.WithMessageId(message.ScoredReviewID)
+
+	reviews := msg.ToScoredReviewMessage(f.scores[query3])
+	sequenceIds := f.shardPublish(reviews, f.w.Outputs[query3], headers)
+
+	if f.scores[query5] != f.scores[query3] {
+		reviews = msg.ToScoredReviewMessage(f.scores[query5])
+	}
+
+	return append(sequenceIds, f.shardPublish(reviews, f.w.Outputs[query5], headers)...)
+}
+
+func (f *review) publishReviewWithText(msg message.Review, headers amqp.Header) []sequence.Destination {
 
 	b, err := msg.ToReviewWithTextMessage(f.scores[query4]).ToBytes()
 	if err != nil {
@@ -79,22 +104,18 @@ func (f *review) publish(msg message.Review, headers amqp.Header) {
 
 	output := f.w.Outputs[query4]
 	key := shard.String(headers.SequenceId, output.Key, output.Consumers)
+	sequenceId := f.w.NextSequenceId(key)
+	headers = headers.WithMessageId(message.ReviewWithTextID).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
+
 	if err = f.w.Broker.Publish(output.Exchange, key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 
-	headers = headers.WithMessageId(message.ScoredReviewID)
-
-	reviews := msg.ToScoredReviewMessage(f.scores[query3])
-	f.shardPublish(reviews, f.w.Outputs[query3], headers)
-
-	if f.scores[query5] != f.scores[query3] {
-		reviews = msg.ToScoredReviewMessage(f.scores[query5])
-	}
-	f.shardPublish(reviews, f.w.Outputs[query5], headers)
+	return []sequence.Destination{sequence.DstNew(output.Key, sequenceId)}
 }
 
-func (f *review) shardPublish(reviews message.ScoredReviews, output amqp.Destination, headers amqp.Header) {
+func (f *review) shardPublish(reviews message.ScoredReviews, output amqp.Destination, headers amqp.Header) []sequence.Destination {
+	sequenceIds := make([]sequence.Destination, 0, len(reviews))
 	for _, rv := range reviews {
 		b, err := rv.ToBytes()
 		if err != nil {
@@ -103,8 +124,18 @@ func (f *review) shardPublish(reviews message.ScoredReviews, output amqp.Destina
 		}
 
 		k := shard.Int64(rv.GameId, output.Key, output.Consumers)
+		sequenceId := f.w.NextSequenceId(k)
+		sequenceIds = append(sequenceIds, sequence.DstNew(k, sequenceId))
+		headers = headers.WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
+
 		if err = f.w.Broker.Publish(output.Exchange, k, b, headers); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
 	}
+
+	return sequenceIds
+}
+
+func (f *review) recover() {
+	f.w.Recover(nil)
 }
