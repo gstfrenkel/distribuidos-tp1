@@ -58,7 +58,7 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
-	return sequenceIds, nil
+	return sequenceIds, delivery.Body
 }
 
 func (f *filter) processPlatform(msgBytes []byte, clientId string) {

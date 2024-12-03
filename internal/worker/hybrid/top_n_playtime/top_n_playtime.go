@@ -35,15 +35,15 @@ func (f *filter) Init() error {
 		return err
 	}
 
+	f.n = uint8(f.w.Query.(float64))
+	f.agg = strings.Contains(f.w.Outputs[0].Key, "%d")
+
 	f.recover()
 
 	return nil
 }
 
 func (f *filter) Start() {
-	f.n = uint8(f.w.Query.(float64))
-	f.agg = strings.Contains(f.w.Outputs[0].Key, "%d")
-
 	f.w.Start(f)
 }
 
