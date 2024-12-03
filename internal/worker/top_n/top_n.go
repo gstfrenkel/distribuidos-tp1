@@ -155,11 +155,12 @@ func (f *filter) publish(headers amqp.Header, recovery bool) []sequence.Destinat
 	delete(f.top, headers.ClientId)
 
 	if !f.agg {
-		eofsSqIds, err := f.w.HandleEofMessage(amqp.EmptyEof, headers, amqp.DestinationEof(f.w.Outputs[0]))
+		eofSqIds, err := f.w.HandleEofMessage(amqp.EmptyEof, headers, amqp.DestinationEof(f.w.Outputs[0]))
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
+		} else {
+			sequenceIds = append(sequenceIds, eofSqIds...)
 		}
-		sequenceIds = append(sequenceIds, eofsSqIds...)
 	}
 
 	delete(f.eofsRecv, headers.ClientId)

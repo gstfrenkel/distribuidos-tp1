@@ -2,6 +2,7 @@ package top_n_playtime
 
 import (
 	"strings"
+	"tp1/pkg/recovery"
 	"tp1/pkg/utils/shard"
 
 	"tp1/internal/errors"
@@ -31,7 +32,13 @@ func New() (worker.W, error) {
 }
 
 func (f *filter) Init() error {
-	return f.w.Init()
+	if err := f.w.Init(); err != nil {
+		return err
+	}
+
+	f.recover()
+
+	return nil
 }
 
 func (f *filter) Start() {
@@ -44,38 +51,11 @@ func (f *filter) Start() {
 func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
 	var sequenceIds []sequence.Destination
 
-	headers = headers.WithOriginId(amqp.Query2originId)
-
 	switch headers.MessageId {
 	case message.EofMsg:
-		workersVisited, err := message.EofFromBytes(delivery.Body)
-		if err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return nil, nil
-		}
-
-		if !workersVisited.Contains(f.w.Id) {
-			f.publish(headers)
-			delete(f.clientHeaps, headers.ClientId)
-		}
-
-		if !f.agg {
-			if _, err = f.w.HandleEofMessage(delivery.Body, headers); err != nil {
-				logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
-			}
-		}
+		sequenceIds = f.processEof(delivery.Body, headers, false)
 	case message.GameWithPlaytimeID:
-		if _, exists := f.clientHeaps[headers.ClientId]; !exists {
-			f.clientHeaps[headers.ClientId] = &MinHeapPlaytime{}
-		}
-		clientHeap := f.clientHeaps[headers.ClientId]
-
-		msg, err := message.DateFilteredReleasesFromBytes(delivery.Body)
-		if err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return nil, nil
-		}
-		clientHeap.UpdateReleases(msg, int(f.n))
+		f.processGame(delivery.Body, headers.ClientId)
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
@@ -83,17 +63,61 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 	return sequenceIds, nil
 }
 
-func (f *filter) publish(headers amqp.Header) {
+func (f *filter) processGame(msgBytes []byte, clientId string) {
+	if _, exists := f.clientHeaps[clientId]; !exists {
+		f.clientHeaps[clientId] = &MinHeapPlaytime{}
+	}
+	clientHeap := f.clientHeaps[clientId]
+
+	msg, err := message.DateFilteredReleasesFromBytes(msgBytes)
+	if err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+		return
+	}
+
+	clientHeap.UpdateReleases(msg, int(f.n))
+}
+
+func (f *filter) processEof(msgBytes []byte, headers amqp.Header, recovery bool) []sequence.Destination {
+	var sequenceIds []sequence.Destination
+	workersVisited, err := message.EofFromBytes(msgBytes)
+	if err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+		return sequenceIds
+	}
+
+	if !workersVisited.Contains(f.w.Id) {
+		if !recovery {
+			sequenceIds = f.publish(headers)
+		}
+		delete(f.clientHeaps, headers.ClientId) //TODO : DUDA elimino el heap si es recovery?
+	}
+
+	if !f.agg {
+		eofSqIds, err := f.w.HandleEofMessage(msgBytes, headers)
+		if err != nil {
+			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
+		} else {
+			sequenceIds = append(sequenceIds, eofSqIds...)
+		}
+	}
+
+	return sequenceIds
+}
+
+func (f *filter) publish(headers amqp.Header) []sequence.Destination {
+	var sequenceIds []sequence.Destination
+
 	clientHeap, exists := f.clientHeaps[headers.ClientId]
 	if !exists || clientHeap == nil {
-		return
+		return sequenceIds
 	}
 
 	topNPlaytime := ToTopNPlaytimeMessage(f.n, clientHeap)
 	b, err := topNPlaytime.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-		return
+		return sequenceIds
 	}
 
 	output := f.w.Outputs[0]
@@ -104,8 +128,29 @@ func (f *filter) publish(headers amqp.Header) {
 		}
 	}
 
-	headers = headers.WithMessageId(message.GameWithPlaytimeID)
+	sequenceId := f.w.NextSequenceId(output.Key)
+	headers = headers.WithMessageId(message.GameWithPlaytimeID).WithOriginId(amqp.Query2originId).WithSequenceId(sequence.SrcNew(f.w.Id, sequenceId))
+	sequenceIds = append(sequenceIds, sequence.DstNew(output.Key, sequenceId))
+
 	if err = f.w.Broker.Publish(output.Exchange, output.Key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
+	}
+
+	return sequenceIds
+}
+
+func (f *filter) recover() {
+	ch := make(chan recovery.Message, worker.ChanSize)
+	go f.w.Recover(ch)
+
+	for recoveredMsg := range ch {
+		switch recoveredMsg.Header().MessageId {
+		case message.EofMsg:
+			f.processEof(recoveredMsg.Message(), recoveredMsg.Header(), true)
+		case message.GameWithPlaytimeID:
+			f.processGame(recoveredMsg.Message(), recoveredMsg.Header().ClientId)
+		default:
+			logs.Logger.Errorf(errors.InvalidMessageId.Error(), recoveredMsg.Header().MessageId)
+		}
 	}
 }
