@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if -z "$1"; then
+if [ -z "$1" ]; then
     echo "Error! Usage: $0 <network>"
     exit 1
 fi
@@ -14,7 +14,7 @@ list_containers() {
 
 
 main() {
-    KILL_INTERVAL=${1:-35}
+    KILL_INTERVAL=35
 
     while true; do
         containers=($(list_containers))
