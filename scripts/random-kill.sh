@@ -14,7 +14,7 @@ list_containers() {
 
 
 main() {
-    KILL_INTERVAL=35
+    KILL_INTERVAL=10
 
     while true; do
         containers=($(list_containers))

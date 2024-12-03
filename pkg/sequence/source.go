@@ -3,6 +3,7 @@ package sequence
 import (
 	"fmt"
 	"strconv"
+
 	"tp1/pkg/utils/encoding"
 )
 

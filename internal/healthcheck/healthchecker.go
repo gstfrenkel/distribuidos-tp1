@@ -30,7 +30,7 @@ const (
 	hcDefaultContainerName = "healthchecker-%d"
 
 	configFilePath = "config.toml"
-	sleepSecs      = 10
+	sleepSecs      = 2
 	maxErrors      = 3
 	hcMsg          = 1
 	dockerRestart  = "docker restart "

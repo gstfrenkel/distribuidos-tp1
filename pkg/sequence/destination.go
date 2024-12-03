@@ -20,7 +20,7 @@ func DstNew(key string, sequenceId uint64) Destination {
 }
 
 func dstFromString(seq string) (*Destination, error) {
-	parts, err := encoding.SplitId(seq)
+	parts, err := encoding.SplitIdAtLastIndex(seq)
 	if err != nil {
 		return nil, err
 	}
