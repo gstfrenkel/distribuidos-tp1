@@ -48,7 +48,7 @@ func DstsFromStrings(seq []string) ([]Destination, error) {
 	}
 
 	sequenceIds := make([]Destination, 0, count)
-	for i := 1; i < count; i++ {
+	for i := 1; i < count+1; i++ {
 		sequenceId, err := dstFromString(seq[i])
 		if err != nil {
 			return nil, err
