@@ -8,7 +8,6 @@ import (
 	"os"
 	"reflect"
 	"strconv"
-
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 )
@@ -167,7 +166,7 @@ func (p *csvBatchProcessor) sendMessage(currentBatch uint32) error {
 	}
 
 	if err != nil {
-		return fmt.Errorf("error encoding data: %w", err)
+		return fmt.Errorf("error id_generator data: %w", err)
 	}
 
 	msg := message.ClientMessage{

@@ -3,3 +3,4 @@ data/
 *.txt
 var/
 volumes/
+pkg/utils/id_generator/*.csv

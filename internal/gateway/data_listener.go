@@ -6,7 +6,7 @@ import (
 	"sync"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
-	"tp1/pkg/utils/encoding"
+	"tp1/pkg/utils/id_generator"
 	"tp1/pkg/utils/io"
 )
 
@@ -93,11 +93,11 @@ func (g *Gateway) handleDataConnection(c net.Conn, msgId message.ID) {
 }
 
 func (g *Gateway) readClientId(c net.Conn) string {
-	clientId := make([]byte, encoding.ClientIdLen)
-	if err := io.ReadFull(c, clientId, encoding.ClientIdLen); err != nil {
+	clientId := make([]byte, id_generator.ClientIdLen)
+	if err := io.ReadFull(c, clientId, id_generator.ClientIdLen); err != nil {
 		logs.Logger.Errorf("Error reading client id from client: %s", err)
 	}
-	return encoding.DecodeClientId(clientId)
+	return id_generator.DecodeClientId(clientId)
 }
 
 // processPayload parses the data received from the client and appends it to the corresponding chunks

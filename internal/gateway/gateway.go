@@ -17,7 +17,7 @@ import (
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 	"tp1/pkg/recovery"
-	"tp1/pkg/utils/encoding"
+	"tp1/pkg/utils/id_generator"
 )
 
 const (
@@ -45,7 +45,7 @@ type Gateway struct {
 	ChunkChans               [chunkChans]chan ChunkItem
 	finished                 bool
 	finishedMu               sync.Mutex
-	IdGenerator              *encoding.IdGenerator
+	IdGenerator              *id_generator.IdGenerator
 	IdGeneratorMu            sync.Mutex
 	clientChannels           sync.Map
 	clientGamesAckChannels   sync.Map
@@ -97,7 +97,7 @@ func New() (*Gateway, error) {
 		finished:                 false,
 		finishedMu:               sync.Mutex{},
 		Listeners:                [connections]net.Listener{},
-		IdGenerator:              encoding.New(uint8(gId)),
+		IdGenerator:              id_generator.New(uint8(gId), ""),
 		IdGeneratorMu:            sync.Mutex{},
 		clientChannels:           sync.Map{},
 		clientGamesAckChannels:   sync.Map{},
@@ -111,6 +111,8 @@ func New() (*Gateway, error) {
 
 func (g *Gateway) Start() {
 	defer g.broker.Close()
+	defer g.IdGenerator.Close()
+
 	sigs := make(chan os.Signal, signals)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 

@@ -3,12 +3,10 @@ package io
 import (
 	"encoding/csv"
 	"os"
-
 	"tp1/pkg/logs"
 )
 
 const (
-	filePath = "recovery.csv"
 	fileMode = 0666
 )
 
@@ -19,7 +17,7 @@ type File struct {
 	file *os.File
 }
 
-func NewFile() (*File, error) {
+func NewFile(filePath string) (*File, error) {
 	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, fileMode)
 	if err != nil {
 		return nil, err
@@ -45,4 +43,16 @@ func (r *File) Close() {
 	if err := r.file.Close(); err != nil {
 		logs.Logger.Errorf("error closing file: %v", err)
 	}
+}
+
+// Overwrite overwrites the file with the given strings.
+func (r *File) Overwrite(strings []string) error {
+	if err := r.file.Truncate(0); err != nil {
+		return err
+	}
+	if _, err := r.file.Seek(0, 0); err != nil {
+		return err
+	}
+
+	return r.Write(strings)
 }

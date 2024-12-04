@@ -1,24 +1,48 @@
-package encoding
+package id_generator
 
 import (
+	"os"
 	"testing"
 )
 
 func TestIdGeneratorReturnsCorrectIdFormat(t *testing.T) {
-	g := New(1)
+	g := New(1, "test-%d.csv")
 	expected := "1-0"
 	if id := g.GetId(); id != expected {
 		t.Errorf("Expected id %s, got %s", expected, id)
 	}
+	g.Close()
+	resetFiles()
 }
 
 func TestIdGeneratorIncrementsId(t *testing.T) {
-	g := New(1)
-	g.GetId() // 1-0
-	expected := "1-1"
+	g := New(0, "test-%d.csv")
+	g.GetId() // 0-0
+	expected := "0-1"
 	if id := g.GetId(); id != expected {
 		t.Errorf("Expected id %s, got %s", expected, id)
 	}
+	g.Close()
+	resetFiles()
+}
+
+func TestPersistentIdGeneratorIncrementsId(t *testing.T) {
+	g := New(0, "test-%d.csv")
+	g.GetId() // 0-0
+	expected := "0-1"
+	if id := g.GetId(); id != expected {
+		t.Errorf("Expected id %s, got %s", expected, id)
+	}
+	g.Close()
+
+	g2 := New(0, "test-%d.csv")
+	g2.GetId() // 0-0
+	expected2 := "0-2"
+	if id := g.GetId(); id != expected2 {
+		t.Errorf("Expected id %s, got %s", expected2, id)
+	}
+	g.Close()
+	resetFiles()
 }
 
 func TestEncodeClientId(t *testing.T) {
@@ -77,4 +101,9 @@ func TestDecodeClientIdEndingWith0(t *testing.T) {
 	if decoded != clientId {
 		t.Errorf("Expected decoded client id %s, got %s", clientId, decoded)
 	}
+}
+
+func resetFiles() {
+	_ = os.Remove("test-0.csv")
+	_ = os.Remove("test-1.csv")
 }
