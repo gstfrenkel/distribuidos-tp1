@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"tp1/pkg/utils/encoding"
+	"tp1/pkg/utils/id_generator"
 )
 
 type Source struct {
@@ -17,7 +17,7 @@ func SrcNew(workerUuid string, sequenceId uint64) Source {
 }
 
 func SrcFromString(seq string) (*Source, error) {
-	parts, err := encoding.SplitIdAtLastIndex(seq)
+	parts, err := id_generator.SplitIdAtLastIndex(seq)
 	if err != nil {
 		return nil, err
 	}
@@ -39,5 +39,5 @@ func (s Source) Id() uint64 {
 }
 
 func (s Source) ToString() string {
-	return fmt.Sprintf("%s%s%d", s.workerUuid, encoding.Separator, s.sequenceId)
+	return fmt.Sprintf("%s%s%d", s.workerUuid, id_generator.Separator, s.sequenceId)
 }

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"tp1/pkg/utils/encoding"
+	"tp1/pkg/utils/id_generator"
 )
 
 var errNotEnoughArguments = errors.New("not enough arguments")
@@ -20,7 +20,7 @@ func DstNew(key string, sequenceId uint64) Destination {
 }
 
 func dstFromString(seq string) (*Destination, error) {
-	parts, err := encoding.SplitIdAtLastIndex(seq)
+	parts, err := id_generator.SplitIdAtLastIndex(seq)
 	if err != nil {
 		return nil, err
 	}
@@ -69,5 +69,5 @@ func (s Destination) Id() uint64 {
 }
 
 func (s Destination) ToString() string {
-	return fmt.Sprintf("%s%s%d", s.key, encoding.Separator, s.id)
+	return fmt.Sprintf("%s%s%d", s.key, id_generator.Separator, s.id)
 }

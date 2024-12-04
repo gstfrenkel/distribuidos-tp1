@@ -167,7 +167,7 @@ func (p *csvBatchProcessor) sendMessage(currentBatch uint32) error {
 	}
 
 	if err != nil {
-		return fmt.Errorf("error encoding data: %w", err)
+		return fmt.Errorf("error id_generator data: %w", err)
 	}
 
 	msg := message.ClientMessage{

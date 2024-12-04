@@ -9,6 +9,8 @@ import (
 	ioutils "tp1/pkg/utils/io"
 )
 
+const filePath = "recovery.csv"
+
 type Handler interface {
 	Recover(ch chan<- Record)
 	Log(record Record) error
@@ -20,7 +22,7 @@ type handler struct {
 }
 
 func NewHandler() (Handler, error) {
-	file, err := ioutils.NewFile()
+	file, err := ioutils.NewFile(filePath)
 	if err != nil {
 		return nil, err
 	}

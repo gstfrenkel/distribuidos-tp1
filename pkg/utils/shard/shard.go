@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"tp1/pkg/amqp"
-	"tp1/pkg/utils/encoding"
+	"tp1/pkg/utils/id_generator"
 
 	"github.com/pierrec/xxHash/xxHash32"
 )
@@ -25,7 +25,7 @@ func Int64(id int64, key string, consumers uint8) string {
 }
 
 func AggregatorOutput(output amqp.Destination, clientId string) (amqp.Destination, error) {
-	parts, err := encoding.SplitId(clientId)
+	parts, err := id_generator.SplitId(clientId)
 	if err != nil {
 		return output, err
 	}
