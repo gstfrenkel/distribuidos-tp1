@@ -50,7 +50,7 @@ func (h *handler) Recover(ch chan<- Record) {
 			continue
 		}
 
-		sequenceIds, err := sequence.DstsFromStrings(line[amqp.HeaderLen:])
+		sequenceIds, err := sequence.DstsFromStrings(line[amqp.HeaderLen : len(line)-1])
 		if err != nil {
 			logs.Logger.Errorf("failed to recover sequence: %s", err.Error())
 			continue
