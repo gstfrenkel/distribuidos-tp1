@@ -71,7 +71,6 @@ func (g *IdGenerator) GetId() string {
 	err := g.writeToDisk()
 	if err != nil {
 		logs.Logger.Errorf("Error writing id to file: %v", err)
-		return id
 	}
 
 	return id
