@@ -49,7 +49,6 @@ func loadFromDisk(file *utilsio.File) uint16 {
 
 	line, err := file.Read()
 	if err != nil {
-		logs.Logger.Errorf("Error reading id from file: %v", err)
 		return nextId
 	}
 

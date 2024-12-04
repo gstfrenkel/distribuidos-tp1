@@ -19,17 +19,12 @@ main() {
 
     while true; do
         containers=($(list_containers))
-        n_hc=0
         if [ ${#containers[@]} -gt 0 ]; then
             for ((i=0; i<KILL_COUNT && i<${#containers[@]}; i++)); do
                             container_to_kill=${containers[$RANDOM % ${#containers[@]}]}
 
-                            if [[ "$container_to_kill" =~ healthchecker_.* ]]; then
-                                n_hc=$n_hc + 1
-                                if [ $n_hc -gt $KILL_COUNT-1 ]; then
-                                    n_hc=0
+                            if [[ "$container_to_kill" =~ healthchecker-.* ]]; then
                                     continue
-                                fi
                             fi
                             docker kill "$container_to_kill" &>/dev/null
                             echo "Container $container_to_kill has been killed."

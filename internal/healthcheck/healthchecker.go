@@ -161,6 +161,8 @@ func (hc *HealthChecker) sendHcMsg(conn *net.UDPConn) int {
 		if err != nil {
 			errCount++
 			logs.Logger.Debugf("Error recv health check ack: %v. Error count: %d", err, errCount)
+		} else {
+			errCount = 0
 		}
 
 		time.Sleep(sleepSecs * time.Second)
@@ -196,15 +198,30 @@ func (hc *HealthChecker) connect(nodeAddr string) (*net.UDPConn, error) {
 
 // Using DinD to restart the health checker
 func (hc *HealthChecker) restartNode(containerName string) {
-	logs.Logger.Errorf("Node %s is down", containerName)
+	logs.Logger.Errorf("Node %s is probably down", containerName)
 
-	err := io.ExecCommand(dockerRestart + containerName)
+	// Check if the container is running
+	checkCmd := fmt.Sprintf("docker ps --filter name=%s --filter status=running", containerName)
+	output, err := io.ExecCommand(checkCmd)
+	if err != nil {
+		logs.Logger.Errorf("Error checking container status: %s", err)
+		return
+	}
+
+	if strings.Contains(output, containerName) {
+		logs.Logger.Infof("Node %s is already running, won't restart it", containerName)
+		return
+	}
+
+	// Restart the container
+	_, err = io.ExecCommand(dockerRestart + containerName)
 	if err != nil {
 		logs.Logger.Errorf("Error restarting node: %s", err)
 		return
 	}
 
 	logs.Logger.Infof("Node %s restarted", containerName)
+	time.Sleep(1 * time.Second)
 }
 
 func getConfig(cfg config.Config) (string, string) {
