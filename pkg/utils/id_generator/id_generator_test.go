@@ -104,7 +104,6 @@ func TestDecodeClientIdEndingWith0(t *testing.T) {
 }
 
 func resetFiles() {
-	// Reset files
 	_ = os.Remove("test-0.csv")
 	_ = os.Remove("test-1.csv")
 }

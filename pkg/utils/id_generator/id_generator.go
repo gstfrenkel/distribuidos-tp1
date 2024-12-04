@@ -17,6 +17,7 @@ const (
 	ClientIdLen = 32
 	defaultFile = "id-generator-%d.csv"
 	Separator   = "-"
+	idParts     = 2
 )
 
 type IdGenerator struct {
@@ -36,11 +37,10 @@ func New(prefix uint8, fileName string) *IdGenerator {
 		return nil
 	}
 
-	nextId := loadFromDisk(file)
 	return &IdGenerator{
 		file:   file,
 		prefix: prefix,
-		nextId: nextId,
+		nextId: loadFromDisk(file),
 	}
 }
 
@@ -101,22 +101,22 @@ func DecodeClientId(data []byte) string {
 	return string(bytes.TrimRight(data, "\x00"))
 }
 
-func SplitId(id string) ([2]string, error) {
+func SplitId(id string) ([idParts]string, error) {
 	parts := strings.Split(id, Separator)
-	if len(parts) != 2 {
-		return [2]string{}, errInvalidId(id)
+	if len(parts) != idParts {
+		return [idParts]string{}, errInvalidId(id)
 	}
 
-	return [2]string{parts[0], parts[1]}, nil
+	return [idParts]string{parts[0], parts[1]}, nil
 }
 
-func SplitIdAtLastIndex(id string) ([2]string, error) {
+func SplitIdAtLastIndex(id string) ([idParts]string, error) {
 	index := strings.LastIndex(id, Separator)
 	if index == -1 {
-		return [2]string{}, errInvalidId(id)
+		return [idParts]string{}, errInvalidId(id)
 	}
 
-	return [2]string{id[:index], id[index+1:]}, nil
+	return [idParts]string{id[:index], id[index+1:]}, nil
 }
 
 func (g *IdGenerator) Close() {
