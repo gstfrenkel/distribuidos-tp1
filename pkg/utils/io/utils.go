@@ -39,9 +39,11 @@ func ReadFull(conn net.Conn, buffer []byte, n int) error {
 	return nil
 }
 
-// ExecCommand executes a command in the shell
-func ExecCommand(command string) error {
+// ExecCommand executes a command in the shell and returns its output
+func ExecCommand(command string) (string, error) {
 	logs.Logger.Infof("Executing command: %s", command)
 	commands := strings.Split(command, " ")
-	return exec.Command(commands[0], commands[1:]...).Run()
+	cmd := exec.Command(commands[0], commands[1:]...)
+	output, err := cmd.CombinedOutput()
+	return string(output), err
 }
