@@ -39,12 +39,6 @@ func ReadFull(conn net.Conn, buffer []byte, n int) error {
 	return nil
 }
 
-// MoveBuff moves the buffer n positions to the left keeping the original capacity
-func MoveBuff(data []byte, n int) []byte {
-	copy(data, data[n:])
-	return data[:len(data)-n]
-}
-
 // ExecCommand executes a command in the shell
 func ExecCommand(command string) error {
 	logs.Logger.Infof("Executing command: %s", command)

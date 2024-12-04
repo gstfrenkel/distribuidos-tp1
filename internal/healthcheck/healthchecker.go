@@ -31,10 +31,10 @@ const (
 
 	configFilePath = "config.toml"
 	sleepSecs      = 2
-	maxErrors      = 2
+	maxErrors      = 1
 	hcMsg          = 1
 	dockerRestart  = "docker restart "
-	timeoutSecs    = 3
+	timeoutSecs    = 1
 )
 
 type HealthChecker struct {

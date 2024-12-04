@@ -293,20 +293,20 @@ func (f *Worker) consume(filter W, signalChan chan os.Signal, deliveryChan ...<-
 
 		delivery := recv.Interface().(amqp.Delivery)
 		header := amqp.HeadersFromDelivery(delivery)
-		/*srcSequenceId, err := sequence.SrcFromString(header.SequenceId)
+		srcSequenceId, err := sequence.SrcFromString(header.SequenceId)
 		if err != nil {
 			logs.Logger.Errorf("error getting source sequence id: %s", err.Error())
 			continue
-		}*/
+		}
 
 		// W and only process non-duplicate messages
-		//if !f.dup.IsDuplicate(*srcSequenceId) {
-		sequenceIds, msg := filter.Process(delivery, header)
+		if !f.dup.IsDuplicate(*srcSequenceId) {
+			sequenceIds, msg := filter.Process(delivery, header)
 
-		if err := f.recovery.Log(recovery.NewRecord(header, sequenceIds, msg)); err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToLog.Error(), err)
+			if err := f.recovery.Log(recovery.NewRecord(header, sequenceIds, msg)); err != nil {
+				logs.Logger.Errorf("%s: %s", errors.FailedToLog.Error(), err)
+			}
 		}
-		//}
 
 		// Acknowledge all duplicate and processed messages
 		if err := delivery.Ack(false); err != nil {

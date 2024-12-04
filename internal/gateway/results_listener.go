@@ -53,7 +53,7 @@ func (g *Gateway) SendResults(cliConn net.Conn) {
 		}
 
 		readAck(cliConn)
-		originId := uint8(rabbitMsg[idPos] - zeroChar)
+		originId := uint8(rabbitMsg[idPos]-zeroChar) + 1
 		g.logChannel <- recovery.NewRecord(amqp.Header{ClientId: clientId, OriginId: originId}, nil, []byte(ack))
 	}
 }
