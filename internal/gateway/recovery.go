@@ -74,6 +74,7 @@ func (g *Gateway) handleEofCase(
 	clientAccumulatedResults map[string]map[uint8]string,
 	recoveredMessages map[string]map[uint8]string,
 ) {
+
 	if _, ok := clientAccumulatedResults[clientId]; !ok {
 		clientAccumulatedResults[clientId] = make(map[uint8]string)
 	}
@@ -82,7 +83,15 @@ func (g *Gateway) handleEofCase(
 		recoveredMessages[clientId] = make(map[uint8]string)
 	}
 
-	recoveredMessages[clientId][originId] = clientAccumulatedResults[clientId][originId]
+	result := clientAccumulatedResults[clientId][originId]
+
+	if originId == amqp.Query4originId {
+		resultStr := message.ToQ4ResultString(result)
+		recoveredMessages[clientId][originId] = resultStr
+	} else if originId == amqp.Query5originId {
+		resultStr := message.ToQ5ResultString(result)
+		recoveredMessages[clientId][originId] = resultStr
+	}
 }
 
 func (g *Gateway) accumulateResults(
