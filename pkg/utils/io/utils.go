@@ -5,7 +5,6 @@ import (
 	"net"
 	"os/exec"
 	"strings"
-	"tp1/pkg/logs"
 )
 
 // SendAll Sends all data to a connection socket
@@ -41,7 +40,6 @@ func ReadFull(conn net.Conn, buffer []byte, n int) error {
 
 // ExecCommand executes a command in the shell and returns its output
 func ExecCommand(command string) (string, error) {
-	logs.Logger.Infof("Executing command: %s", command)
 	commands := strings.Split(command, " ")
 	cmd := exec.Command(commands[0], commands[1:]...)
 	output, err := cmd.CombinedOutput()
