@@ -303,13 +303,13 @@ func (f *Worker) consume(filter W, signalChan chan os.Signal, deliveryChan ...<-
 		if !f.dup.IsDuplicate(*srcSequenceId) {
 			sequenceIds, msg := filter.Process(delivery, header)
 
-			if err := f.recovery.Log(recovery.NewRecord(header, sequenceIds, msg)); err != nil {
+			if err = f.recovery.Log(recovery.NewRecord(header, sequenceIds, msg)); err != nil {
 				logs.Logger.Errorf("%s: %s", errors.FailedToLog.Error(), err)
 			}
 		}
 
 		// Acknowledge all duplicate and processed messages
-		if err := delivery.Ack(false); err != nil {
+		if err = delivery.Ack(false); err != nil {
 			logs.Logger.Errorf("Failed to acknowledge message: %s", err.Error())
 		}
 	}

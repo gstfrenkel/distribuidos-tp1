@@ -123,46 +123,49 @@ func (f *filter) fixHeap(msg message.ScoredReview, clientId string) bool {
 // Eof msg received, so all msgs were received too.
 // Send the top n games to the broker
 func (f *filter) publish(headers amqp.Header, recovery bool) []sequence.Destination {
+	defer delete(f.top, headers.ClientId)
+	defer delete(f.eofsRecv, headers.ClientId)
+
+	if recovery {
+		return nil
+	}
+
 	var sequenceIds []sequence.Destination
 	headers = headers.WithOriginId(amqp.Query3originId)
 
-	if !recovery {
-		topNScoredReviews := f.getTopNScoredReviews(headers.ClientId)
-		logs.Logger.Infof("Top %d games with most votes: %v", f.n, topNScoredReviews)
-		bytes, err := topNScoredReviews.ToBytes()
+	topNScoredReviews := f.getTopNScoredReviews(headers.ClientId)
+	logs.Logger.Infof("Top %d games with most votes: %v", f.n, topNScoredReviews)
+	bytes, err := topNScoredReviews.ToBytes()
+	if err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+		return sequenceIds
+	}
+
+	output := f.w.Outputs[0]
+	if f.agg {
+		output, err = shard.AggregatorOutput(output, headers.ClientId)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return sequenceIds
-		}
-
-		output := f.w.Outputs[0]
-		if f.agg {
-			output, err = shard.AggregatorOutput(output, headers.ClientId)
-			if err != nil {
-				logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			}
-		}
-
-		sequenceId := f.w.NextSequenceId(output.Key)
-		headers = headers.WithMessageId(message.ScoredReviewID).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
-		sequenceIds = append(sequenceIds, sequence.DstNew(output.Key, sequenceId))
-
-		if err = f.w.Broker.Publish(output.Exchange, output.Key, bytes, headers); err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
-		}
-
-		if !f.agg {
-			eofSqIds, err := f.w.HandleEofMessage(amqp.EmptyEof, headers, amqp.DestinationEof(f.w.Outputs[0]))
-			if err != nil {
-				logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
-			} else {
-				sequenceIds = append(sequenceIds, eofSqIds...)
-			}
 		}
 	}
 
-	delete(f.top, headers.ClientId)
-	delete(f.eofsRecv, headers.ClientId)
+	sequenceId := f.w.NextSequenceId(output.Key)
+	headers = headers.WithMessageId(message.ScoredReviewID).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
+	sequenceIds = append(sequenceIds, sequence.DstNew(output.Key, sequenceId))
+
+	if err = f.w.Broker.Publish(output.Exchange, output.Key, bytes, headers); err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
+	}
+
+	if !f.agg {
+		eofSqIds, err := f.w.HandleEofMessage(amqp.EmptyEof, headers, amqp.DestinationEof(f.w.Outputs[0]))
+		if err != nil {
+			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
+		} else {
+			sequenceIds = append(sequenceIds, eofSqIds...)
+		}
+	}
+
 	return sequenceIds
 }
 
