@@ -31,7 +31,7 @@ const (
 
 	configFilePath = "config.toml"
 	sleepSecs      = 2
-	maxErrors      = 1
+	maxErrors      = 2
 	hcMsg          = 1
 	dockerRestart  = "docker restart "
 	timeoutSecs    = 1
