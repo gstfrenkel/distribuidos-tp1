@@ -65,7 +65,7 @@ func loadFromDisk(file *utilsio.File) uint16 {
 
 // GetId returns a new id. The format of the id is prefix-nextId
 func (g *IdGenerator) GetId() string {
-	id := strconv.Itoa(int(g.prefix)) + "-" + strconv.Itoa(int(g.nextId))
+	id := strconv.Itoa(int(g.prefix)) + Separator + strconv.Itoa(int(g.nextId))
 	g.nextId++
 
 	err := g.writeToDisk()
