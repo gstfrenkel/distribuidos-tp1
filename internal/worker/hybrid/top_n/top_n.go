@@ -172,7 +172,6 @@ func (f *filter) publish(headers amqp.Header, recovery bool) []sequence.Destinat
 func (f *filter) getTopNScoredReviews(clientId string) message.ScoredReviews {
 	clientTop, ok := f.top[clientId]
 	if !ok {
-		logs.Logger.Errorf("Client %s has no top games", clientId)
 		return make(message.ScoredReviews, 0)
 	}
 
