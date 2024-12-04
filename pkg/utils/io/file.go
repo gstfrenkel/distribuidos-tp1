@@ -3,6 +3,7 @@ package io
 import (
 	"encoding/csv"
 	"os"
+
 	"tp1/pkg/logs"
 )
 
@@ -22,8 +23,12 @@ func NewFile(filePath string) (*File, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	r := csv.NewReader(file)
+	r.FieldsPerRecord = -1
+
 	return &File{
-		r:    csv.NewReader(file),
+		r:    r,
 		w:    csv.NewWriter(file),
 		file: file,
 	}, nil

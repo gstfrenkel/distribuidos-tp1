@@ -41,6 +41,7 @@ func (h *handler) Recover(ch chan<- Record) {
 			if err == io.EOF {
 				break
 			}
+			logs.Logger.Errorf("Failed to read line: %v", err)
 			continue
 		}
 
@@ -59,7 +60,7 @@ func (h *handler) Recover(ch chan<- Record) {
 		ch <- NewRecord(
 			*header,
 			sequenceIds,
-			[]byte(line[amqp.HeaderLen+dstSequenceHeaderLen+len(sequenceIds)]),
+			[]byte(line[len(line)-1]),
 		)
 	}
 }

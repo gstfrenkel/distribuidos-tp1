@@ -96,7 +96,6 @@ func (f *review) publishScoredReview(msg message.Review, headers amqp.Header) []
 }
 
 func (f *review) publishReviewWithText(msg message.Review, headers amqp.Header) []sequence.Destination {
-
 	b, err := msg.ToReviewWithTextMessage(f.scores[query4]).ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
@@ -111,7 +110,7 @@ func (f *review) publishReviewWithText(msg message.Review, headers amqp.Header) 
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 
-	return []sequence.Destination{sequence.DstNew(output.Key, sequenceId)}
+	return []sequence.Destination{sequence.DstNew(key, sequenceId)}
 }
 
 func (f *review) shardPublish(reviews message.ScoredReviews, output amqp.Destination, headers amqp.Header) []sequence.Destination {
