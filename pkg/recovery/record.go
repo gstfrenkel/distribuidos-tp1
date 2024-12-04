@@ -27,13 +27,13 @@ func NewRecord(header amqp.Header, dstSequenceId []sequence.Destination, msg []b
 }
 
 func (r *record) toString() []string {
-	msg := r.header.ToString()
-	msg = append(msg, strconv.Itoa(len(r.dstSequenceId)))
+	recordStr := r.header.ToString()
+	recordStr = append(recordStr, strconv.Itoa(len(r.dstSequenceId)))
 	for _, id := range r.dstSequenceId {
-		msg = append(msg, id.ToString())
+		recordStr = append(recordStr, id.ToString())
 	}
-	msg = append(msg, string(r.msg))
-	return msg
+	recordStr = append(recordStr, string(r.msg))
+	return recordStr
 }
 
 func (r *record) SequenceIds() []sequence.Destination {
