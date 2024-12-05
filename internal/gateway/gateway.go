@@ -143,49 +143,47 @@ func (g *Gateway) Start() {
 
 	wg := &sync.WaitGroup{}
 	wg.Add(connections)
-	g.startListeners(wg, err)
+	g.startListeners(wg)
 	wg.Wait()
 
 	g.free(sigs)
 }
 
-func (g *Gateway) startListeners(wg *sync.WaitGroup, err error) {
-	go func() {
-		defer wg.Done()
-		err = g.listenForNewClient()
-		if err != nil {
-			logs.Logger.Errorf("Error listening reviews: %s", err.Error())
-		}
-	}()
+func (g *Gateway) startListeners(wg *sync.WaitGroup) {
+	go g.startNewClientListener(wg)
+	go g.startDataListener(wg, ReviewsListener, "reviews")
+	go g.startDataListener(wg, GamesListener, "games")
+	go g.startResultsListener(wg)
+	go g.startHealthCheckListener(wg)
+}
 
-	go func() {
-		defer wg.Done()
-		err = g.listenForData(ReviewsListener)
-		if err != nil {
-			logs.Logger.Errorf("Error listening reviews: %s", err.Error())
-		}
-	}()
+func (g *Gateway) startNewClientListener(wg *sync.WaitGroup) {
+	defer wg.Done()
+	err := g.listenForNewClient()
+	if err != nil {
+		logs.Logger.Errorf("Error listening reviews: %s", err)
+	}
+}
 
-	go func() {
-		defer wg.Done()
-		err = g.listenForData(GamesListener)
-		if err != nil {
-			logs.Logger.Errorf("Error listening games: %s", err.Error())
-		}
-	}()
+func (g *Gateway) startDataListener(wg *sync.WaitGroup, listener int, listenerType string) {
+	defer wg.Done()
+	err := g.listenForData(listener)
+	if err != nil {
+		logs.Logger.Errorf("Error listening %s: %s", listenerType, err)
+	}
+}
 
-	go func() {
-		defer wg.Done()
-		err = g.listenResultsRequests()
-		if err != nil {
-			logs.Logger.Errorf("Error listening results: %s", err.Error())
-		}
-	}()
+func (g *Gateway) startResultsListener(wg *sync.WaitGroup) {
+	defer wg.Done()
+	err := g.listenResultsRequests()
+	if err != nil {
+		logs.Logger.Errorf("Error listening results: %s", err)
+	}
+}
 
-	go func() {
-		defer wg.Done()
-		g.healthCheckService.Listen()
-	}()
+func (g *Gateway) startHealthCheckListener(wg *sync.WaitGroup) {
+	defer wg.Done()
+	g.healthCheckService.Listen()
 }
 
 func matchMessageId(listener int) message.ID {
