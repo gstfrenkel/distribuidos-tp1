@@ -16,19 +16,21 @@ const (
 const (
 	ReviewOriginId uint8 = iota
 	GameOriginId
-	Query1originId
-	Query2originId
-	Query3originId
-	Query4originId
-	Query5originId
+	Query1OriginId
+	Query2OriginId
+	Query3OriginId
+	Query4OriginId
+	Query5OriginId
 )
 
-var EmptyEof, _ = message.Eof{}.ToBytes()
+var EmptyEof, _ = message.Eof{}.ToBytes() // EmptyEof represents a serialized EOF message with no content.
 
 type Delivery = amqp.Delivery
 type Publishing = amqp.Publishing
 type Queue amqp.Queue
 
+// QueueBind represents the configuration needed to bind a queue to an exchange in RabbitMQ.
+// It specifies the exchange to bind to, the name of the queue, and the routing key used for binding.
 type QueueBind struct {
 	Exchange string
 	Name     string
@@ -37,11 +39,14 @@ type QueueBind struct {
 
 type DestinationEof Destination
 
+// Exchange represents the configuration of a RabbitMQ exchange.
 type Exchange struct {
 	Name string `json:"name"`
 	Kind string `json:"kind"`
 }
 
+// Destination represents the configuration for routing messages to a specific exchange and queue.
+// It supports flexible setups, including scaling with multiple consumer workers.
 type Destination struct {
 	Exchange  string `json:"exchange"`  // Exchange name.
 	Key       string `json:"key"`       // Routing key format. MUST contain "%d" at the end if Consumers > 0.

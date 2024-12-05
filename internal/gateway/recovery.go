@@ -85,10 +85,10 @@ func (g *Gateway) handleEofCase(
 
 	result := clientAccumulatedResults[clientId][originId]
 
-	if originId == amqp.Query4originId {
+	if originId == amqp.Query4OriginId {
 		resultStr := message.ToQ4ResultString(result)
 		recoveredMessages[clientId][originId] = resultStr
-	} else if originId == amqp.Query5originId {
+	} else if originId == amqp.Query5OriginId {
 		resultStr := message.ToQ5ResultString(result)
 		recoveredMessages[clientId][originId] = resultStr
 	}
@@ -125,13 +125,13 @@ func (g *Gateway) recoverResults(
 				continue
 			}
 
-			g.dup.Add(*seqSource)
+			g.dup.RecoverSequenceId(*seqSource)
 		}
 
 		switch originId {
-		case amqp.Query1originId, amqp.Query2originId, amqp.Query3originId:
+		case amqp.Query1OriginId, amqp.Query2OriginId, amqp.Query3OriginId:
 			g.handleSimpleQueryRecovery(recoveredMsg, recoveredMessages)
-		case amqp.Query4originId, amqp.Query5originId:
+		case amqp.Query4OriginId, amqp.Query5OriginId:
 			g.handleAccumulatingQueryRecovery(
 				recoveredMsg,
 				clientAccumulatedResults,
@@ -146,11 +146,11 @@ func (g *Gateway) recoverResults(
 func resultBodyToString(originIDUint8 uint8, result interface{}) (string, bool) {
 	var resultStr string
 	switch originIDUint8 {
-	case amqp.Query1originId:
+	case amqp.Query1OriginId:
 		resultStr = result.(message.Platform).ToResultString()
-	case amqp.Query2originId:
+	case amqp.Query2OriginId:
 		resultStr = result.(message.DateFilteredReleases).ToResultString()
-	case amqp.Query3originId:
+	case amqp.Query3OriginId:
 		resultStr = result.(message.ScoredReviews).ToQ3ResultString()
 	default:
 		logs.Logger.Infof("Header x-origin-id does not match any known origin IDs, got: %v", originIDUint8)

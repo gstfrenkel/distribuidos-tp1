@@ -69,7 +69,7 @@ func (c *Client) Start() {
 
 	err := c.fetchClientID(gatewayAddress)
 	if err != nil {
-		logs.Logger.Errorf("Error fetching client ID: %v", err)
+		logs.Logger.Errorf("Error fetching client Id: %v", err)
 		return
 	}
 
@@ -117,11 +117,11 @@ func (c *Client) sendData(wg *sync.WaitGroup, conn net.Conn, pathKey string, pat
 }
 
 func (c *Client) sendGames(wg *sync.WaitGroup, gamesConn net.Conn, address string) {
-	c.sendData(wg, gamesConn, gamesCsvPathKey, gamesCsvPathDef, uint8(message.GameIdMsg), &message.DataCSVGames{}, address)
+	c.sendData(wg, gamesConn, gamesCsvPathKey, gamesCsvPathDef, uint8(message.GameId), &message.DataCSVGames{}, address)
 }
 
 func (c *Client) sendReviews(wg *sync.WaitGroup, reviewsConn net.Conn, address string) {
-	c.sendData(wg, reviewsConn, reviewsCsvPathKey, reviewsCsvPathDef, uint8(message.ReviewIdMsg), &message.DataCSVReviews{}, address)
+	c.sendData(wg, reviewsConn, reviewsCsvPathKey, reviewsCsvPathDef, uint8(message.ReviewId), &message.DataCSVReviews{}, address)
 }
 
 func (c *Client) getFullAddress(gatewayAddress, portKey, portDef string) string {
@@ -157,7 +157,7 @@ func (c *Client) setupConnection(address string) (net.Conn, error) {
 
 	err = c.sendClientID(conn)
 	if err != nil {
-		logs.Logger.Errorf("Error sending client ID: %s", err)
+		logs.Logger.Errorf("Error sending client Id: %s", err)
 		conn.Close()
 		return nil, err
 	}

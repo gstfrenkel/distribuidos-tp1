@@ -29,9 +29,9 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/gateway.toml:/app/config.toml
-      - ./volumes/gateway-1.csv:/app/recovery.csv
-      - ./volumes/id-generator-1.csv:/app/pkg/utils/id_generator/id-generator-1.csv
+      - ./configs/gateway.toml:/config.toml
+      - ./volumes/gateway-1.csv:/recovery.csv
+      - ./volumes/id-generator-1.csv:/pkg/utils/id/id-generator-1.csv
 
   reviews-filter-1:
     container_name: reviews-filter-1
@@ -47,8 +47,8 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/review.json:/app/config.json
-      - ./volumes/reviews-filter-1.csv:/app/recovery.csv
+      - ./configs/review.json:/config.json
+      - ./volumes/reviews-filter-1.csv:/recovery.csv
 
   review-text-filter-1:
     container_name: review-text-filter-1
@@ -64,8 +64,8 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/text.json:/app/config.json
-      - ./volumes/review-text-filter-1.csv:/app/recovery.csv
+      - ./configs/text.json:/config.json
+      - ./volumes/review-text-filter-1.csv:/recovery.csv
 
   review-text-filter-2:
     container_name: review-text-filter-2
@@ -81,8 +81,8 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/text.json:/app/config.json
-      - ./volumes/review-text-filter-2.csv:/app/recovery.csv
+      - ./configs/text.json:/config.json
+      - ./volumes/review-text-filter-2.csv:/recovery.csv
 
   review-text-filter-3:
     container_name: review-text-filter-3
@@ -98,8 +98,8 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/text.json:/app/config.json
-      - ./volumes/review-text-filter-3.csv:/app/recovery.csv
+      - ./configs/text.json:/config.json
+      - ./volumes/review-text-filter-3.csv:/recovery.csv
 
   review-text-filter-4:
     container_name: review-text-filter-4
@@ -115,8 +115,8 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/text.json:/app/config.json
-      - ./volumes/review-text-filter-4.csv:/app/recovery.csv
+      - ./configs/text.json:/config.json
+      - ./volumes/review-text-filter-4.csv:/recovery.csv
 
   review-text-filter-5:
     container_name: review-text-filter-5
@@ -132,8 +132,8 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/text.json:/app/config.json
-      - ./volumes/review-text-filter-5.csv:/app/recovery.csv
+      - ./configs/text.json:/config.json
+      - ./volumes/review-text-filter-5.csv:/recovery.csv
 
   action-filter-1:
     container_name: action-filter-1
@@ -149,8 +149,8 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/action.json:/app/config.json
-      - ./volumes/action-filter-1.csv:/app/recovery.csv
+      - ./configs/action.json:/config.json
+      - ./volumes/action-filter-1.csv:/recovery.csv
 
   indie-filter-1:
     container_name: indie-filter-1
@@ -166,8 +166,8 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/indie.json:/app/config.json
-      - ./volumes/indie-filter-1.csv:/app/recovery.csv
+      - ./configs/indie.json:/config.json
+      - ./volumes/indie-filter-1.csv:/recovery.csv
 
   platform-filter-1:
     container_name: platform-filter-1
@@ -183,15 +183,15 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/platform.json:/app/config.json
-      - ./volumes/platform-filter-1.csv:/app/recovery.csv
+      - ./configs/platform.json:/config.json
+      - ./volumes/platform-filter-1.csv:/recovery.csv
 
-  joiner-counter-filter-1:
-    container_name: joiner-counter-filter-1
-    image: joiner-counter-filter:latest
+  counter-joiner-1:
+    container_name: counter-joiner-1
+    image: counter-joiner:latest
     environment:
       - worker-id=0
-      - worker-uuid=joiner-counter-filter-1
+      - worker-uuid=counter-joiner-1
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -200,15 +200,15 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/joiner_counter.json:/app/config.json
-      - ./volumes/joiner-counter-filter-1.csv:/app/recovery.csv
+      - ./configs/joiner_counter.json:/config.json
+      - ./volumes/counter-joiner-1.csv:/recovery.csv
 
-  joiner-counter-filter-2:
-    container_name: joiner-counter-filter-2
-    image: joiner-counter-filter:latest
+  counter-joiner-2:
+    container_name: counter-joiner-2
+    image: counter-joiner:latest
     environment:
       - worker-id=1
-      - worker-uuid=joiner-counter-filter-2
+      - worker-uuid=counter-joiner-2
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -217,15 +217,15 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/joiner_counter.json:/app/config.json
-      - ./volumes/joiner-counter-filter-2.csv:/app/recovery.csv
+      - ./configs/joiner_counter.json:/config.json
+      - ./volumes/counter-joiner-2.csv:/recovery.csv
 
-  joiner-top-filter-1:
-    container_name: joiner-top-filter-1
-    image: joiner-top-filter:latest
+  top-joiner-1:
+    container_name: top-joiner-1
+    image: top-joiner:latest
     environment:
       - worker-id=0
-      - worker-uuid=joiner-top-filter-1
+      - worker-uuid=top-joiner-1
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -234,15 +234,15 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/joiner_top.json:/app/config.json
-      - ./volumes/joiner-top-filter-1.csv:/app/recovery.csv
+      - ./configs/joiner_top.json:/config.json
+      - ./volumes/top-joiner-1.csv:/recovery.csv
 
-  joiner-top-filter-2:
-    container_name: joiner-top-filter-2
-    image: joiner-top-filter:latest
+  top-joiner-2:
+    container_name: top-joiner-2
+    image: top-joiner:latest
     environment:
       - worker-id=1
-      - worker-uuid=joiner-top-filter-2
+      - worker-uuid=top-joiner-2
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -251,15 +251,15 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/joiner_top.json:/app/config.json
-      - ./volumes/joiner-top-filter-2.csv:/app/recovery.csv
+      - ./configs/joiner_top.json:/config.json
+      - ./volumes/top-joiner-2.csv:/recovery.csv
 
-  joiner-percentile-filter-1:
-    container_name: joiner-percentile-filter-1
-    image: joiner-percentile-filter:latest
+  percentile-joiner-1:
+    container_name: percentile-joiner-1
+    image: percentile-joiner:latest
     environment:
       - worker-id=0
-      - worker-uuid=joiner-percentile-filter-1
+      - worker-uuid=percentile-joiner-1
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -268,15 +268,15 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/joiner_percentile.json:/app/config.json
-      - ./volumes/joiner-percentile-filter-1.csv:/app/recovery.csv
+      - ./configs/joiner_percentile.json:/config.json
+      - ./volumes/percentile-joiner-1.csv:/recovery.csv
 
-  joiner-percentile-filter-2:
-    container_name: joiner-percentile-filter-2
-    image: joiner-percentile-filter:latest
+  percentile-joiner-2:
+    container_name: percentile-joiner-2
+    image: percentile-joiner:latest
     environment:
       - worker-id=1
-      - worker-uuid=joiner-percentile-filter-2
+      - worker-uuid=percentile-joiner-2
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -285,15 +285,15 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/joiner_percentile.json:/app/config.json
-      - ./volumes/joiner-percentile-filter-2.csv:/app/recovery.csv
+      - ./configs/joiner_percentile.json:/config.json
+      - ./volumes/percentile-joiner-2.csv:/recovery.csv
 
-  percentile-filter-1:
-    container_name: percentile-filter-1
+  percentile-aggregator:
+    container_name: percentile-aggregator
     image: percentile:latest
     environment:
       - worker-id=0
-      - worker-uuid=percentile-filter-1
+      - worker-uuid=percentile-aggregator
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -302,8 +302,8 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/percentile.json:/app/config.json
-      - ./volumes/percentile-filter-1.csv:/app/recovery.csv
+      - ./configs/percentile.json:/config.json
+      - ./volumes/percentile-aggregator.csv:/recovery.csv
 
   topn-filter-1:
     container_name: topn-filter-1
@@ -319,8 +319,8 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/topn.json:/app/config.json
-      - ./volumes/topn-filter-1.csv:/app/recovery.csv
+      - ./configs/topn.json:/config.json
+      - ./volumes/topn-filter-1.csv:/recovery.csv
 
   topn-filter-2:
     container_name: topn-filter-2
@@ -336,15 +336,15 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/topn.json:/app/config.json
-      - ./volumes/topn-filter-2.csv:/app/recovery.csv
+      - ./configs/topn.json:/config.json
+      - ./volumes/topn-filter-2.csv:/recovery.csv
 
-  topn-aggregator-1:
-    container_name: topn-aggregator-1
+  topn-aggregator:
+    container_name: topn-aggregator
     image: topn:latest
     environment:
       - worker-id=0
-      - worker-uuid=topn-aggregator-1
+      - worker-uuid=topn-aggregator
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -353,8 +353,8 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/topn_agg.json:/app/config.json
-      - ./volumes/topn-aggregator-1.csv:/app/recovery.csv
+      - ./configs/topn_agg.json:/config.json
+      - ./volumes/topn-aggregator.csv:/recovery.csv
 
   platform-counter-1:
     container_name: platform-counter-1
@@ -370,15 +370,15 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/platform_counter.json:/app/config.json
-      - ./volumes/platform-counter-1.csv:/app/recovery.csv
+      - ./configs/platform_counter.json:/config.json
+      - ./volumes/platform-counter-1.csv:/recovery.csv
 
-  platform-aggregator-1:
-    container_name: platform-aggregator-1
+  platform-aggregator:
+    container_name: platform-aggregator
     image: platform-counter:latest
     environment:
       - worker-id=0
-      - worker-uuid=platform-aggregator-1
+      - worker-uuid=platform-aggregator
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -387,8 +387,8 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/platform_counter_agg.json:/app/config.json
-      - ./volumes/platform-aggregator-1.csv:/app/recovery.csv
+      - ./configs/platform_counter_agg.json:/config.json
+      - ./volumes/platform-aggregator.csv:/recovery.csv
 
   topn-playtime-filter-1:
     container_name: topn-playtime-filter-1
@@ -404,8 +404,8 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/topn_playtime.json:/app/config.json
-      - ./volumes/topn-playtime-filter-1.csv:/app/recovery.csv
+      - ./configs/topn_playtime.json:/config.json
+      - ./volumes/topn-playtime-filter-1.csv:/recovery.csv
 
   release-date-filter-1:
     container_name: release-date-filter-1
@@ -421,15 +421,15 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/release_date.json:/app/config.json
-      - ./volumes/release-date-filter-1.csv:/app/recovery.csv
+      - ./configs/release_date.json:/config.json
+      - ./volumes/release-date-filter-1.csv:/recovery.csv
 
-  topn-playtime-aggregator-1:
-    container_name: topn-playtime-aggregator-1
+  topn-playtime-aggregator:
+    container_name: topn-playtime-aggregator
     image: topn-playtime-filter:latest
     environment:
       - worker-id=0
-      - worker-uuid=topn-playtime-aggregator-1
+      - worker-uuid=topn-playtime-aggregator
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -438,15 +438,15 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/topn_playtime_agg.json:/app/config.json
-      - ./volumes/topn-playtime-aggregator-1.csv:/app/recovery.csv
+      - ./configs/topn_playtime_agg.json:/config.json
+      - ./volumes/topn-playtime-aggregator.csv:/recovery.csv
 
-  review-counter-agg:
-    container_name: review-counter-agg
+  review-counter-aggregator:
+    container_name: review-counter-aggregator
     image: counter:latest
     environment:
       - worker-id=0
-      - worker-uuid=review-counter-agg
+      - worker-uuid=review-counter-aggregator
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -455,8 +455,8 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/counter_agg.json:/app/config.json
-      - ./volumes/review-counter-agg.csv:/app/recovery.csv
+      - ./configs/counter_agg.json:/config.json
+      - ./volumes/review-counter-aggregator.csv:/recovery.csv
 
 networks:
   tp1_net:

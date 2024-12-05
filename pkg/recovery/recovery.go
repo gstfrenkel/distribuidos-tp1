@@ -21,6 +21,7 @@ type handler struct {
 	file *ioutils.File
 }
 
+// NewHandler creates a new recovery handler.
 func NewHandler() (Handler, error) {
 	file, err := ioutils.NewFile(filePath)
 	if err != nil {
@@ -32,6 +33,8 @@ func NewHandler() (Handler, error) {
 	}, nil
 }
 
+// Recover reads each line of the underlying file, parses it, and sends it through a Record channel.
+// Upon failure when reading or parsing, the line gets skipped.
 func (h *handler) Recover(ch chan<- Record) {
 	defer close(ch)
 
@@ -65,10 +68,12 @@ func (h *handler) Recover(ch chan<- Record) {
 	}
 }
 
+// Log saves a record into the underlying file.
 func (h *handler) Log(record Record) error {
 	return h.file.Write(record.toString())
 }
 
+// Close closes the file descriptor linked to the underlying file.
 func (h *handler) Close() {
 	h.file.Close()
 }

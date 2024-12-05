@@ -19,7 +19,7 @@ type filter struct {
 	agg         bool
 }
 
-func New() (worker.W, error) {
+func New() (worker.Node, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err
@@ -51,9 +51,9 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 	var sequenceIds []sequence.Destination
 
 	switch headers.MessageId {
-	case message.EofMsg:
+	case message.EofId:
 		sequenceIds = f.processEof(delivery.Body, headers, false)
-	case message.GameWithPlaytimeID:
+	case message.GameWithPlaytimeId:
 		f.processGame(delivery.Body, headers.ClientId)
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
@@ -79,7 +79,7 @@ func (f *filter) processGame(msgBytes []byte, clientId string) {
 
 func (f *filter) processEof(msgBytes []byte, headers amqp.Header, recovery bool) []sequence.Destination {
 	var sequenceIds []sequence.Destination
-	headers = headers.WithOriginId(amqp.Query2originId)
+	headers = headers.WithOriginId(amqp.Query2OriginId)
 
 	workersVisited, err := message.EofFromBytes(msgBytes)
 	if err != nil {
@@ -130,7 +130,7 @@ func (f *filter) publish(headers amqp.Header) []sequence.Destination {
 	}
 
 	sequenceId := f.w.NextSequenceId(output.Key)
-	headers = headers.WithMessageId(message.GameWithPlaytimeID).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
+	headers = headers.WithMessageId(message.GameWithPlaytimeId).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 	sequenceIds = append(sequenceIds, sequence.DstNew(output.Key, sequenceId))
 
 	if err = f.w.Broker.Publish(output.Exchange, output.Key, b, headers); err != nil {
@@ -146,9 +146,9 @@ func (f *filter) recover() {
 
 	for recoveredMsg := range ch {
 		switch recoveredMsg.Header().MessageId {
-		case message.EofMsg:
+		case message.EofId:
 			f.processEof(recoveredMsg.Message(), recoveredMsg.Header(), true)
-		case message.GameWithPlaytimeID:
+		case message.GameWithPlaytimeId:
 			f.processGame(recoveredMsg.Message(), recoveredMsg.Header().ClientId)
 		default:
 			logs.Logger.Errorf(errors.InvalidMessageId.Error(), recoveredMsg.Header().MessageId)

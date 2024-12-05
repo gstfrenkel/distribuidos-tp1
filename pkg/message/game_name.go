@@ -38,7 +38,7 @@ func ToQ4ResultString(results string) string {
 func (g GameNames) ToStringAux() string {
 	var gamesInfo []string
 	for _, info := range g {
-		gamesInfo = append(gamesInfo, fmt.Sprintf("Juego: [%s], ID: [%d]", info.GameName, info.GameId))
+		gamesInfo = append(gamesInfo, fmt.Sprintf("Juego: [%s], Id: [%d]", info.GameName, info.GameId))
 	}
 	return strings.Join(gamesInfo, "\n")
 }

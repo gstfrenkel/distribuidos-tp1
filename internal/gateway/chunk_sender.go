@@ -86,7 +86,7 @@ func (s *ChunkSender) sendChunk(clientAckChannels *sync.Map, eof bool, clientId 
 
 	if eof {
 		sequenceId := strings.Replace(clientId, "-", "", -1) + "-" + strconv.FormatUint(uint64(batchNum+1), 10)
-		headers := amqp.Header{MessageId: message.EofMsg, ClientId: clientId, SequenceId: sequenceId}
+		headers := amqp.Header{MessageId: message.EofId, ClientId: clientId, SequenceId: sequenceId}
 
 		if err := s.publish(amqp.EmptyEof, headers); err != nil {
 			logs.Logger.Errorf("Error publishing EOF: %s", err.Error())
@@ -109,8 +109,8 @@ func (s *ChunkSender) publish(msg []byte, headers amqp.Header) error {
 	return nil
 }
 
-func toBytes(msgId message.ID, chunk []any) ([]byte, error) {
-	if msgId == message.ReviewIdMsg {
+func toBytes(msgId message.Id, chunk []any) ([]byte, error) {
+	if msgId == message.ReviewId {
 		reviews := make([]message.DataCSVReviews, 0, len(chunk))
 		for _, v := range chunk {
 			reviews = append(reviews, v.(ChunkItem).Msg.(message.DataCSVReviews))

@@ -22,7 +22,7 @@ type review struct {
 	scores [nQueries]int8
 }
 
-func NewReview() (worker.W, error) {
+func NewReview() (worker.Node, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err
@@ -57,12 +57,12 @@ func (f *review) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 	headers = headers.WithOriginId(amqp.ReviewOriginId)
 
 	switch headers.MessageId {
-	case message.EofMsg:
+	case message.EofId:
 		sequenceIds, err = f.w.HandleEofMessage(delivery.Body, headers)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
-	case message.ReviewIdMsg:
+	case message.ReviewId:
 		sequenceIds = f.publish(delivery.Body, headers)
 
 	default:
@@ -83,7 +83,7 @@ func (f *review) publish(msgBytes []byte, headers amqp.Header) []sequence.Destin
 }
 
 func (f *review) publishScoredReview(msg message.Review, headers amqp.Header) []sequence.Destination {
-	headers = headers.WithMessageId(message.ScoredReviewID)
+	headers = headers.WithMessageId(message.ScoredReviewId)
 
 	reviews := msg.ToScoredReviewMessage(f.scores[query3])
 	sequenceIds := f.shardPublish(reviews, f.w.Outputs[query3], headers)
@@ -104,7 +104,7 @@ func (f *review) publishReviewWithText(msg message.Review, headers amqp.Header) 
 	output := f.w.Outputs[query4]
 	key := shard.String(headers.SequenceId, output.Key, output.Consumers)
 	sequenceId := f.w.NextSequenceId(key)
-	headers = headers.WithMessageId(message.ReviewWithTextID).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
+	headers = headers.WithMessageId(message.ReviewWithTextId).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 
 	if err = f.w.Broker.Publish(output.Exchange, key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())

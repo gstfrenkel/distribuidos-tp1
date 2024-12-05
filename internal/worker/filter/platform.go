@@ -14,7 +14,7 @@ type platform struct {
 	w *worker.Worker
 }
 
-func NewPlatform() (worker.W, error) {
+func NewPlatform() (worker.Node, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err
@@ -41,12 +41,12 @@ func (f *platform) Process(delivery amqp.Delivery, headers amqp.Header) ([]seque
 	var err error
 
 	switch headers.MessageId {
-	case message.EofMsg:
+	case message.EofId:
 		sequenceIds, err = f.w.HandleEofMessage(delivery.Body, headers)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
-	case message.GameIdMsg:
+	case message.GameId:
 		msg, err := message.GameFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
@@ -64,7 +64,7 @@ func (f *platform) publish(headers amqp.Header, msg message.Game) []sequence.Des
 	output := f.w.Outputs[0]
 	key := shard.String(headers.SequenceId, output.Key, output.Consumers)
 	sequenceId := f.w.NextSequenceId(key)
-	headers = headers.WithMessageId(message.PlatformID).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
+	headers = headers.WithMessageId(message.PlatformId).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 
 	platforms := msg.ToPlatformMessage()
 	b, err := platforms.ToBytes()
@@ -76,7 +76,7 @@ func (f *platform) publish(headers amqp.Header, msg message.Game) []sequence.Des
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 
-	return []sequence.Destination{sequence.DstNew(output.Key, sequenceId)}
+	return []sequence.Destination{sequence.DstNew(key, sequenceId)}
 }
 
 func (f *platform) recover() {

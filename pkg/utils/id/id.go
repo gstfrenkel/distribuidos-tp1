@@ -1,12 +1,13 @@
-package id_generator
+package id
 
 import (
 	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
+
 	"tp1/pkg/logs"
-	utilsio "tp1/pkg/utils/io"
+	ioutils "tp1/pkg/utils/io"
 )
 
 func errInvalidId(id string) error {
@@ -20,31 +21,52 @@ const (
 	idParts     = 2
 )
 
-type IdGenerator struct {
-	file   *utilsio.File
+type Generator struct {
+	file   *ioutils.File
 	prefix uint8
 	nextId uint16
 }
 
-func New(prefix uint8, fileName string) *IdGenerator {
+func NewGenerator(prefix uint8, fileName string) *Generator {
 	if fileName == "" {
 		fileName = defaultFile
 	}
 
-	file, err := utilsio.NewFile(fmt.Sprintf(fileName, prefix))
+	file, err := ioutils.NewFile(fmt.Sprintf(fileName, prefix))
 	if err != nil {
 		logs.Logger.Errorf("Error creating file: %v", err)
 		return nil
 	}
 
-	return &IdGenerator{
+	return &Generator{
 		file:   file,
 		prefix: prefix,
 		nextId: loadFromDisk(file),
 	}
 }
 
-func loadFromDisk(file *utilsio.File) uint16 {
+// GetId returns a new id. The format of the id is prefix-nextId
+func (g *Generator) GetId() string {
+	id := strconv.Itoa(int(g.prefix)) + Separator + strconv.Itoa(int(g.nextId))
+	g.nextId++
+
+	err := g.writeToDisk()
+	if err != nil {
+		logs.Logger.Errorf("Error writing id to file: %v", err)
+	}
+
+	return id
+}
+
+func (g *Generator) writeToDisk() error {
+	return g.file.Overwrite([]string{strconv.Itoa(int(g.nextId))})
+}
+
+func (g *Generator) Close() {
+	g.file.Close()
+}
+
+func loadFromDisk(file *ioutils.File) uint16 {
 	nextId := uint16(0)
 
 	line, err := file.Read()
@@ -62,30 +84,13 @@ func loadFromDisk(file *utilsio.File) uint16 {
 	return nextId
 }
 
-// GetId returns a new id. The format of the id is prefix-nextId
-func (g *IdGenerator) GetId() string {
-	id := strconv.Itoa(int(g.prefix)) + Separator + strconv.Itoa(int(g.nextId))
-	g.nextId++
-
-	err := g.writeToDisk()
-	if err != nil {
-		logs.Logger.Errorf("Error writing id to file: %v", err)
-	}
-
-	return id
-}
-
-func (g *IdGenerator) writeToDisk() error {
-	return g.file.Overwrite([]string{strconv.Itoa(int(g.nextId))})
-}
-
 // EncodeClientId encodes a client id to a fixed-length byte slice of 32 bytes
 func EncodeClientId(clientId string) []byte {
 	clientIdBytes := []byte(clientId)
 	clientIdBytesLen := len(clientIdBytes)
 
 	if clientIdBytesLen > ClientIdLen {
-		logs.Logger.Errorf("Error id_generator clientId: clientId too long")
+		logs.Logger.Errorf("Error id clientId: clientId too long")
 		return nil
 	}
 
@@ -99,6 +104,7 @@ func DecodeClientId(data []byte) string {
 	return string(bytes.TrimRight(data, "\x00"))
 }
 
+// SplitId splits a string into 2 parts by Separator.
 func SplitId(id string) ([idParts]string, error) {
 	parts := strings.Split(id, Separator)
 	if len(parts) != idParts {
@@ -108,6 +114,7 @@ func SplitId(id string) ([idParts]string, error) {
 	return [idParts]string{parts[0], parts[1]}, nil
 }
 
+// SplitIdAtLastIndex splits a string into 2 parts by the last Separator.
 func SplitIdAtLastIndex(id string) ([idParts]string, error) {
 	index := strings.LastIndex(id, Separator)
 	if index == -1 {
@@ -115,8 +122,4 @@ func SplitIdAtLastIndex(id string) ([idParts]string, error) {
 	}
 
 	return [idParts]string{id[:index], id[index+1:]}, nil
-}
-
-func (g *IdGenerator) Close() {
-	g.file.Close()
 }

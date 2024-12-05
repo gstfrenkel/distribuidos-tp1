@@ -16,8 +16,8 @@ type percentile struct {
 	scoredReviews map[string]message.ScoredReviews // <clientid, scoredReviews>
 }
 
-func NewPercentile() (worker.W, error) {
-	a, err := newAggregator(amqp.Query5originId)
+func NewPercentile() (worker.Node, error) {
+	a, err := newAggregator(amqp.Query5OriginId)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +37,7 @@ func (p *percentile) Init() error {
 		return err
 	}
 
-	p.agg.recover(p, message.ScoredReviewID)
+	p.agg.recover(p, message.ScoredReviewId)
 
 	return nil
 }
@@ -50,9 +50,9 @@ func (p *percentile) Process(delivery amqp.Delivery, headers amqp.Header) ([]seq
 	var sequenceIds []sequence.Destination
 
 	switch headers.MessageId {
-	case message.EofMsg:
+	case message.EofId:
 		sequenceIds = p.agg.processEof(p, headers.WithOriginId(p.agg.originId), false)
-	case message.ScoredReviewID:
+	case message.ScoredReviewId:
 		p.save(delivery.Body, headers.ClientId)
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
@@ -110,7 +110,7 @@ func (p *percentile) reset(clientId string) {
 func (p *percentile) sendBatches(headers amqp.Header, output amqp.Destination, msg message.ScoredReviews) []sequence.Destination {
 	numberOfBatches := int(math.Ceil(float64(len(msg)) / float64(p.agg.batchSize)))
 	sequenceIds := make([]sequence.Destination, 0, numberOfBatches)
-	headers = headers.WithMessageId(message.ScoredReviewID).WithOriginId(p.agg.originId)
+	headers = headers.WithMessageId(message.ScoredReviewId).WithOriginId(p.agg.originId)
 
 	for start := 0; start < len(msg); {
 		batch, nextStart := p.nextBatch(msg, start, len(msg))

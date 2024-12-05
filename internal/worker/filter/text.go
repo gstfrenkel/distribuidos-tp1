@@ -30,7 +30,7 @@ type text struct {
 	target   lingua.Language
 }
 
-func NewText() (worker.W, error) {
+func NewText() (worker.Node, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err
@@ -72,12 +72,12 @@ func (f *text) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.
 	headers = headers.WithOriginId(amqp.ReviewOriginId)
 
 	switch headers.MessageId {
-	case message.EofMsg:
+	case message.EofId:
 		sequenceIds, err = f.w.HandleEofMessage(delivery.Body, headers)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 		}
-	case message.ReviewWithTextID:
+	case message.ReviewWithTextId:
 		msg, err := message.TextReviewFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
@@ -110,7 +110,7 @@ func (f *text) publish(msg message.TextReviews, headers amqp.Header) []sequence.
 			continue
 		}
 
-		headers = headers.WithMessageId(message.ScoredReviewID).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
+		headers = headers.WithMessageId(message.ScoredReviewId).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 
 		if err = f.w.Broker.Publish(f.w.Outputs[0].Exchange, k, b, headers); err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())

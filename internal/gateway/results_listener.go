@@ -91,7 +91,7 @@ func (g *Gateway) handleMessage(m amqp.Delivery, clientAccumulatedResults map[st
 	clientID := m.Headers[amqp.ClientIdHeader].(string)
 	originID, ok := m.Headers[amqp.OriginIdHeader] //not all workers send this header
 	if !ok {
-		logs.Logger.Errorf("message missing origin ID")
+		logs.Logger.Errorf("message missing origin Id")
 		return
 	}
 
@@ -108,20 +108,20 @@ func (g *Gateway) handleMessage(m amqp.Delivery, clientAccumulatedResults map[st
 	if g.dup.IsDuplicate(*seqSource) {
 		return
 	} else {
-		g.dup.Add(*seqSource)
+		g.dup.RecoverSequenceId(*seqSource)
 	}
 
 	g.logChannel <- recovery.NewRecord(amqp.HeadersFromDelivery(m), nil, m.Body)
 
 	// Handle EOF or message content
-	if originIDUint8 == amqp.Query4originId || originIDUint8 == amqp.Query5originId {
+	if originIDUint8 == amqp.Query4OriginId || originIDUint8 == amqp.Query5OriginId {
 		if bytes.Equal(m.Body, amqp.EmptyEof) {
 			g.handleEof(clientID, clientAccumulatedResults[clientID], originIDUint8)
 		} else {
 			initializeAccumulatedResultsForClient(clientAccumulatedResults, clientID)
 			handleAppendMsg(originIDUint8, m, clientAccumulatedResults[clientID])
 		}
-	} else if !ok || message.ID(messageId.(uint8)) != message.EofMsg {
+	} else if !ok || message.Id(messageId.(uint8)) != message.EofId {
 		result, err := parseMessageBody(originIDUint8, m.Body)
 		if err != nil {
 			logs.Logger.Errorf("Failed to parse message body: %v", err)
@@ -134,8 +134,8 @@ func (g *Gateway) handleMessage(m amqp.Delivery, clientAccumulatedResults map[st
 func initializeAccumulatedResultsForClient(clientAccumulatedResults map[string]map[uint8]string, clientID string) {
 	if _, exists := clientAccumulatedResults[clientID]; !exists {
 		clientAccumulatedResults[clientID] = map[uint8]string{
-			amqp.Query4originId: "",
-			amqp.Query5originId: "",
+			amqp.Query4OriginId: "",
+			amqp.Query5OriginId: "",
 		}
 	}
 }
@@ -153,13 +153,13 @@ func handleAppendMsg(originIDUint8 uint8, m amqp.Delivery, accumulatedResults ma
 	var body string
 
 	switch originIDUint8 {
-	case amqp.Query4originId:
+	case amqp.Query4OriginId:
 		parsedBody, err := message.GameNamesFromBytes(m.Body)
 		if err != nil {
 			logs.Logger.Errorf("Failed to parse scored reviews: %v", err)
 		}
 		body = parsedBody.ToStringAux()
-	case amqp.Query5originId:
+	case amqp.Query5OriginId:
 		parsedBody, err := message.ScoredReviewsFromBytes(m.Body)
 		if err != nil {
 			logs.Logger.Errorf("Failed to parse games names: %v", err)
@@ -174,9 +174,9 @@ func (g *Gateway) handleEof(clientID string, accumulatedResults map[uint8]string
 	result := accumulatedResults[originIDUint8]
 	var resultStr string
 
-	if originIDUint8 == amqp.Query4originId {
+	if originIDUint8 == amqp.Query4OriginId {
 		resultStr = message.ToQ4ResultString(result)
-	} else if originIDUint8 == amqp.Query5originId {
+	} else if originIDUint8 == amqp.Query5OriginId {
 		resultStr = message.ToQ5ResultString(result)
 	}
 
@@ -191,16 +191,16 @@ func sendResultThroughChannel(g *Gateway, clientID string, resultStr string) {
 
 func parseMessageBody(originID uint8, body []byte) (interface{}, error) {
 	switch originID {
-	case amqp.Query1originId:
+	case amqp.Query1OriginId:
 		return message.PlatfromFromBytes(body)
-	case amqp.Query2originId:
+	case amqp.Query2OriginId:
 		return message.DateFilteredReleasesFromBytes(body)
-	case amqp.Query3originId:
+	case amqp.Query3OriginId:
 		return message.ScoredReviewsFromBytes(body)
-	case amqp.Query4originId, amqp.Query5originId:
+	case amqp.Query4OriginId, amqp.Query5OriginId:
 		return nil, fmt.Errorf("parseMessageBody should not be called for queries 4 and 5")
 	default:
-		return nil, fmt.Errorf("unknown origin ID: %v", originID)
+		return nil, fmt.Errorf("unknown origin Id: %v", originID)
 	}
 }
 

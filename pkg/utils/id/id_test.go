@@ -1,4 +1,4 @@
-package id_generator
+package id
 
 import (
 	"os"
@@ -6,7 +6,7 @@ import (
 )
 
 func TestIdGeneratorReturnsCorrectIdFormat(t *testing.T) {
-	g := New(1, "test-%d.csv")
+	g := NewGenerator(1, "test-%d.csv")
 	expected := "1-0"
 	if id := g.GetId(); id != expected {
 		t.Errorf("Expected id %s, got %s", expected, id)
@@ -16,7 +16,7 @@ func TestIdGeneratorReturnsCorrectIdFormat(t *testing.T) {
 }
 
 func TestIdGeneratorIncrementsId(t *testing.T) {
-	g := New(0, "test-%d.csv")
+	g := NewGenerator(0, "test-%d.csv")
 	g.GetId() // 0-0
 	expected := "0-1"
 	if id := g.GetId(); id != expected {
@@ -27,7 +27,7 @@ func TestIdGeneratorIncrementsId(t *testing.T) {
 }
 
 func TestPersistentIdGeneratorIncrementsId(t *testing.T) {
-	g := New(0, "test-%d.csv")
+	g := NewGenerator(0, "test-%d.csv")
 	g.GetId() // 0-0
 	expected := "0-1"
 	if id := g.GetId(); id != expected {
@@ -35,7 +35,7 @@ func TestPersistentIdGeneratorIncrementsId(t *testing.T) {
 	}
 	g.Close()
 
-	g2 := New(0, "test-%d.csv")
+	g2 := NewGenerator(0, "test-%d.csv")
 	g2.GetId() // 0-0
 	expected2 := "0-2"
 	if id := g.GetId(); id != expected2 {

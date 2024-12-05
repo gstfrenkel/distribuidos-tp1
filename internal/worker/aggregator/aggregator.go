@@ -60,13 +60,13 @@ func (a *aggregator) reset(clientId string) {
 	delete(a.eofsRecv, clientId)
 }
 
-func (a *aggregator) recover(instance processor, msgId message.ID) {
+func (a *aggregator) recover(instance processor, msgId message.Id) {
 	ch := make(chan recovery.Message, worker.ChanSize)
 	go a.w.Recover(ch)
 
 	for recoveredMsg := range ch {
 		switch recoveredMsg.Header().MessageId {
-		case message.EofMsg:
+		case message.EofId:
 			a.processEof(instance, recoveredMsg.Header().WithOriginId(a.originId), true)
 		case msgId:
 			instance.save(recoveredMsg.Message(), recoveredMsg.Header().ClientId)

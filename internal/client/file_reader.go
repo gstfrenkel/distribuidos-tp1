@@ -159,14 +159,14 @@ func (p *csvBatchProcessor) sendMessage(currentBatch uint32) error {
 	var dataBuf []byte
 	var err error
 
-	if p.id == uint8(message.ReviewIdMsg) {
+	if p.id == uint8(message.ReviewId) {
 		dataBuf, err = message.DataCSVReviews.ToBytes(*p.dataStruct.(*message.DataCSVReviews))
 	} else {
 		dataBuf, err = message.DataCSVGames.ToBytes(*p.dataStruct.(*message.DataCSVGames))
 	}
 
 	if err != nil {
-		return fmt.Errorf("error id_generator data: %w", err)
+		return fmt.Errorf("error id data: %w", err)
 	}
 
 	msg := message.ClientMessage{

@@ -6,7 +6,7 @@ import (
 	"sync"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
-	"tp1/pkg/utils/id_generator"
+	"tp1/pkg/utils/id"
 	"tp1/pkg/utils/io"
 )
 
@@ -23,7 +23,7 @@ func (g *Gateway) listenForData(listener int) error {
 	})
 }
 
-func (g *Gateway) handleDataConnection(c net.Conn, msgId message.ID) {
+func (g *Gateway) handleDataConnection(c net.Conn, msgId message.Id) {
 	clientId := g.readClientId(c)
 	sends := 0
 	auxBuf := make([]byte, g.Config.Int(bufferSizeKey, defaultBufferSize))
@@ -32,7 +32,7 @@ func (g *Gateway) handleDataConnection(c net.Conn, msgId message.ID) {
 
 	clientChan := make(chan []byte)
 
-	if msgId == message.ReviewIdMsg {
+	if msgId == message.ReviewId {
 		g.clientReviewsAckChannels.Store(clientId, clientChan)
 		go sendAcksToClient(&g.clientReviewsAckChannels, clientId, c)
 	} else {
@@ -93,18 +93,18 @@ func (g *Gateway) handleDataConnection(c net.Conn, msgId message.ID) {
 }
 
 func (g *Gateway) readClientId(c net.Conn) string {
-	clientId := make([]byte, id_generator.ClientIdLen)
-	if err := io.ReadFull(c, clientId, id_generator.ClientIdLen); err != nil {
+	clientId := make([]byte, id.ClientIdLen)
+	if err := io.ReadFull(c, clientId, id.ClientIdLen); err != nil {
 		logs.Logger.Errorf("Error reading client id from client: %s", err)
 	}
-	return id_generator.DecodeClientId(clientId)
+	return id.DecodeClientId(clientId)
 }
 
 // processPayload parses the data received from the client and appends it to the corresponding chunks
 // Returns true if the end of the file was reached
-func (g *Gateway) processPayload(msgId message.ID, payload []byte, payloadSize uint32, clientId string, batchNum uint32) bool {
+func (g *Gateway) processPayload(msgId message.Id, payload []byte, payloadSize uint32, clientId string, batchNum uint32) bool {
 	if isEndOfFile(payloadSize) {
-		logs.Logger.Infof("End of file received for message ID: %d", msgId)
+		logs.Logger.Infof("End of file received for message Id: %d", msgId)
 		g.sendMsgToChunkSender(msgId, nil, clientId, batchNum)
 		return true
 	}
@@ -113,10 +113,10 @@ func (g *Gateway) processPayload(msgId message.ID, payload []byte, payloadSize u
 	return false
 }
 
-func (g *Gateway) sendMsgToChunkSender(msgId message.ID, payload []byte, clientId string, batchNum uint32) {
+func (g *Gateway) sendMsgToChunkSender(msgId message.Id, payload []byte, clientId string, batchNum uint32) {
 	var data any
 	if payload != nil {
-		if msgId == message.ReviewIdMsg {
+		if msgId == message.ReviewId {
 			data, _ = message.DataCSVReviewsFromBytes(payload)
 		} else {
 			data, _ = message.DataCSVGamesFromBytes(payload)

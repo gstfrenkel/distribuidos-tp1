@@ -37,17 +37,21 @@ const (
 	timeoutSecs    = 1
 )
 
-type HealthChecker struct {
+type HealthChecker interface {
+	Start()
+}
+
+type healthChecker struct {
 	hcAddr     string
 	serverPort string
 	nextHc     string   //address of the next health checker
 	nodes      []string //addresses of the nodes to check
-	service    *Service
+	service    Service
 	finished   bool
 	finishedMu sync.Mutex
 }
 
-func New() (*HealthChecker, error) {
+func New() (HealthChecker, error) {
 	cfg, err := provider.LoadConfig(configFilePath)
 	serverPort, containerName := getConfig(cfg)
 	id, nextId, nodes, err := getEnvVars()
@@ -66,7 +70,7 @@ func New() (*HealthChecker, error) {
 		nodes = append(nodes, nextHc)
 	}
 
-	return &HealthChecker{
+	return &healthChecker{
 		hcAddr:     hcAddr,
 		nextHc:     nextHc,
 		nodes:      nodes,
@@ -76,14 +80,14 @@ func New() (*HealthChecker, error) {
 }
 
 // Start starts the health checker for every node
-func (hc *HealthChecker) Start() {
+func (hc *healthChecker) Start() {
 	defer hc.service.Close()
 	sigs := make(chan os.Signal, 2)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
 		<-sigs
-		hc.HandleSIGTERM()
+		hc.handleSigterm()
 	}()
 
 	go func() {
@@ -96,16 +100,16 @@ func (hc *HealthChecker) Start() {
 	for _, node := range hc.nodes {
 		go func(node string) {
 			defer wg.Done()
-			hc.Check(node)
+			hc.check(node)
 		}(node)
 	}
 
 	wg.Wait()
 }
 
-// Check checks if the node is alive and restarts it if it is not.
+// check checks if the node is alive and restarts it if it is not.
 // nodeIp is the container name of the node
-func (hc *HealthChecker) Check(nodeIp string) {
+func (hc *healthChecker) check(nodeIp string) {
 	for {
 		hc.finishedMu.Lock()
 		if hc.finished {
@@ -123,7 +127,7 @@ func (hc *HealthChecker) Check(nodeIp string) {
 		}
 
 		errCount := hc.sendHcMsg(conn)
-		conn.Close()
+		_ = conn.Close()
 
 		if errCount == maxErrors {
 			hc.restartNode(nodeIp)
@@ -133,7 +137,7 @@ func (hc *HealthChecker) Check(nodeIp string) {
 
 // Send health check message to the node and wait for the ack.
 // If it fails to send the message or receive ack maxError times, returns.
-func (hc *HealthChecker) sendHcMsg(conn *net.UDPConn) int {
+func (hc *healthChecker) sendHcMsg(conn *net.UDPConn) int {
 	errCount := 0
 	buffer := make([]byte, msgBytes)
 	for errCount < maxErrors {
@@ -174,7 +178,7 @@ func (hc *HealthChecker) sendHcMsg(conn *net.UDPConn) int {
 // Connect to the node.
 // If it fails to connect, it tries to reconnect maxErrors times.
 // If it fails to reconnect, it restarts the node.
-func (hc *HealthChecker) connect(nodeAddr string) (*net.UDPConn, error) {
+func (hc *healthChecker) connect(nodeAddr string) (*net.UDPConn, error) {
 	i := 0
 	udpAddr, err := net.ResolveUDPAddr(transportProtocol, nodeAddr)
 	if err != nil {
@@ -197,10 +201,10 @@ func (hc *HealthChecker) connect(nodeAddr string) (*net.UDPConn, error) {
 }
 
 // Using DinD to restart the health checker
-func (hc *HealthChecker) restartNode(containerName string) {
+func (hc *healthChecker) restartNode(containerName string) {
 	logs.Logger.Errorf("Node %s is probably down", containerName)
 
-	// Check if the container is running
+	// check if the container is running
 	checkCmd := fmt.Sprintf("docker ps --filter name=%s --filter status=running", containerName)
 	output, err := io.ExecCommand(checkCmd)
 	if err != nil {
@@ -241,7 +245,7 @@ func hcAddrFromId(containerName string, id int) string {
 	return fmt.Sprintf(containerName, id)
 }
 
-func (hc *HealthChecker) HandleSIGTERM() {
+func (hc *healthChecker) handleSigterm() {
 	logs.Logger.Info("Received SIGTERM, shutting down")
 	hc.finishedMu.Lock()
 	hc.finished = true

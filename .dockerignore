@@ -1,3 +1,13 @@
 .gitignore
-data/*
-volumes/*
+
+build/
+data/
+volumes/
+scripts/
+
+*.md
+*.txt
+*.env
+*.yaml
+
+Makefile

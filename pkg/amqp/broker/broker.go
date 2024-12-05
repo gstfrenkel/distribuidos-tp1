@@ -41,7 +41,7 @@ func NewBroker() (amqp.MessageBroker, error) {
 	}, nil
 }
 
-// QueueDeclare declares new queues
+// QueueDeclare declares new queues given their names.
 func (b *messageBroker) QueueDeclare(names ...string) ([]amqp.Queue, error) {
 	var queues []amqp.Queue
 

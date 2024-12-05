@@ -17,7 +17,7 @@ import (
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 	"tp1/pkg/recovery"
-	"tp1/pkg/utils/id_generator"
+	"tp1/pkg/utils/id"
 )
 
 const (
@@ -45,12 +45,12 @@ type Gateway struct {
 	ChunkChans               [chunkChans]chan ChunkItem
 	finished                 bool
 	finishedMu               sync.Mutex
-	IdGenerator              *id_generator.IdGenerator
+	IdGenerator              *id.Generator
 	IdGeneratorMu            sync.Mutex
 	clientChannels           sync.Map
 	clientGamesAckChannels   sync.Map
 	clientReviewsAckChannels sync.Map
-	healthCheckService       *healthcheck.Service
+	healthCheckService       healthcheck.Service
 	recovery                 recovery.Handler
 	logChannel               chan recovery.Record
 	dup                      dup.Handler
@@ -97,7 +97,7 @@ func New() (*Gateway, error) {
 		finished:                 false,
 		finishedMu:               sync.Mutex{},
 		Listeners:                [connections]net.Listener{},
-		IdGenerator:              id_generator.New(uint8(gId), ""),
+		IdGenerator:              id.NewGenerator(uint8(gId), ""),
 		IdGeneratorMu:            sync.Mutex{},
 		clientChannels:           sync.Map{},
 		clientGamesAckChannels:   sync.Map{},
@@ -188,15 +188,15 @@ func (g *Gateway) startListeners(wg *sync.WaitGroup, err error) {
 	}()
 }
 
-func matchMessageId(listener int) message.ID {
+func matchMessageId(listener int) message.Id {
 	if listener == ReviewsListener {
-		return message.ReviewIdMsg
+		return message.ReviewId
 	}
-	return message.GameIdMsg
+	return message.GameId
 }
 
-func matchListenerId(msgId message.ID) int {
-	if msgId == message.ReviewIdMsg {
+func matchListenerId(msgId message.Id) int {
+	if msgId == message.ReviewId {
 		return ReviewsListener
 	}
 	return GamesListener
@@ -208,7 +208,7 @@ func (g *Gateway) free(sigs chan os.Signal) {
 	_ = g.Listeners[GamesListener].Close()
 	_ = g.Listeners[ResultsListener].Close()
 	_ = g.Listeners[ClientIdListener].Close()
-	_ = g.healthCheckService.Close()
+	g.healthCheckService.Close()
 	close(g.ChunkChans[ReviewsListener])
 	close(g.ChunkChans[GamesListener])
 	close(sigs)

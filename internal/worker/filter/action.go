@@ -14,7 +14,7 @@ type action struct {
 	w *worker.Worker
 }
 
-func NewAction() (worker.W, error) {
+func NewAction() (worker.Node, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err
@@ -41,12 +41,12 @@ func (f *action) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 	var err error
 
 	switch headers.MessageId {
-	case message.EofMsg:
+	case message.EofId:
 		sequenceIds, err = f.w.HandleEofMessage(delivery.Body, headers.WithOriginId(amqp.GameOriginId))
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
-	case message.GameIdMsg:
+	case message.GameId:
 		msg, err := message.GameFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
@@ -76,7 +76,7 @@ func (f *action) publish(headers amqp.Header, msg message.Game) []sequence.Desti
 			sequenceId := f.w.NextSequenceId(key)
 			sequenceIds = append(sequenceIds, sequence.DstNew(key, sequenceId))
 
-			headers = headers.WithMessageId(message.GameNameID).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
+			headers = headers.WithMessageId(message.GameNameId).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 
 			if err = f.w.Broker.Publish(output.Exchange, key, b, headers); err != nil {
 				logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
