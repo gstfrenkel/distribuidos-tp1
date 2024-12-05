@@ -2,6 +2,7 @@ import sys
 
 
 def generate_docker_compose(
+    gateway_count,
     reviews_count,
     review_text_count,
     action_count,
@@ -30,13 +31,16 @@ def generate_docker_compose(
       start_period: 50s
     logging:
       driver: none
+  """
 
-  gateway-1:
-    container_name: gateway-1
+    for i in range(gateway_count):
+        docker_compose += f"""
+  gateway-{i+1}:
+    container_name: gateway-{i+1}
     image: gateway:latest
     environment:
-      - worker-id=0
-      - worker-uuid=gateway-1
+      - worker-id={i}
+      - worker-uuid=gateway-{i+1}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -46,8 +50,8 @@ def generate_docker_compose(
       - tp1_net
     volumes:
       - ./configs/gateway.toml:/config.toml
-      - ./volumes/gateway-1.csv:/recovery.csv
-      - ./volumes/id-generator-1.csv:/pkg/utils/id/id-generator-1.csv
+      - ./volumes/gateway-{i+1}.csv:/recovery.csv
+      - ./volumes/id-generator-{i+1}.csv:/pkg/utils/id/id-generator-{i+1}.csv
 """
     for i in range(reviews_count):
         docker_compose += f"""
@@ -385,36 +389,37 @@ def generate_docker_compose(
 
 networks:
   tp1_net:
-    external: false
-"""
+    external: false"""
 
     return docker_compose
 
 
 if __name__ == "__main__":
 
-    if len(sys.argv) != 13:
+    if len(sys.argv) != 14:
         print(
-            "Usage: python3 generate_docker_compose.py <reviews_count> <review_text_count> <action_count> "
+            "Usage: python3 generate_docker_compose.py <gateway_count> <reviews_count> <review_text_count> <action_count> "
             "<indie_count> <platform_count> <joiner_counter_count> <joiner_top_count> <joiner_percentile_count> "
             "<topn_count> <topn_playtime_count> <release_date_count>"
         )
         sys.exit(1)
 
-    reviews_count = int(sys.argv[1])
-    review_text_count = int(sys.argv[2])
-    action_count = int(sys.argv[3])
-    indie_count = int(sys.argv[4])
-    platform_count = int(sys.argv[5])
-    joiner_counter_count = int(sys.argv[6])
-    joiner_top_count = int(sys.argv[7])
-    joiner_percentile_count = int(sys.argv[8])
-    topn_count = int(sys.argv[9])
-    platform_counter_count = int(sys.argv[10])
-    topn_playtime_count = int(sys.argv[11])
-    release_date_count = int(sys.argv[12])
+    gateway_count = int(sys.argv[1])
+    reviews_count = int(sys.argv[2])
+    review_text_count = int(sys.argv[3])
+    action_count = int(sys.argv[4])
+    indie_count = int(sys.argv[5])
+    platform_count = int(sys.argv[6])
+    joiner_counter_count = int(sys.argv[7])
+    joiner_top_count = int(sys.argv[8])
+    joiner_percentile_count = int(sys.argv[9])
+    topn_count = int(sys.argv[10])
+    platform_counter_count = int(sys.argv[11])
+    topn_playtime_count = int(sys.argv[12])
+    release_date_count = int(sys.argv[13])
 
     docker_compose = generate_docker_compose(
+        gateway_count,
         reviews_count,
         review_text_count,
         action_count,
