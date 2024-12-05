@@ -2,6 +2,7 @@ import sys
 
 
 def generate_docker_compose(
+    gateway_count,
     reviews_count,
     review_text_count,
     action_count,
@@ -10,7 +11,6 @@ def generate_docker_compose(
     joiner_counter_count,
     joiner_top_count,
     joiner_percentile_count,
-    percentile_count,
     topn_count,
     topn_playtime_count,
     release_date_count,
@@ -31,12 +31,16 @@ def generate_docker_compose(
       start_period: 50s
     logging:
       driver: none
+  """
 
-  gateway-1:
-    container_name: gateway-1
+    for i in range(gateway_count):
+        docker_compose += f"""
+  gateway-{i+1}:
+    container_name: gateway-{i+1}
     image: gateway:latest
     environment:
-      - worker-id=0
+      - worker-id={i}
+      - worker-uuid=gateway-{i+1}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -45,7 +49,9 @@ def generate_docker_compose(
     networks:
       - tp1_net
     volumes:
-      - ./configs/gateway.toml:/app/config.toml
+      - ./configs/gateway.toml:/config.toml
+      - ./volumes/gateway-{i+1}.csv:/recovery.csv
+      - ./volumes/id-generator-{i+1}.csv:/pkg/utils/id/id-generator-{i+1}.csv
 """
     for i in range(reviews_count):
         docker_compose += f"""
@@ -54,6 +60,7 @@ def generate_docker_compose(
     image: reviews-filter:latest
     environment:
       - worker-id={i}
+      - worker-uuid=reviews-filter-{i+1}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -62,7 +69,8 @@ def generate_docker_compose(
     networks:
       - tp1_net
     volumes:
-      - ./configs/review.json:/app/config.json
+      - ./configs/review.json:/config.json
+      - ./volumes/reviews-filter-{i+1}.csv:/recovery.csv
 """
 
     for i in range(review_text_count):
@@ -72,6 +80,7 @@ def generate_docker_compose(
     image: review-text-filter:latest
     environment:
       - worker-id={i}
+      - worker-uuid=review-text-filter-{i+1}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -80,7 +89,8 @@ def generate_docker_compose(
     networks:
       - tp1_net
     volumes:
-      - ./configs/text.json:/app/config.json
+      - ./configs/text.json:/config.json
+      - ./volumes/review-text-filter-{i+1}.csv:/recovery.csv
 """
 
     for i in range(action_count):
@@ -90,6 +100,7 @@ def generate_docker_compose(
     image: action-filter:latest
     environment:
       - worker-id={i}
+      - worker-uuid=action-filter-{i+1}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -98,7 +109,8 @@ def generate_docker_compose(
     networks:
       - tp1_net
     volumes:
-      - ./configs/action.json:/app/config.json
+      - ./configs/action.json:/config.json
+      - ./volumes/action-filter-{i+1}.csv:/recovery.csv
 """
 
     for i in range(indie_count):
@@ -108,6 +120,7 @@ def generate_docker_compose(
     image: indie-filter:latest
     environment:
       - worker-id={i}
+      - worker-uuid=indie-filter-{i+1}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -116,7 +129,8 @@ def generate_docker_compose(
     networks:
       - tp1_net
     volumes:
-      - ./configs/indie.json:/app/config.json
+      - ./configs/indie.json:/config.json
+      - ./volumes/indie-filter-{i+1}.csv:/recovery.csv
 """
 
     for i in range(platform_count):
@@ -126,6 +140,7 @@ def generate_docker_compose(
     image: platform-filter:latest
     environment:
       - worker-id={i}
+      - worker-uuid=platform-filter-{i+1}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -134,16 +149,18 @@ def generate_docker_compose(
     networks:
       - tp1_net
     volumes:
-      - ./configs/platform.json:/app/config.json
+      - ./configs/platform.json:/config.json
+      - ./volumes/platform-filter-{i+1}.csv:/recovery.csv
 """
 
     for i in range(joiner_counter_count):
         docker_compose += f"""
-  joiner-counter-filter-{i + 1}:
-    container_name: joiner-counter-filter-{i + 1}
-    image: joiner-counter-filter:latest
+  counter-joiner-{i + 1}:
+    container_name: counter-joiner-{i + 1}
+    image: counter-joiner:latest
     environment:
       - worker-id={i}
+      - worker-uuid=counter-joiner-{i+1}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -152,16 +169,18 @@ def generate_docker_compose(
     networks:
       - tp1_net
     volumes:
-      - ./configs/joiner_counter.json:/app/config.json
+      - ./configs/joiner_counter.json:/config.json
+      - ./volumes/counter-joiner-{i+1}.csv:/recovery.csv
 """
 
     for i in range(joiner_top_count):
         docker_compose += f"""
-  joiner-top-filter-{i + 1}:
-    container_name: joiner-top-filter-{i + 1}
-    image: joiner-top-filter:latest
+  top-joiner-{i + 1}:
+    container_name: top-joiner-{i + 1}
+    image: top-joiner:latest
     environment:
       - worker-id={i}
+      - worker-uuid=top-joiner-{i+1}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -170,16 +189,18 @@ def generate_docker_compose(
     networks:
       - tp1_net
     volumes:
-      - ./configs/joiner_top.json:/app/config.json
+      - ./configs/joiner_top.json:/config.json
+      - ./volumes/top-joiner-{i+1}.csv:/recovery.csv
 """
 
     for i in range(joiner_percentile_count):
         docker_compose += f"""
-  joiner-percentile-filter-{i + 1}:
-    container_name: joiner-percentile-filter-{i + 1}
-    image: joiner-percentile-filter:latest
+  percentile-joiner-{i + 1}:
+    container_name: percentile-joiner-{i + 1}
+    image: percentile-joiner:latest
     environment:
       - worker-id={i}
+      - worker-uuid=percentile-joiner-{i+1}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -188,16 +209,17 @@ def generate_docker_compose(
     networks:
       - tp1_net
     volumes:
-      - ./configs/joiner_percentile.json:/app/config.json
+      - ./configs/joiner_percentile.json:/config.json
+      - ./volumes/percentile-joiner-{i+1}.csv:/recovery.csv
 """
 
-    for i in range(percentile_count):
-        docker_compose += f"""
-  percentile-filter-{i + 1}:
-    container_name: percentile-filter-{i + 1}
+    docker_compose += """
+  percentile-aggregator:
+    container_name: percentile-aggregator
     image: percentile:latest
     environment:
-      - worker-id={i}
+      - worker-id=0
+      - worker-uuid=percentile-aggregator
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -206,7 +228,8 @@ def generate_docker_compose(
     networks:
       - tp1_net
     volumes:
-      - ./configs/percentile.json:/app/config.json
+      - ./configs/percentile.json:/config.json
+      - ./volumes/percentile-aggregator.csv:/recovery.csv
 """
 
     for i in range(topn_count):
@@ -216,6 +239,7 @@ def generate_docker_compose(
     image: topn:latest
     environment:
       - worker-id={i}
+      - worker-uuid=topn-filter-{i+1}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -224,15 +248,17 @@ def generate_docker_compose(
     networks:
       - tp1_net
     volumes:
-      - ./configs/topn.json:/app/config.json
+      - ./configs/topn.json:/config.json
+      - ./volumes/topn-filter-{i+1}.csv:/recovery.csv
 """
 
     docker_compose += """
-  topn-aggregator-1:
-    container_name: topn-aggregator-1
+  topn-aggregator:
+    container_name: topn-aggregator
     image: topn:latest
     environment:
       - worker-id=0
+      - worker-uuid=topn-aggregator
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -241,7 +267,8 @@ def generate_docker_compose(
     networks:
       - tp1_net
     volumes:
-      - ./configs/topn_agg.json:/app/config.json
+      - ./configs/topn_agg.json:/config.json
+      - ./volumes/topn-aggregator.csv:/recovery.csv
 """
 
     for i in range(platform_counter_count):
@@ -251,6 +278,7 @@ def generate_docker_compose(
     image: platform-counter:latest
     environment:
       - worker-id={i}
+      - worker-uuid=platform-counter-{i+1}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -259,15 +287,17 @@ def generate_docker_compose(
     networks:
       - tp1_net
     volumes:
-      - ./configs/platform_counter.json:/app/config.json
+      - ./configs/platform_counter.json:/config.json
+      - ./volumes/platform-counter-{i+1}.csv:/recovery.csv
 """
 
         docker_compose += """
-  platform-aggregator-1:
-    container_name: platform-aggregator-1
+  platform-aggregator:
+    container_name: platform-aggregator
     image: platform-counter:latest
     environment:
       - worker-id=0
+      - worker-uuid=platform-aggregator
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -276,7 +306,8 @@ def generate_docker_compose(
     networks:
       - tp1_net
     volumes:
-      - ./configs/platform_counter_agg.json:/app/config.json
+      - ./configs/platform_counter_agg.json:/config.json
+      - ./volumes/platform-aggregator.csv:/recovery.csv
 """
 
     for i in range(topn_playtime_count):
@@ -286,6 +317,7 @@ def generate_docker_compose(
     image: topn-playtime-filter:latest
     environment:
       - worker-id={i}
+      - worker-uuid=topn-playtime-filter-{i+1}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -294,7 +326,8 @@ def generate_docker_compose(
     networks:
       - tp1_net
     volumes:
-      - ./configs/topn_playtime.json:/app/config.json
+      - ./configs/topn_playtime.json:/config.json
+      - ./volumes/topn-playtime-filter-{i+1}.csv:/recovery.csv
 """
 
     for i in range(release_date_count):
@@ -304,6 +337,7 @@ def generate_docker_compose(
     image: release-date-filter:latest
     environment:
       - worker-id={i}
+      - worker-uuid=release-date-filter-{i+1}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -312,15 +346,17 @@ def generate_docker_compose(
     networks:
       - tp1_net
     volumes:
-      - ./configs/release_date.json:/app/config.json
+      - ./configs/release_date.json:/config.json
+      - ./volumes/release-date-filter-{i+1}.csv:/recovery.csv
 """
 
         docker_compose += """
-  topn-playtime-aggregator-1:
-    container_name: topn-playtime-aggregator-1
+  topn-playtime-aggregator:
+    container_name: topn-playtime-aggregator
     image: topn-playtime-filter:latest
     environment:
       - worker-id=0
+      - worker-uuid=topn-playtime-aggregator
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -329,15 +365,17 @@ def generate_docker_compose(
     networks:
       - tp1_net
     volumes:
-      - ./configs/topn_playtime_agg.json:/app/config.json
+      - ./configs/topn_playtime_agg.json:/config.json
+      - ./volumes/topn-playtime-aggregator.csv:/recovery.csv
 """
 
     docker_compose += """
-  review-counter-agg:
-    container_name: review-counter-agg
+  review-counter-aggregator:
+    container_name: review-counter-aggregator
     image: counter:latest
     environment:
       - worker-id=0
+      - worker-uuid=review-counter-aggregator
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -346,12 +384,12 @@ def generate_docker_compose(
     networks:
       - tp1_net
     volumes:
-      - ./configs/counter_agg.json:/app/config.json
+      - ./configs/counter_agg.json:/config.json
+      - ./volumes/review-counter-aggregator.csv:/recovery.csv
 
 networks:
   tp1_net:
-    external: false
-"""
+    external: false"""
 
     return docker_compose
 
@@ -360,27 +398,28 @@ if __name__ == "__main__":
 
     if len(sys.argv) != 14:
         print(
-            "Usage: python3 generate_docker_compose.py <reviews_count> <review_text_count> <action_count> "
+            "Usage: python3 generate_docker_compose.py <gateway_count> <reviews_count> <review_text_count> <action_count> "
             "<indie_count> <platform_count> <joiner_counter_count> <joiner_top_count> <joiner_percentile_count> "
-            "<percentile_count> <topn_count> <topn_playtime_count> <release_date_count>"
+            "<topn_count> <topn_playtime_count> <release_date_count>"
         )
         sys.exit(1)
 
-    reviews_count = int(sys.argv[1])
-    review_text_count = int(sys.argv[2])
-    action_count = int(sys.argv[3])
-    indie_count = int(sys.argv[4])
-    platform_count = int(sys.argv[5])
-    joiner_counter_count = int(sys.argv[6])
-    joiner_top_count = int(sys.argv[7])
-    joiner_percentile_count = int(sys.argv[8])
-    percentile_count = int(sys.argv[9])
+    gateway_count = int(sys.argv[1])
+    reviews_count = int(sys.argv[2])
+    review_text_count = int(sys.argv[3])
+    action_count = int(sys.argv[4])
+    indie_count = int(sys.argv[5])
+    platform_count = int(sys.argv[6])
+    joiner_counter_count = int(sys.argv[7])
+    joiner_top_count = int(sys.argv[8])
+    joiner_percentile_count = int(sys.argv[9])
     topn_count = int(sys.argv[10])
     platform_counter_count = int(sys.argv[11])
     topn_playtime_count = int(sys.argv[12])
     release_date_count = int(sys.argv[13])
 
     docker_compose = generate_docker_compose(
+        gateway_count,
         reviews_count,
         review_text_count,
         action_count,
@@ -389,7 +428,6 @@ if __name__ == "__main__":
         joiner_counter_count,
         joiner_top_count,
         joiner_percentile_count,
-        percentile_count,
         topn_count,
         topn_playtime_count,
         release_date_count,
