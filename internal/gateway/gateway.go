@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"sync"
 	"syscall"
+	"tp1/pkg/sequence"
 
 	"tp1/internal/gateway/chunk"
 	"tp1/internal/gateway/persistence"
@@ -203,7 +204,7 @@ func (g *Gateway) recoverResults(
 				continue
 			}
 
-			g.dup.Add(*seqSource)
+			g.dup.RecoverSequenceId(*seqSource)
 		}
 
 		switch originId {

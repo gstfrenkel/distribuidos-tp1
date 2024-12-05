@@ -29,13 +29,12 @@ const (
 	hcContainerNameKey     = "hc.container-name"
 	hcDefaultContainerName = "healthchecker-%d"
 
-	configFilePath   = "config.toml"
-	sleepSecs        = 2
-	waitAfterRestart = 5
-	maxErrors        = 2
-	hcMsg            = 1
-	dockerRestart    = "docker restart "
-	timeoutSecs      = 1
+	configFilePath     = "config.toml"
+	waitAfterRestartMs = 1750
+	maxErrors          = 2
+	hcMsg              = 1
+	dockerRestart      = "docker restart "
+	timeoutSecs        = 1
 )
 
 type HealthChecker struct {
@@ -166,7 +165,7 @@ func (hc *HealthChecker) sendHcMsg(conn *net.UDPConn) int {
 			errCount = 0
 		}
 
-		time.Sleep(waitAfterRestart * time.Second)
+		time.Sleep(waitAfterRestartMs * time.Millisecond)
 	}
 
 	return errCount

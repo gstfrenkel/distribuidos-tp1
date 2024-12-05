@@ -84,10 +84,10 @@ func handleEofCase(
 
 	result := clientAccumulatedResults[clientId][originId]
 
-	if originId == amqp.Query4originId {
+	if originId == amqp.Query4OriginId {
 		resultStr := message.ToQ4ResultString(result)
 		recoveredMessages[clientId][originId] = resultStr
-	} else if originId == amqp.Query5originId {
+	} else if originId == amqp.Query5OriginId {
 		resultStr := message.ToQ5ResultString(result)
 		recoveredMessages[clientId][originId] = resultStr
 	}
