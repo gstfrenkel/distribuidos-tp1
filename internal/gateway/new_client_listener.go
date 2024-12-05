@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"net"
+	"tp1/internal/gateway/utils"
 	"tp1/pkg/logs"
 	"tp1/pkg/utils/id_generator"
 	"tp1/pkg/utils/io"
@@ -9,7 +10,7 @@ import (
 
 // listenForNewClient listens for new clients and assigns them an unique client id
 func (g *Gateway) listenForNewClient() error {
-	return g.listenForConnections(ClientIdListener, g.assignClientId)
+	return g.listenForConnections(utils.ClientIdListener, g.assignClientId)
 }
 
 func (g *Gateway) assignClientId(c net.Conn) {

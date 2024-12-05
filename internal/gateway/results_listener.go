@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"tp1/internal/gateway/utils"
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
@@ -14,14 +15,13 @@ import (
 )
 
 const (
-	ack      = "ACK"
 	idPos    = 1
 	zeroChar = '0'
 )
 
 // ListenResultsRequests waits until a client connects to the results listener and sends the results to the client
 func (g *Gateway) listenResultsRequests() error {
-	return g.listenForConnections(ResultsListener, g.SendResults)
+	return g.listenForConnections(utils.ResultsListener, g.SendResults)
 }
 
 // SendResults gets reports from the result chan and sends them to the client
@@ -54,7 +54,7 @@ func (g *Gateway) SendResults(cliConn net.Conn) {
 
 		readAck(cliConn)
 		originId := uint8(rabbitMsg[idPos]-zeroChar) + 1
-		g.logChannel <- recovery.NewRecord(amqp.Header{ClientId: clientId, OriginId: originId}, nil, []byte(ack))
+		g.logChannel <- recovery.NewRecord(amqp.Header{ClientId: clientId, OriginId: originId}, nil, []byte(utils.Ack))
 	}
 }
 
@@ -122,7 +122,7 @@ func (g *Gateway) handleMessage(m amqp.Delivery, clientAccumulatedResults map[st
 			handleAppendMsg(originIDUint8, m, clientAccumulatedResults[clientID])
 		}
 	} else if !ok || message.ID(messageId.(uint8)) != message.EofMsg {
-		result, err := parseMessageBody(originIDUint8, m.Body)
+		result, err := utils.ParseMessageBody(originIDUint8, m.Body)
 		if err != nil {
 			logs.Logger.Errorf("Failed to parse message body: %v", err)
 			return
@@ -141,7 +141,7 @@ func initializeAccumulatedResultsForClient(clientAccumulatedResults map[string]m
 }
 
 func (g *Gateway) handleResultMsg(clientID string, originIDUint8 uint8, result interface{}) {
-	resultStr, shouldReturn := resultBodyToString(originIDUint8, result)
+	resultStr, shouldReturn := utils.ResultBodyToString(originIDUint8, result)
 	if shouldReturn {
 		return
 	}
@@ -187,21 +187,6 @@ func sendResultThroughChannel(g *Gateway, clientID string, resultStr string) {
 	clientChanI, _ := g.clientChannels.LoadOrStore(clientID, make(chan []byte))
 	clientChan := clientChanI.(chan []byte)
 	clientChan <- []byte(resultStr)
-}
-
-func parseMessageBody(originID uint8, body []byte) (interface{}, error) {
-	switch originID {
-	case amqp.Query1originId:
-		return message.PlatfromFromBytes(body)
-	case amqp.Query2originId:
-		return message.DateFilteredReleasesFromBytes(body)
-	case amqp.Query3originId:
-		return message.ScoredReviewsFromBytes(body)
-	case amqp.Query4originId, amqp.Query5originId:
-		return nil, fmt.Errorf("parseMessageBody should not be called for queries 4 and 5")
-	default:
-		return nil, fmt.Errorf("unknown origin ID: %v", originID)
-	}
 }
 
 func readAck(conn net.Conn) error {

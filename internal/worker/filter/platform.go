@@ -76,7 +76,7 @@ func (f *platform) publish(headers amqp.Header, msg message.Game) []sequence.Des
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
 
-	return []sequence.Destination{sequence.DstNew(output.Key, sequenceId)}
+	return []sequence.Destination{sequence.DstNew(key, sequenceId)}
 }
 
 func (f *platform) recover() {

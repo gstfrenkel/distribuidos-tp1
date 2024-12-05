@@ -7,7 +7,10 @@ import (
 	"strconv"
 	"sync"
 	"syscall"
+	"tp1/internal/gateway/chunk"
+	"tp1/internal/gateway/persistence"
 	"tp1/internal/gateway/rabbit"
+	"tp1/internal/gateway/utils"
 	"tp1/internal/healthcheck"
 	"tp1/pkg/amqp"
 	"tp1/pkg/amqp/broker"
@@ -15,17 +18,13 @@ import (
 	"tp1/pkg/config/provider"
 	"tp1/pkg/dup"
 	"tp1/pkg/logs"
-	"tp1/pkg/message"
 	"tp1/pkg/recovery"
+	"tp1/pkg/sequence"
 	"tp1/pkg/utils/id_generator"
 )
 
 const (
 	configFilePath   = "config.toml"
-	GamesListener    = 0
-	ReviewsListener  = 1
-	ResultsListener  = 2
-	ClientIdListener = 3
 	connections      = 4
 	chunkChans       = 2
 	exchangeNameKey  = "rabbitmq.exchange_name"
@@ -42,7 +41,7 @@ type Gateway struct {
 	destinations             []amqp.Destination
 	exchange                 string
 	Listeners                [connections]net.Listener
-	ChunkChans               [chunkChans]chan ChunkItem
+	ChunkChans               [chunkChans]chan chunk.Item
 	finished                 bool
 	finishedMu               sync.Mutex
 	IdGenerator              *id_generator.IdGenerator
@@ -93,7 +92,7 @@ func New() (*Gateway, error) {
 		queues:                   queues,
 		exchange:                 cfg.String(exchangeNameKey, ""),
 		destinations:             destinations,
-		ChunkChans:               [chunkChans]chan ChunkItem{make(chan ChunkItem), make(chan ChunkItem)},
+		ChunkChans:               [chunkChans]chan chunk.Item{make(chan chunk.Item), make(chan chunk.Item)},
 		finished:                 false,
 		finishedMu:               sync.Mutex{},
 		Listeners:                [connections]net.Listener{},
@@ -127,13 +126,13 @@ func (g *Gateway) Start() {
 		return
 	}
 
-	go startChunkSender(GamesListener, &g.clientGamesAckChannels,
-		g.ChunkChans[GamesListener], g.broker, g.destinations[1:],
+	go chunk.Start(utils.GamesListener, &g.clientGamesAckChannels,
+		g.ChunkChans[utils.GamesListener], g.broker, g.destinations[1:],
 		g.Config.Uint8(chunkSizeKey, chunkSizeDefault),
 	)
 
-	go startChunkSender(ReviewsListener, &g.clientReviewsAckChannels,
-		g.ChunkChans[ReviewsListener], g.broker, g.destinations[0:1],
+	go chunk.Start(utils.ReviewsListener, &g.clientReviewsAckChannels,
+		g.ChunkChans[utils.ReviewsListener], g.broker, g.destinations[0:1],
 		g.Config.Uint8(chunkSizeKey, chunkSizeDefault),
 	)
 
@@ -143,74 +142,102 @@ func (g *Gateway) Start() {
 
 	wg := &sync.WaitGroup{}
 	wg.Add(connections)
-	g.startListeners(wg, err)
+	g.startListeners(wg)
 	wg.Wait()
 
 	g.free(sigs)
 }
 
-func (g *Gateway) startListeners(wg *sync.WaitGroup, err error) {
-	go func() {
-		defer wg.Done()
-		err = g.listenForNewClient()
-		if err != nil {
-			logs.Logger.Errorf("Error listening reviews: %s", err.Error())
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		err = g.listenForData(ReviewsListener)
-		if err != nil {
-			logs.Logger.Errorf("Error listening reviews: %s", err.Error())
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		err = g.listenForData(GamesListener)
-		if err != nil {
-			logs.Logger.Errorf("Error listening games: %s", err.Error())
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		err = g.listenResultsRequests()
-		if err != nil {
-			logs.Logger.Errorf("Error listening results: %s", err.Error())
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		g.healthCheckService.Listen()
-	}()
+func (g *Gateway) startListeners(wg *sync.WaitGroup) {
+	go g.startNewClientListener(wg)
+	go g.startDataListener(wg, utils.ReviewsListener, "reviews")
+	go g.startDataListener(wg, utils.GamesListener, "games")
+	go g.startResultsListener(wg)
+	go g.startHealthCheckListener(wg)
 }
 
-func matchMessageId(listener int) message.ID {
-	if listener == ReviewsListener {
-		return message.ReviewIdMsg
+func (g *Gateway) startNewClientListener(wg *sync.WaitGroup) {
+	defer wg.Done()
+	err := g.listenForNewClient()
+	if err != nil {
+		logs.Logger.Errorf("Error listening new client: %s", err)
 	}
-	return message.GameIdMsg
 }
 
-func matchListenerId(msgId message.ID) int {
-	if msgId == message.ReviewIdMsg {
-		return ReviewsListener
+func (g *Gateway) startDataListener(wg *sync.WaitGroup, listener int, listenerType string) {
+	defer wg.Done()
+	err := g.listenForData(listener)
+	if err != nil {
+		logs.Logger.Errorf("Error listening %s: %s", listenerType, err)
 	}
-	return GamesListener
+}
+
+func (g *Gateway) startResultsListener(wg *sync.WaitGroup) {
+	defer wg.Done()
+	err := g.listenResultsRequests()
+	if err != nil {
+		logs.Logger.Errorf("Error listening results: %s", err)
+	}
+}
+
+func (g *Gateway) startHealthCheckListener(wg *sync.WaitGroup) {
+	defer wg.Done()
+	g.healthCheckService.Listen()
+}
+
+func (g *Gateway) recoverResults(
+	ch chan recovery.Record,
+	clientAccumulatedResults map[string]map[uint8]string,
+	recoveredMessages map[string]map[uint8]string,
+) {
+	go g.recovery.Recover(ch)
+
+	for recoveredMsg := range ch {
+		originId := recoveredMsg.Header().OriginId
+		sequenceId := recoveredMsg.Header().SequenceId
+
+		if string(recoveredMsg.Message()) != utils.Ack {
+			seqSource, err := sequence.SrcFromString(sequenceId)
+			if err != nil {
+				logs.Logger.Errorf("Failed to parse sequence source: %v", err)
+				continue
+			}
+
+			g.dup.Add(*seqSource)
+		}
+
+		switch originId {
+		case amqp.Query1originId, amqp.Query2originId, amqp.Query3originId:
+			persistence.HandleSimpleQueryRecovery(recoveredMsg, recoveredMessages)
+		case amqp.Query4originId, amqp.Query5originId:
+			persistence.HandleAccumulatingQueryRecovery(
+				recoveredMsg,
+				clientAccumulatedResults,
+				recoveredMessages,
+			)
+		default:
+			logs.Logger.Infof("Header x-origin-id does not match any known origin IDs, got: %v", originId)
+		}
+	}
+}
+
+func (g *Gateway) logResults() {
+	for record := range g.logChannel {
+		if err := g.recovery.Log(record); err != nil {
+			logs.Logger.Errorf("Failed to log record: %s", err)
+		}
+	}
 }
 
 func (g *Gateway) free(sigs chan os.Signal) {
 	g.broker.Close()
-	_ = g.Listeners[ReviewsListener].Close()
-	_ = g.Listeners[GamesListener].Close()
-	_ = g.Listeners[ResultsListener].Close()
-	_ = g.Listeners[ClientIdListener].Close()
+	_ = g.Listeners[utils.ReviewsListener].Close()
+	_ = g.Listeners[utils.GamesListener].Close()
+	_ = g.Listeners[utils.ResultsListener].Close()
+	_ = g.Listeners[utils.ClientIdListener].Close()
 	_ = g.healthCheckService.Close()
-	close(g.ChunkChans[ReviewsListener])
-	close(g.ChunkChans[GamesListener])
+	close(g.ChunkChans[utils.ReviewsListener])
+	close(g.ChunkChans[utils.GamesListener])
 	close(sigs)
 }
 

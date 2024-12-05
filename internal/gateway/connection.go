@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"net"
+	"tp1/internal/gateway/utils"
 	"tp1/pkg/logs"
 )
 
@@ -34,10 +35,10 @@ func (g *Gateway) createGatewaySockets() error {
 		return err
 	}
 
-	g.Listeners[GamesListener] = gamesListener
-	g.Listeners[ReviewsListener] = reviewsListener
-	g.Listeners[ResultsListener] = resultsListener
-	g.Listeners[ClientIdListener] = clientIdListener
+	g.Listeners[utils.GamesListener] = gamesListener
+	g.Listeners[utils.ReviewsListener] = reviewsListener
+	g.Listeners[utils.ResultsListener] = resultsListener
+	g.Listeners[utils.ClientIdListener] = clientIdListener
 
 	g.logListeners("games", gamesListener)
 	g.logListeners("reviews", reviewsListener)
