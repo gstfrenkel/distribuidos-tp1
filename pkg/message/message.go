@@ -3,25 +3,21 @@ package message
 import (
 	"bytes"
 	"encoding/gob"
-	"errors"
 )
-
-var ErrFailedToConvert = errors.New("failed to convert to message with ID %d")
-var ErrEmptyByteSlice = errors.New("unable to convert empty slice of bytes into message")
 
 const (
-	ReviewIdMsg ID = iota + 1
-	GameIdMsg
-	EofMsg
-	ScoredReviewID // ScoredReview message ID. Score is skipped as it's considered filtered.
-	ReviewWithTextID
-	GameNameID // GameName message ID.
-	GameReleaseID
-	PlatformID
-	GameWithPlaytimeID
+	ReviewId Id = iota + 1
+	GameId
+	EofId
+	ScoredReviewId
+	ReviewWithTextId
+	GameNameId
+	GameReleaseId
+	PlatformId
+	GameWithPlaytimeId
 )
 
-type ID uint8
+type Id uint8
 
 func fromBytes(b []byte, msg any) error {
 	decoder := gob.NewDecoder(bytes.NewBuffer(b))

@@ -2,6 +2,7 @@ package message
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -31,21 +32,23 @@ func (m ScoredReviews) ToBytes() ([]byte, error) {
 	return toBytes(m)
 }
 
-func ScoredRevFromAnyToBytes(s []any) ([]byte, error) {
-	var m ScoredReviews
-	for _, review := range s {
-		m = append(m, review.(ScoredReview))
-	}
-	return toBytes(m)
-}
-
-func (reviews ScoredReviews) ToQ3ResultString() string {
+func (m ScoredReviews) ToQ3ResultString() string {
 	header := fmt.Sprintf("Q3:\n")
 	var reviewsInfo []string
-	for _, review := range reviews {
-		reviewsInfo = append(reviewsInfo, fmt.Sprintf("Juego: [%s], Reseñas positivas: [%d] \n", review.GameName, review.Votes))
+	for _, r := range m {
+		reviewsInfo = append(reviewsInfo, fmt.Sprintf("Juego: [%s], Reseñas positivas: [%d]", r.GameName, r.Votes))
 	}
-	return header + strings.Join(reviewsInfo, "")
+	return header + strings.Join(reviewsInfo, "\n")
+}
+
+func (m ScoredReviews) Sort(ascending bool) {
+	sort.Slice(m, func(i, j int) bool {
+		if m[i].Votes != m[j].Votes {
+			return (ascending && m[i].Votes < m[j].Votes) || (!ascending && m[i].Votes > m[j].Votes)
+		}
+
+		return m[i].GameId < m[j].GameId
+	})
 }
 
 func ToQ5ResultString(reviewsInfo string) string {
@@ -53,18 +56,10 @@ func ToQ5ResultString(reviewsInfo string) string {
 	return header + reviewsInfo
 }
 
-func (reviews ScoredReviews) ToStringAux() string {
+func (m ScoredReviews) ToStringAux() string {
 	var reviewsInfo []string
-	for _, review := range reviews {
-		reviewsInfo = append(reviewsInfo, fmt.Sprintf("Juego: [%s], Reseñas negativas: [%d] \n", review.GameName, review.Votes))
+	for _, r := range m {
+		reviewsInfo = append(reviewsInfo, fmt.Sprintf("Juego: [%s], Reseñas negativas: [%d]", r.GameName, r.Votes))
 	}
-	return strings.Join(reviewsInfo, "")
-}
-
-func (m ScoredReviews) ToAny() []any {
-	var dataAny []any
-	for _, review := range m {
-		dataAny = append(dataAny, review)
-	}
-	return dataAny
+	return strings.Join(reviewsInfo, "\n") + "\n"
 }

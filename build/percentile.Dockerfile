@@ -1,4 +1,4 @@
-FROM golang:latest
+FROM golang:latest AS builder
 
 WORKDIR /app
 
@@ -6,17 +6,15 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Update path to desired entrypoint
-COPY cmd/worker/percentile/percentile.go ./main.go
-COPY pkg/ ./pkg/
-COPY internal/errors/ ./internal/errors/
-COPY internal/worker/worker.go ./internal/worker/
+COPY . .
 
-# Update path to desired entrypoint
-COPY internal/worker/percentile/percentile.go ./internal/worker/percentile/
-COPY internal/worker/percentile/batch_utils.go ./internal/worker/percentile/
+RUN CGO_ENABLED=0 GOOS=linux go build -o /main ./cmd/worker/aggregator/percentile.go
 
+ENTRYPOINT ["/main"]
 
+FROM scratch
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o /main
+# Copy the compiled binary from the builder stage
+COPY --from=builder /main /main
 
 ENTRYPOINT ["/main"]

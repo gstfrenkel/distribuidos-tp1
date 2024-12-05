@@ -1,4 +1,4 @@
-FROM golang:latest
+FROM golang:latest AS builder
 
 WORKDIR /app
 
@@ -7,14 +7,15 @@ RUN go mod download
 
 
 # Update path to desired entrypoint
-COPY cmd/worker/counter/counter.go ./main.go
-COPY pkg/ ./pkg/
-COPY internal/errors/ ./internal/errors/
-COPY internal/worker/worker.go ./internal/worker/
+COPY . .
 
-# Update path to desired entrypoint
-COPY internal/worker/counter/counter_agg.go ./internal/worker/counter/
+RUN CGO_ENABLED=0 GOOS=linux go build -o /main ./cmd/worker/aggregator/counter.go
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o /main
+ENTRYPOINT ["/main"]
+
+FROM scratch
+
+# Copy the compiled binary from the builder stage
+COPY --from=builder /main /main
 
 ENTRYPOINT ["/main"]

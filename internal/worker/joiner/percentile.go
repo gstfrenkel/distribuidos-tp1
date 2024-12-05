@@ -6,83 +6,76 @@ import (
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/sequence"
 )
 
 type percentile struct {
-	w                *worker.Worker
-	eofsByClient     map[string]recvEofs
-	gameInfoByClient map[string]map[int64]gameInfo
-	batchSize        uint16
+	joiner    *joiner
+	batchSize uint16
 }
 
-func NewPercentile() (worker.Filter, error) {
-	w, err := worker.New()
+func NewPercentile() (worker.Node, error) {
+	j, err := newJoiner()
 	if err != nil {
 		return nil, err
 	}
 
 	return &percentile{
-		w:                w,
-		eofsByClient:     map[string]recvEofs{},
-		gameInfoByClient: map[string]map[int64]gameInfo{},
+		joiner:    j,
+		batchSize: uint16(j.w.Query.(float64)),
 	}, nil
 }
 
 func (p *percentile) Init() error {
-	p.batchSize = uint16(p.w.Query.(float64))
+	if err := p.joiner.w.Init(); err != nil {
+		return err
+	}
 
-	return p.w.Init()
+	p.recover()
+
+	return nil
 }
 
 func (p *percentile) Start() {
-	p.w.Start(p)
+	p.joiner.w.Start(p)
 }
 
-func (p *percentile) Process(delivery amqp.Delivery) {
-	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
-	clientId := delivery.Headers[amqp.ClientIdHeader].(string)
+func (p *percentile) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+	var sequenceIds []sequence.Destination
 
-	if messageId == message.EofMsg {
-		processEof(
-			clientId,
-			delivery.Headers[amqp.OriginIdHeader].(uint8),
-			p.eofsByClient,
-			p.gameInfoByClient,
-			p.processEof,
-		)
-	} else if messageId == message.ScoredReviewID {
-		msg, err := message.ScoredReviewFromBytes(delivery.Body)
-		if err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return
-		}
-
-		p.processReview(clientId, msg)
-	} else if messageId == message.GameNameID {
-		msg, err := message.GameNameFromBytes(delivery.Body)
-		if err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return
-		}
-
-		p.processGame(clientId, msg)
-	} else {
-		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
+	switch headers.MessageId {
+	case message.EofId:
+		sequenceIds = p.joiner.processEof(headers, p.processEof)
+	case message.ScoredReviewId:
+		p.processReview(headers, delivery.Body, false)
+	case message.GameNameId:
+		p.processGame(headers, delivery.Body, false)
+	default:
+		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
+
+	return sequenceIds, delivery.Body
 }
 
-func (p *percentile) processEof(clientId string) {
-	userInfo, ok := p.gameInfoByClient[clientId]
+func (p *percentile) processEof(headers amqp.Header) []sequence.Destination {
+	var sequenceIds []sequence.Destination
+
+	userInfo, ok := p.joiner.gameInfoByClient[headers.ClientId]
 	if ok {
-		p.processBatch(clientId, userInfo)
+		sequenceIds = p.processBatch(headers, userInfo)
 	}
 
-	if err := p.w.Broker.HandleEofMessage(p.w.Id, 0, amqp.EmptyEof, headersEof, p.w.InputEof, p.w.OutputsEof...); err != nil {
-		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
+	auxSequenceIds, err := p.joiner.w.HandleEofMessage(amqp.EmptyEof, headers)
+	if err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
+
+	sequenceIds = append(sequenceIds, auxSequenceIds...)
+	return sequenceIds
 }
 
-func (p *percentile) processBatch(clientId string, userInfo map[int64]gameInfo) {
+func (p *percentile) processBatch(headers amqp.Header, userInfo map[int64]gameInfo) []sequence.Destination {
+	var sequenceIds []sequence.Destination
 	var reviews message.ScoredReviews
 
 	for id, info := range userInfo {
@@ -93,54 +86,81 @@ func (p *percentile) processBatch(clientId string, userInfo map[int64]gameInfo) 
 		reviews = append(reviews, message.ScoredReview{GameId: id, Votes: info.votes, GameName: info.gameName})
 
 		if len(reviews) >= int(p.batchSize) {
-			p.publish(clientId, reviews)
+			sequenceIds = append(sequenceIds, p.publish(headers, reviews))
 			reviews = reviews[:0] // Reset slice without deallocating memory.
 		}
 	}
 
 	if len(reviews) > 0 {
-		p.publish(clientId, reviews)
+		sequenceIds = append(sequenceIds, p.publish(headers, reviews))
 	}
+
+	return sequenceIds
 }
 
-func (p *percentile) processReview(clientId string, msg message.ScoredReview) {
-	userInfo, ok := p.gameInfoByClient[clientId]
+func (p *percentile) processReview(headers amqp.Header, msgBytes []byte, _ bool) []sequence.Destination {
+	msg, err := message.ScoredReviewFromBytes(msgBytes)
+	if err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+		return nil
+	}
+
+	userInfo, ok := p.joiner.gameInfoByClient[headers.ClientId]
 	if !ok { // First message for this clientId
-		p.gameInfoByClient[clientId] = map[int64]gameInfo{msg.GameId: {votes: msg.Votes}}
-		return
+		p.joiner.gameInfoByClient[headers.ClientId] = map[int64]gameInfo{msg.GameId: {votes: msg.Votes}}
+		return nil
 	}
 
 	info, ok := userInfo[msg.GameId]
 	if !ok { // First message for this gameId
-		p.gameInfoByClient[clientId][msg.GameId] = gameInfo{votes: msg.Votes}
+		p.joiner.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{votes: msg.Votes}
 	} else {
-		p.gameInfoByClient[clientId][msg.GameId] = gameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
+		p.joiner.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
 	}
+
+	return nil
 }
 
-func (p *percentile) processGame(clientId string, msg message.GameName) {
-	userInfo, ok := p.gameInfoByClient[clientId]
+func (p *percentile) processGame(headers amqp.Header, msgBytes []byte, _ bool) []sequence.Destination {
+	msg, err := message.GameNameFromBytes(msgBytes)
+	if err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+		return nil
+	}
+
+	userInfo, ok := p.joiner.gameInfoByClient[headers.ClientId]
 	if !ok { // First message for this clientId
-		p.gameInfoByClient[clientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
-		return
+		p.joiner.gameInfoByClient[headers.ClientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
+		return nil
 	}
 
 	info, ok := userInfo[msg.GameId]
 	if !ok { // First message for this gameId
-		p.gameInfoByClient[clientId][msg.GameId] = gameInfo{gameName: msg.GameName}
+		p.joiner.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{gameName: msg.GameName}
 	} else {
-		p.gameInfoByClient[clientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes}
+		p.joiner.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes}
 	}
+	return nil
 }
 
-func (p *percentile) publish(clientId string, reviews message.ScoredReviews) {
+func (p *percentile) publish(headers amqp.Header, reviews message.ScoredReviews) sequence.Destination {
 	b, err := reviews.ToBytes()
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 	}
 
-	headersReview[amqp.ClientIdHeader] = clientId
-	if err = p.w.Broker.Publish(p.w.Outputs[0].Exchange, p.w.Outputs[0].Key, b, headersReview); err != nil {
+	key := p.joiner.w.Outputs[0].Key
+	sequenceId := p.joiner.w.NextSequenceId(key)
+
+	headers = headers.WithMessageId(message.ScoredReviewId).WithSequenceId(sequence.SrcNew(p.joiner.w.Uuid, sequenceId))
+
+	if err = p.joiner.w.Broker.Publish(p.joiner.w.Outputs[0].Exchange, key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
+
+	return sequence.DstNew(key, sequenceId)
+}
+
+func (p *percentile) recover() {
+	p.joiner.recover(p)
 }

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"tp1/internal/gateway/id_generator"
-	"tp1/pkg/ioutils"
 	"tp1/pkg/logs"
+	"tp1/pkg/utils/id"
+	"tp1/pkg/utils/io"
 )
 
 func (c *Client) openResultsFile() error {
@@ -31,12 +31,12 @@ func (c *Client) fetchClientID(address string) error {
 	}
 	defer idConn.Close()
 
-	clientIdBuffer := make([]byte, id_generator.ClientIdLen)
-	if err := ioutils.ReadFull(idConn, clientIdBuffer, id_generator.ClientIdLen); err != nil {
+	clientIdBuffer := make([]byte, id.ClientIdLen)
+	if err := io.ReadFull(idConn, clientIdBuffer, id.ClientIdLen); err != nil {
 		logs.Logger.Errorf("Error reading client ID: %v", err)
 		return err
 	}
-	c.clientId = id_generator.DecodeClientId(clientIdBuffer)
+	c.clientId = id.DecodeClientId(clientIdBuffer)
 	logs.Logger.Infof("Assigned client ID: %s", c.clientId)
 	return nil
 }
@@ -56,11 +56,20 @@ func (c *Client) Close(gamesConn net.Conn, reviewsConn net.Conn) {
 }
 
 func (c *Client) sendClientID(conn net.Conn) error {
-	clientIdBuf := id_generator.EncodeClientId(c.clientId)
-	if err := ioutils.SendAll(conn, clientIdBuf); err != nil {
+	clientIdBuf := id.EncodeClientId(c.clientId)
+	if err := io.SendAll(conn, clientIdBuf); err != nil {
 		logs.Logger.Errorf("Error sending client ID: %s", err)
 		return err
 	}
-	logs.Logger.Infof("Client ID %s sent", c.clientId)
+	return nil
+}
+
+func readAck(conn net.Conn) error {
+	ackBuf := make([]byte, 1)
+	_, err := conn.Read(ackBuf)
+	if err != nil {
+		return fmt.Errorf("error reading ACK: %w", err)
+	}
+
 	return nil
 }

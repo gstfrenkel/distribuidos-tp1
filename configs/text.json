@@ -1,24 +1,20 @@
 {
   "query": "english",
-  "peers": 1,
+  "peers": 5,
   "input-queues": [{
     "exchange": "text_review",
-    "name": "reviews_q4",
-    "key": "input"
+    "name": "text_reviews_q4_%d",
+    "key": "input-%d"
   }],
-  "output-queues": [
-    {
-      "exchange": "text_review",
-      "name": "reviews_q4_%d",
-      "key": "%d",
-      "consumers": 2
-    }
-  ],
-  "exchanges": [
-    {
-      "name": "text_review",
-      "kind": "direct"
-    }
-  ],
+  "output-queues": [{
+    "exchange": "text_review",
+    "name": "reviews_q4_%d",
+    "key": "%d",
+    "consumers": 2
+  }],
+  "exchanges": [{
+    "name": "text_review",
+    "kind": "direct"
+  }],
   "log-level": "INFO"
 }

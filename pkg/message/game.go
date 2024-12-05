@@ -4,6 +4,8 @@ import (
 	"strings"
 )
 
+const sep = ","
+
 type Game []game
 
 type game struct {
@@ -48,7 +50,7 @@ func (g Game) ToGameNamesMessage(genreToFilter string) GameNames {
 	var result GameNames
 
 	for _, h := range g {
-		genres := strings.Split(h.Genres, ",")
+		genres := strings.Split(h.Genres, sep)
 		for _, genre := range genres {
 			if genre == genreToFilter {
 				result = append(result, GameName{GameId: h.GameId, GameName: h.Name})
@@ -64,7 +66,7 @@ func (g Game) ToGameReleasesMessage(genreToFilter string) Releases {
 	var result Releases
 
 	for _, h := range g {
-		genres := strings.Split(h.Genres, ",")
+		genres := strings.Split(h.Genres, sep)
 		for _, genre := range genres {
 			if genre == genreToFilter {
 				result = append(result, Release{GameId: h.GameId, GameName: h.Name, ReleaseDate: h.ReleaseDate, AvgPlaytime: h.AveragePlaytime})

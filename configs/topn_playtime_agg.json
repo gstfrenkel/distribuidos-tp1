@@ -1,22 +1,17 @@
 {
   "query": 10,
   "input-queues": {
-    "exchange": "reports",
-    "name": "topn_playtime_q2",
-    "key": "input"
+    "name": "topn_playtime_q2"
   },
-  "output-queues": [
-    {
-      "exchange": "reports",
-      "name": "reports",
-      "key": ""
-    }
-  ],
-  "exchanges": [
-    {
-      "name": "reports",
-      "kind": "direct"
-    }
-  ],
+  "output-queues": [{
+    "exchange": "reports",
+    "name": "reports_%d",
+    "key": "%d",
+    "consumers": 1
+  }],
+  "exchanges": [{
+    "name": "reports",
+    "kind": "direct"
+  }],
   "log-level": "INFO"
 }

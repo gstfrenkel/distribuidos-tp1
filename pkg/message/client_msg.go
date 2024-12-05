@@ -4,12 +4,13 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
-	"tp1/pkg/ioutils"
+	"tp1/pkg/utils/io"
 )
 
 type ClientMessage struct {
-	DataLen uint32
-	Data    []byte
+	BatchNum uint32
+	DataLen  uint32
+	Data     []byte
 }
 
 type DataCSVGames struct {
@@ -63,13 +64,18 @@ type DataCSVReviews struct {
 	ReviewVotes int64
 }
 
+const lenBytes = 4
+
 func SendMessage(conn net.Conn, msg ClientMessage) error {
-	finalMessage := make([]byte, 0, 4+len(msg.Data))
-	lenBytes := make([]byte, 4)
+	finalMessage := make([]byte, 0, lenBytes*2+len(msg.Data))
+	batchNumBytes := make([]byte, lenBytes)
+	binary.BigEndian.PutUint32(batchNumBytes, msg.BatchNum)
+	finalMessage = append(finalMessage, batchNumBytes...)
+	lenBytes := make([]byte, lenBytes)
 	binary.BigEndian.PutUint32(lenBytes, msg.DataLen)
 	finalMessage = append(finalMessage, lenBytes...)
 	finalMessage = append(finalMessage, msg.Data...)
-	if err := ioutils.SendAll(conn, finalMessage); err != nil {
+	if err := io.SendAll(conn, finalMessage); err != nil {
 		return fmt.Errorf("failed to send message: %v", err)
 	}
 	return nil

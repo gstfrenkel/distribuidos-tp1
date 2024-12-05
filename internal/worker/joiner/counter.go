@@ -6,132 +6,157 @@ import (
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
+	"tp1/pkg/sequence"
 )
 
 type counter struct {
-	w                *worker.Worker
-	eofsByClient     map[string]recvEofs
-	gameInfoByClient map[string]map[int64]gameInfo
-	target           uint64
+	joiner *joiner
+	target uint64
 }
 
-func NewCounter() (worker.Filter, error) {
-	w, err := worker.New()
+func NewCounter() (worker.Node, error) {
+	j, err := newJoiner()
 	if err != nil {
 		return nil, err
 	}
 
 	return &counter{
-		w:                w,
-		eofsByClient:     map[string]recvEofs{},
-		gameInfoByClient: map[string]map[int64]gameInfo{},
+		joiner: j,
+		target: uint64(j.w.Query.(float64)),
 	}, nil
 }
 
 func (c *counter) Init() error {
-	c.target = uint64(c.w.Query.(float64))
+	if err := c.joiner.w.Init(); err != nil {
+		return err
+	}
 
-	return c.w.Init()
+	c.recover()
+
+	return nil
 }
 
 func (c *counter) Start() {
-	c.w.Start(c)
+	c.joiner.w.Start(c)
 }
 
-func (c *counter) Process(delivery amqp.Delivery) {
-	messageId := message.ID(delivery.Headers[amqp.MessageIdHeader].(uint8))
-	clientId := delivery.Headers[amqp.ClientIdHeader].(string)
+func (c *counter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+	var sequenceIds []sequence.Destination
 
-	if messageId == message.EofMsg {
-		processEof(
-			clientId,
-			delivery.Headers[amqp.OriginIdHeader].(uint8),
-			c.eofsByClient,
-			c.gameInfoByClient,
-			c.processEof,
-		)
-	} else if messageId == message.ScoredReviewID {
-		msg, err := message.ScoredReviewFromBytes(delivery.Body)
-		if err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return
-		}
-
-		c.processReview(clientId, msg)
-	} else if messageId == message.GameNameID {
-		msg, err := message.GameNameFromBytes(delivery.Body)
-		if err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-			return
-		}
-
-		c.processGame(clientId, msg, delivery.Body)
-	} else {
-		logs.Logger.Errorf(errors.InvalidMessageId.Error(), messageId)
+	switch headers.MessageId {
+	case message.EofId:
+		sequenceIds = c.joiner.processEof(headers, c.processEof)
+	case message.ScoredReviewId:
+		sequenceIds = c.processReview(headers, delivery.Body, false)
+	case message.GameNameId:
+		sequenceIds = c.processGame(headers, delivery.Body, false)
+	default:
+		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
+
+	return sequenceIds, delivery.Body
 }
 
-func (c *counter) processEof(clientId string) {
-	if err := c.w.Broker.HandleEofMessage(c.w.Id, 0, amqp.EmptyEof, headersEof, c.w.InputEof, c.w.OutputsEof...); err != nil {
-		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
+func (c *counter) processEof(headers amqp.Header) []sequence.Destination {
+	sequenceIds, err := c.joiner.w.HandleEofMessage(amqp.EmptyEof, headers)
+	if err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 	}
+	return sequenceIds
 }
 
-func (c *counter) processReview(clientId string, msg message.ScoredReview) {
-	userInfo, ok := c.gameInfoByClient[clientId]
+func (c *counter) processReview(headers amqp.Header, msgBytes []byte, recovery bool) []sequence.Destination {
+	var sequenceIds []sequence.Destination
+	msg, err := message.ScoredReviewFromBytes(msgBytes)
+	if err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+		return sequenceIds
+	}
+
+	userInfo, ok := c.joiner.gameInfoByClient[headers.ClientId]
 	if !ok {
-		c.gameInfoByClient[clientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
-		return
+		c.joiner.gameInfoByClient[headers.ClientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
+		return sequenceIds
 	}
 
 	info, ok := userInfo[msg.GameId]
 	if !ok {
-		c.gameInfoByClient[clientId][msg.GameId] = gameInfo{votes: msg.Votes}
-		return
+		c.joiner.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{votes: msg.Votes}
+		return sequenceIds
 	} else if info.sent {
-		return
+		return sequenceIds
 	}
 
 	if info.gameName != "" && info.votes+msg.Votes >= c.target {
-		b, err := message.GameName{GameId: msg.GameId, GameName: info.gameName}.ToBytes()
-		if err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
-			return
+		if !recovery {
+			b, err := message.GameName{GameId: msg.GameId, GameName: info.gameName}.ToBytes()
+			if err != nil {
+				logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
+				return sequenceIds
+			}
+			if sequenceIds = c.publish(headers, b); sequenceIds == nil {
+				return sequenceIds
+			}
 		}
-
-		headersGame[amqp.ClientIdHeader] = clientId
-		if err = c.w.Broker.Publish(c.w.Outputs[0].Exchange, c.w.Outputs[0].Key, b, headersGame); err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
-		} else {
-			c.gameInfoByClient[clientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes, sent: true}
-		}
+		c.joiner.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes, sent: true}
 	} else {
-		c.gameInfoByClient[clientId][msg.GameId] = gameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
+		c.joiner.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{gameName: info.gameName, votes: info.votes + msg.Votes}
 	}
+
+	return sequenceIds
 }
 
-func (c *counter) processGame(clientId string, msg message.GameName, b []byte) {
-	userInfo, ok := c.gameInfoByClient[clientId]
+func (c *counter) processGame(headers amqp.Header, msgBytes []byte, recovery bool) []sequence.Destination {
+	var sequenceIds []sequence.Destination
+	msg, err := message.GameNameFromBytes(msgBytes)
+	if err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
+		return sequenceIds
+	}
+
+	userInfo, ok := c.joiner.gameInfoByClient[headers.ClientId]
 	if !ok {
-		c.gameInfoByClient[clientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
-		return
+		c.joiner.gameInfoByClient[headers.ClientId] = map[int64]gameInfo{msg.GameId: {gameName: msg.GameName}}
+		return sequenceIds
 	}
 
 	info, ok := userInfo[msg.GameId]
 	if !ok { // No reviews have been received for this game.
-		c.gameInfoByClient[clientId][msg.GameId] = gameInfo{gameName: msg.GameName}
-		return
+		c.joiner.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{gameName: msg.GameName}
+		return sequenceIds
 	}
 
-	if info.votes >= c.target { // Reviews have been received, and they exceed the target vote count.
-		headersGame[amqp.ClientIdHeader] = clientId
-		if err := c.w.Broker.Publish(c.w.Outputs[0].Exchange, c.w.Outputs[0].Key, b, headersGame); err != nil {
-			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
-			return
+	if info.votes >= c.target {
+		if !recovery {
+			if sequenceIds = c.publish(headers, msgBytes); sequenceIds == nil {
+				return sequenceIds
+			}
 		}
-
-		c.gameInfoByClient[clientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes, sent: true}
-	} else { // Reviews have been received, but they do not exceed the target vote count.
-		c.gameInfoByClient[clientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes}
+		c.joiner.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes, sent: true}
+	} else {
+		c.joiner.gameInfoByClient[headers.ClientId][msg.GameId] = gameInfo{gameName: msg.GameName, votes: info.votes}
 	}
+
+	return sequenceIds
+}
+
+// publish publishes the game name when the target is reached.
+// In case of error, returns nil
+// Otherwise, returns the sequenceId of the message sent.
+func (c *counter) publish(headers amqp.Header, msgBytes []byte) []sequence.Destination {
+	key := c.joiner.w.Outputs[0].Key
+	sequenceId := c.joiner.w.NextSequenceId(key)
+
+	headers = headers.WithMessageId(message.GameNameId).WithSequenceId(sequence.SrcNew(c.joiner.w.Uuid, sequenceId))
+
+	if err := c.joiner.w.Broker.Publish(c.joiner.w.Outputs[0].Exchange, c.joiner.w.Outputs[0].Key, msgBytes, headers); err != nil {
+		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
+		return nil
+	}
+
+	return []sequence.Destination{sequence.DstNew(key, sequenceId)}
+}
+
+func (c *counter) recover() {
+	c.joiner.recover(c)
 }

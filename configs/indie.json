@@ -3,22 +3,21 @@
   "peers": 1,
   "input-queues": [{
     "exchange": "indie",
-    "name": "games_indie",
-    "key": "input"
+    "name": "games_indie_%d",
+    "key": "input-%d"
   }],
-  "output-queues": [
-    {
-      "exchange": "indie",
-      "name": "indie_q2",
-      "key": ""
-    },
-    {
-      "exchange": "indie",
-      "name": "indie_q3_%d",
-      "key": "%d",
-      "consumers": 2
-    }
-  ],
+  "output-queues": [{
+    "exchange": "indie",
+    "name": "indie_q2_%d",
+    "key": "q2-%d",
+    "single": true,
+    "consumers": 1
+  }, {
+    "exchange": "indie",
+    "name": "indie_q3_%d",
+    "key": "q3-%d",
+    "consumers": 2
+  }],
   "exchanges": [
     {
       "name": "indie",

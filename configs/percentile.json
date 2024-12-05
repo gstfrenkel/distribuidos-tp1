@@ -1,21 +1,19 @@
 {
   "query": [90, 20],
-  "peers": 2,
+  "peers": 0,
+  "expected_eofs": 2,
   "input-queues": [{
     "name": "joined_percentile"
   }],
-  "output-queues": [
-    {
-      "exchange": "reports",
-      "name": "reports",
-      "key": ""
-    }
-  ],
-  "exchanges": [
-    {
-      "name": "reports",
-      "kind": "direct"
-    }
-  ],
+  "output-queues": [{
+    "exchange": "reports",
+    "name": "reports_%d",
+    "key": "%d",
+    "consumers": 1
+  }],
+  "exchanges": [{
+    "name": "reports",
+    "kind": "direct"
+  }],
   "log-level": "INFO"
 }

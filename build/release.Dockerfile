@@ -1,4 +1,4 @@
-FROM golang:latest
+FROM golang:latest AS builder
 
 WORKDIR /app
 
@@ -6,13 +6,15 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Update path to desired entrypoint
-COPY cmd/worker/release_date/release_date.go ./main.go
-COPY pkg/ ./pkg/
-COPY internal/errors/ ./internal/errors/
-COPY internal/worker/worker.go ./internal/worker/
-# Update path to desired entrypoint
-COPY internal/worker/release_date/release_date.go ./internal/worker/release_date/
+COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o /main
+RUN CGO_ENABLED=0 GOOS=linux go build -o /main ./cmd/worker/filter/release_date.go
+
+ENTRYPOINT ["/main"]
+
+FROM scratch
+
+# Copy the compiled binary from the builder stage
+COPY --from=builder /main /main
 
 ENTRYPOINT ["/main"]
