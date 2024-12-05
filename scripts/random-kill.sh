@@ -21,14 +21,14 @@ main() {
         containers=($(list_containers))
         if [ ${#containers[@]} -gt 0 ]; then
             for ((i=0; i<KILL_COUNT && i<${#containers[@]}; i++)); do
-                            container_to_kill=${containers[$RANDOM % ${#containers[@]}]}
+              container_to_kill=${containers[$RANDOM % ${#containers[@]}]}
 
-                            if [[ "$container_to_kill" =~ healthchecker-.* ]]; then
-                                    continue
-                            fi
-                            docker kill "$container_to_kill" &>/dev/null
-                            echo "Container $container_to_kill has been killed."
-                        done
+              if [[ "$container_to_kill" =~ healthchecker-1 ]]; then
+                      continue
+              fi
+              docker kill "$container_to_kill" &>/dev/null
+              echo "Container $container_to_kill has been killed."
+            done
         else
             echo "No containers to kill."
         fi
