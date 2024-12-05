@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"net"
 	"sync"
+	"tp1/internal/gateway/chunk"
+	"tp1/internal/gateway/utils"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
 	"tp1/pkg/utils/id_generator"
@@ -19,7 +21,7 @@ const (
 // listenForData listens for incoming games or reviews
 func (g *Gateway) listenForData(listener int) error {
 	return g.listenForConnections(listener, func(c net.Conn) {
-		g.handleDataConnection(c, matchMessageId(listener))
+		g.handleDataConnection(c, utils.MatchMessageId(listener))
 	})
 }
 
@@ -125,7 +127,7 @@ func (g *Gateway) sendMsgToChunkSender(msgId message.ID, payload []byte, clientI
 		data = nil
 	}
 
-	g.ChunkChans[matchListenerId(msgId)] <- ChunkItem{data, clientId, batchNum}
+	g.ChunkChans[utils.MatchListenerId(msgId)] <- chunk.Item{Msg: data, ClientId: clientId, BatchNum: batchNum}
 }
 
 func isEndOfFile(payloadSize uint32) bool {
