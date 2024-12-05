@@ -126,12 +126,12 @@ func (g *Gateway) Start() {
 		return
 	}
 
-	go chunk.StartChunkSender(utils.GamesListener, &g.clientGamesAckChannels,
+	go chunk.Start(utils.GamesListener, &g.clientGamesAckChannels,
 		g.ChunkChans[utils.GamesListener], g.broker, g.destinations[1:],
 		g.Config.Uint8(chunkSizeKey, chunkSizeDefault),
 	)
 
-	go chunk.StartChunkSender(utils.ReviewsListener, &g.clientReviewsAckChannels,
+	go chunk.Start(utils.ReviewsListener, &g.clientReviewsAckChannels,
 		g.ChunkChans[utils.ReviewsListener], g.broker, g.destinations[0:1],
 		g.Config.Uint8(chunkSizeKey, chunkSizeDefault),
 	)
@@ -160,7 +160,7 @@ func (g *Gateway) startNewClientListener(wg *sync.WaitGroup) {
 	defer wg.Done()
 	err := g.listenForNewClient()
 	if err != nil {
-		logs.Logger.Errorf("Error listening reviews: %s", err)
+		logs.Logger.Errorf("Error listening new client: %s", err)
 	}
 }
 

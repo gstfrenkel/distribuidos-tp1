@@ -27,7 +27,7 @@ type Item struct {
 	BatchNum uint32
 }
 
-func newChunkSender(id int, channel <-chan Item, broker amqp.MessageBroker, dst []amqp.Destination, chunkMaxSize uint8) *Sender {
+func New(id int, channel <-chan Item, broker amqp.MessageBroker, dst []amqp.Destination, chunkMaxSize uint8) *Sender {
 	return &Sender{
 		id:           id,
 		channel:      channel,
@@ -38,8 +38,8 @@ func newChunkSender(id int, channel <-chan Item, broker amqp.MessageBroker, dst 
 	}
 }
 
-func StartChunkSender(id int, clientAckChannels *sync.Map, channel <-chan Item, broker amqp.MessageBroker, dst []amqp.Destination, chunkMaxSize uint8) {
-	s := newChunkSender(id, channel, broker, dst, chunkMaxSize)
+func Start(id int, clientAckChannels *sync.Map, channel <-chan Item, broker amqp.MessageBroker, dst []amqp.Destination, chunkMaxSize uint8) {
+	s := New(id, channel, broker, dst, chunkMaxSize)
 	for {
 		item := <-channel
 		s.updateChunk(clientAckChannels, item, item.Msg == nil)
