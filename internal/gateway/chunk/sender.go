@@ -5,7 +5,6 @@ import (
 	"strings"
 	"sync"
 	"tp1/internal/gateway/utils"
-
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/message"
