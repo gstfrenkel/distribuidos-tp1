@@ -11,28 +11,25 @@ import (
 
 const filePath = "recovery.csv"
 
-type Handler interface {
-	Recover(ch chan<- Record)
-	Log(record Record) error
-	Close()
-}
-
-type handler struct {
+type Handler struct {
 	file *ioutils.File
 }
 
-func NewHandler() (Handler, error) {
+// NewHandler creates a new recovery handler.
+func NewHandler() (*Handler, error) {
 	file, err := ioutils.NewFile(filePath)
 	if err != nil {
 		return nil, err
 	}
 
-	return &handler{
+	return &Handler{
 		file: file,
 	}, nil
 }
 
-func (h *handler) Recover(ch chan<- Record) {
+// Recover reads each line of the underlying file, parses it, and sends it through a Record channel.
+// Upon failure when reading or parsing, the line gets skipped.
+func (h *Handler) Recover(ch chan<- Record) {
 	defer close(ch)
 
 	for {
@@ -65,10 +62,12 @@ func (h *handler) Recover(ch chan<- Record) {
 	}
 }
 
-func (h *handler) Log(record Record) error {
+// Log saves a record into the underlying file.
+func (h *Handler) Log(record Record) error {
 	return h.file.Write(record.toString())
 }
 
-func (h *handler) Close() {
+// Close closes the file descriptor linked to the underlying file.
+func (h *Handler) Close() {
 	h.file.Close()
 }

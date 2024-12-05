@@ -14,7 +14,7 @@ type counter struct {
 	target uint64
 }
 
-func NewCounter() (worker.W, error) {
+func NewCounter() (worker.Node, error) {
 	j, err := newJoiner()
 	if err != nil {
 		return nil, err
@@ -44,11 +44,11 @@ func (c *counter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequen
 	var sequenceIds []sequence.Destination
 
 	switch headers.MessageId {
-	case message.EofMsg:
+	case message.EofId:
 		sequenceIds = c.joiner.processEof(headers, c.processEof)
-	case message.ScoredReviewID:
+	case message.ScoredReviewId:
 		sequenceIds = c.processReview(headers, delivery.Body, false)
-	case message.GameNameID:
+	case message.GameNameId:
 		sequenceIds = c.processGame(headers, delivery.Body, false)
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
@@ -147,7 +147,7 @@ func (c *counter) publish(headers amqp.Header, msgBytes []byte) []sequence.Desti
 	key := c.joiner.w.Outputs[0].Key
 	sequenceId := c.joiner.w.NextSequenceId(key)
 
-	headers = headers.WithMessageId(message.GameNameID).WithSequenceId(sequence.SrcNew(c.joiner.w.Uuid, sequenceId))
+	headers = headers.WithMessageId(message.GameNameId).WithSequenceId(sequence.SrcNew(c.joiner.w.Uuid, sequenceId))
 
 	if err := c.joiner.w.Broker.Publish(c.joiner.w.Outputs[0].Exchange, c.joiner.w.Outputs[0].Key, msgBytes, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())

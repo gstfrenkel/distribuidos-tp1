@@ -39,30 +39,36 @@ const (
 	outputQKey          = "output-queues"
 )
 
-type W interface {
+type Node interface {
 	Init() error
 	Start()
 	Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte)
 }
 
+// Worker represents a worker node which processes messages from a broker, manages its state,
+// and communicates with other system components.
 type Worker struct {
 	config             config.Config
-	Query              any
+	HealthCheckService *healthcheck.Service
 	Broker             amqp.MessageBroker
 	inputEof           amqp.DestinationEof
 	outputsEof         []amqp.DestinationEof
 	Outputs            []amqp.Destination
-	signalChan         chan os.Signal
-	recovery           recovery.Handler
-	dup                dup.Handler
-	sequenceIds        map[string]uint64
+	recovery           *recovery.Handler
+	sequenceIdGen      *sequence.Generator
+	dup                *dup.Handler
 	Uuid               string
 	Id                 uint8
 	peers              uint8
 	ExpectedEofs       uint8
-	HealthCheckService *healthcheck.Service
+	Query              any
+	signalChan         chan os.Signal
 }
 
+// New initializes and returns a new instance of Worker.
+// It loads the configuration, sets up dependencies like the message broker,
+// recovery handler, and health check service, and configures signal handling
+// for graceful shutdowns.
 func New() (*Worker, error) {
 	cfg, err := provider.LoadConfig(configPath)
 	if err != nil {
@@ -111,13 +117,14 @@ func New() (*Worker, error) {
 		Id:                 uint8(id),
 		recovery:           recoveryHandler,
 		dup:                dup.NewHandler(),
-		sequenceIds:        make(map[string]uint64),
+		sequenceIdGen:      sequence.NewGenerator(),
 		peers:              peers,
 		ExpectedEofs:       expectedEofs,
 		HealthCheckService: hc,
 	}, nil
 }
 
+// Init initializes the Worker instance by setting up exchanges and queues.
 func (f *Worker) Init() error {
 	if err := f.initExchanges(); err != nil {
 		return err
@@ -125,13 +132,14 @@ func (f *Worker) Init() error {
 	return f.initQueues()
 }
 
-func (f *Worker) Start(filter W) {
-	defer f.Broker.Close()
+// Start begins the main processing logic for the Worker.
+// It listens for messages from input queues, applies the provided filter logic, and processes messages.
+func (f *Worker) Start(filter Node) {
 	defer close(f.signalChan)
-
-	f.listenHc()
-
+	defer f.Broker.Close()
 	defer f.HealthCheckService.Close()
+
+	go f.HealthCheckService.Listen()
 
 	var inputQ []amqp.Destination
 	err := f.config.Unmarshal(inputQKey, &inputQ)
@@ -186,31 +194,28 @@ func (f *Worker) Recover(ch chan<- recovery.Message) {
 		}
 
 		for _, seq := range record.SequenceIds() {
-			f.recoverDstSequenceId(seq)
+			f.sequenceIdGen.RecoverId(seq)
 		}
 
-		f.recoverSrcSequenceId(*src)
+		f.dup.RecoverSequenceId(*src)
 	}
 }
 
-func (f *Worker) recoverSrcSequenceId(source sequence.Source) {
-	f.dup.Add(source)
-}
-
-func (f *Worker) recoverDstSequenceId(destination sequence.Destination) {
-	f.sequenceIds[destination.Key()] = destination.Id() + 1
-}
-
+// NextSequenceId generates and returns the next sequence ID for a given key.
 func (f *Worker) NextSequenceId(key string) uint64 {
-	sequenceId, ok := f.sequenceIds[key]
-	if !ok {
-		f.sequenceIds[key] = 1
-	} else {
-		f.sequenceIds[key]++
-	}
-	return sequenceId
+	return f.sequenceIdGen.NextId(key)
 }
 
+// HandleEofMessage processes an EOF message and determines the next action based on the workers visited.
+//
+// This method processes EOF messages, tracks which workers have already handled the EOF, and decides whether
+// to forward the message to the next input queue or propagate it to the output queues. If all workers have been
+// visited, the EOF message is finalized and sent to the outputs.
+//
+// Parameters:
+// - msg ([]byte): The raw message containing EOF information.
+// - headers (amqp.Header): The headers associated with the message.
+// - output (...amqp.DestinationEof): A variadic parameter of EOF destinations for output queues.
 func (f *Worker) HandleEofMessage(msg []byte, headers amqp.Header, output ...amqp.DestinationEof) ([]sequence.Destination, error) {
 	workersVisited, err := message.EofFromBytes(msg)
 	if err != nil {
@@ -222,13 +227,22 @@ func (f *Worker) HandleEofMessage(msg []byte, headers amqp.Header, output ...amq
 	}
 
 	if uint8(len(workersVisited)) < f.peers {
-		return f.handleEofToInput(headers, workersVisited)
+		return f.sendEofToNextInput(headers, workersVisited)
 	}
 
-	return f.handleEofToOutputs(headers, output...)
+	return f.sendEofToOutputs(headers, output...)
 }
 
-func (f *Worker) handleEofToInput(headers amqp.Header, workersVisited message.Eof) ([]sequence.Destination, error) {
+// sendEofToNextInput forwards an EOF message to the next input queue after processing.
+//
+// This method is responsible for forwarding the EOF message to the next input worker in the sequence.
+// It generates a new sequence ID for the next worker and publishes the updated EOF message with the
+// appropriate headers, including the worker's sequence ID and message ID.
+//
+// Parameters:
+// - headers (amqp.Header): The headers of the incoming EOF message that will be included in the forwarded message.
+// - workersVisited (message.Eof): A list of worker IDs that have already processed the EOF message.
+func (f *Worker) sendEofToNextInput(headers amqp.Header, workersVisited message.Eof) ([]sequence.Destination, error) {
 	key := fmt.Sprintf(f.inputEof.Key, f.Id+1)
 	sequenceId := f.NextSequenceId(key)
 	sequenceIds := []sequence.Destination{sequence.DstNew(key, sequenceId)}
@@ -242,11 +256,20 @@ func (f *Worker) handleEofToInput(headers amqp.Header, workersVisited message.Eo
 		f.inputEof.Exchange,
 		key,
 		bytes,
-		headers.WithMessageId(message.EofMsg).WithSequenceId(sequence.SrcNew(f.Uuid, sequenceId)),
+		headers.WithMessageId(message.EofId).WithSequenceId(sequence.SrcNew(f.Uuid, sequenceId)),
 	)
 }
 
-func (f *Worker) handleEofToOutputs(headers amqp.Header, output ...amqp.DestinationEof) ([]sequence.Destination, error) {
+// sendEofToOutputs forwards an EOF message to the output queues after all workers have been visited.
+//
+// This method is responsible for publishing the EOF message to the designated output queues once all workers
+// have processed the message. It generates a new sequence ID for each output queue and sends an empty EOF message
+// to those queues with the appropriate headers, including the worker's sequence ID and message ID.
+//
+// Parameters:
+// - headers (amqp.Header): The headers of the incoming EOF message that will be included in the forwarded message.
+// - output (...amqp.DestinationEof): A variadic parameter of EOF destinations for output queues.
+func (f *Worker) sendEofToOutputs(headers amqp.Header, output ...amqp.DestinationEof) ([]sequence.Destination, error) {
 	outputs := f.outputsEof
 	if output != nil && len(output) > 0 {
 		outputs = output
@@ -261,7 +284,7 @@ func (f *Worker) handleEofToOutputs(headers amqp.Header, output ...amqp.Destinat
 			o.Exchange,
 			o.Key,
 			amqp.EmptyEof,
-			headers.WithMessageId(message.EofMsg).WithSequenceId(sequence.SrcNew(f.Uuid, sequenceId)),
+			headers.WithMessageId(message.EofId).WithSequenceId(sequence.SrcNew(f.Uuid, sequenceId)),
 		); err != nil {
 			return nil, err
 		}
@@ -270,13 +293,25 @@ func (f *Worker) handleEofToOutputs(headers amqp.Header, output ...amqp.Destinat
 	return sequenceIds, nil
 }
 
-func (f *Worker) listenHc() {
-	go func() {
-		f.HealthCheckService.Listen()
-	}()
-}
-
-func (f *Worker) consume(filter W, signalChan chan os.Signal, deliveryChan ...<-chan amqp.Delivery) {
+// consume listens for incoming AMQP messages and processes them using the provided filter and sequence handling logic.
+// The function utilizes a `select` loop to wait for either signal interrupts or incoming messages. Once a message is
+// received, it is processed and acknowledged. Duplicate messages are filtered using a handler for sequence IDs.
+//
+// Parameters:
+// - filter (Node): A filter function that processes the incoming message and determines how it should be handled.
+// - signalChan (chan os.Signal): A channel that listens for shutdown signals (e.g., SIGINT, SIGTERM).
+// - deliveryChan (...<-chan amqp.Delivery): One or more AMQP channels that deliver incoming messages to be processed.
+//
+// This method performs the following tasks:
+// 1. It sets up a `select` loop that listens on the signal channel and the provided delivery channels.
+// 2. Upon receiving a signal, the worker shuts down gracefully.
+// 3. If an incoming message is received, it checks for duplicates by inspecting the sequence ID.
+// 4. Non-duplicate messages are processed by the `filter` and logged using the recovery handler.
+// 5. After processing, the message is acknowledged, and the worker continues to wait for the next message or signal.
+//
+// It ensures that the worker can shut down cleanly when receiving a signal and that messages are processed in order,
+// with duplicate handling based on sequence IDs.
+func (f *Worker) consume(filter Node, signalChan chan os.Signal, deliveryChan ...<-chan amqp.Delivery) {
 	cases := make([]reflect.SelectCase, 0, len(deliveryChan)+1)
 	cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(signalChan)})
 
@@ -299,7 +334,7 @@ func (f *Worker) consume(filter W, signalChan chan os.Signal, deliveryChan ...<-
 			continue
 		}
 
-		// W and only process non-duplicate messages
+		// Node and only process non-duplicate messages
 		if !f.dup.IsDuplicate(*srcSequenceId) {
 			sequenceIds, msg := filter.Process(delivery, header)
 
@@ -313,126 +348,4 @@ func (f *Worker) consume(filter W, signalChan chan os.Signal, deliveryChan ...<-
 			logs.Logger.Errorf("Failed to acknowledge message: %s", err.Error())
 		}
 	}
-}
-
-func (f *Worker) initExchanges() error {
-	var exchanges []amqp.Exchange
-	if err := f.config.Unmarshal(exchangesKey, &exchanges); err != nil {
-		return err
-	}
-
-	return f.Broker.ExchangeDeclare(exchanges...)
-}
-
-func (f *Worker) initQueues() error {
-	if err := f.initOutputQueues(); err != nil {
-		return err
-	}
-
-	return f.initInputQueues()
-}
-
-func (f *Worker) initOutputQueues() error {
-	// Output queue unmarshalling.
-	if err := f.config.Unmarshal(outputQKey, &f.Outputs); err != nil {
-		return err
-	}
-
-	for _, output := range f.Outputs {
-		// Queue declaration and binding.
-		_, destinations, err := f.initQueue(output)
-		if err != nil {
-			return err
-		}
-		// EOF Output queue processing.
-		for _, dst := range destinations {
-			f.outputsEof = append(f.outputsEof, amqp.DestinationEof(dst))
-		}
-	}
-
-	return nil
-}
-
-func (f *Worker) initInputQueues() error {
-	// Input queue unmarshalling and binding.
-	var inputQ []amqp.Destination
-	err := f.config.Unmarshal(inputQKey, &inputQ)
-	if err != nil {
-		return err
-	}
-
-	for _, q := range inputQ {
-		if q.Exchange == "" {
-			continue
-		}
-
-		f.inputEof = amqp.DestinationEof(q)
-
-		if isInputDestinationScalable(q) {
-			q.Name = fmt.Sprintf(q.Name, f.Id)
-			q.Key = fmt.Sprintf(q.Key, f.Id)
-		}
-
-		if _, err = f.Broker.QueueDeclare(q.Name); err != nil {
-			return err
-		}
-		if err = f.Broker.QueueBind(amqp.QueueBind{Exchange: q.Exchange, Name: q.Name, Key: q.Key}); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (f *Worker) initQueue(dst amqp.Destination) ([]amqp.Queue, []amqp.Destination, error) {
-	if dst.Consumers == 0 {
-		return f.initNonScalableQueue(dst)
-	}
-
-	return f.initScalableQueue(dst)
-}
-
-func (f *Worker) initNonScalableQueue(dst amqp.Destination) ([]amqp.Queue, []amqp.Destination, error) {
-	q, err := f.Broker.QueueDeclare(dst.Name)
-	if err != nil {
-		return nil, nil, err
-	}
-	if err = f.Broker.QueueBind(amqp.QueueBind{Exchange: dst.Exchange, Name: dst.Name, Key: dst.Key}); err != nil {
-		return nil, nil, err
-	}
-	return q, []amqp.Destination{{Exchange: dst.Exchange, Key: dst.Key}}, nil
-}
-
-func (f *Worker) initScalableQueue(dst amqp.Destination) ([]amqp.Queue, []amqp.Destination, error) {
-	queues := make([]amqp.Queue, 0, dst.Consumers)
-	destinations := make([]amqp.Destination, 0, dst.Consumers)
-
-	for i := uint8(0); i < dst.Consumers; i++ {
-		name := fmt.Sprintf(dst.Name, i)
-		q, err := f.Broker.QueueDeclare(name)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		key := fmt.Sprintf(dst.Key, i)
-		if err = f.Broker.QueueBind(amqp.QueueBind{Exchange: dst.Exchange, Name: name, Key: key}); err != nil {
-			return nil, nil, err
-		}
-
-		queues = append(queues, q...)
-
-		if isEofOutputDestination(dst, i) {
-			destinations = append(destinations, amqp.Destination{Exchange: dst.Exchange, Key: key})
-		}
-	}
-
-	return queues, destinations, nil
-}
-
-func isInputDestinationScalable(dst amqp.Destination) bool {
-	return strings.Contains(dst.Name, manyConsumersSubstr) && strings.Contains(dst.Key, manyConsumersSubstr)
-}
-
-func isEofOutputDestination(dst amqp.Destination, id uint8) bool {
-	return !dst.Single || id == 0
 }

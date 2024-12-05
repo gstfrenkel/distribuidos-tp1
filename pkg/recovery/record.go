@@ -7,8 +7,6 @@ import (
 	"tp1/pkg/sequence"
 )
 
-const dstSequenceHeaderLen = 1
-
 type Record interface {
 	toString() []string
 	Header() amqp.Header

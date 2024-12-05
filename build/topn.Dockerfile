@@ -1,4 +1,4 @@
-FROM golang:latest
+FROM golang:latest AS builder
 
 WORKDIR /app
 
@@ -6,13 +6,15 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Update path to desired entrypoint
-COPY cmd/worker/hybrid/top_n/top_n.go ./main.go
-COPY pkg/ ./pkg/
-COPY internal/errors/ ./internal/errors/
-COPY internal/worker/worker.go ./internal/worker/
-COPY internal/worker/hybrid/top_n/ ./internal/worker/hybrid/top_n/
-COPY internal/healthcheck/service.go ./internal/healthcheck/service.go
+COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o /main
+RUN CGO_ENABLED=0 GOOS=linux go build -o /main ./cmd/worker/hybrid/top_n/top_n.go
+
+ENTRYPOINT ["/main"]
+
+FROM scratch
+
+# Copy the compiled binary from the builder stage
+COPY --from=builder /main /main
 
 ENTRYPOINT ["/main"]

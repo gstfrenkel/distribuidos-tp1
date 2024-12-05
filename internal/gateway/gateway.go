@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"sync"
 	"syscall"
+	"tp1/pkg/sequence"
+
 	"tp1/internal/gateway/chunk"
 	"tp1/internal/gateway/persistence"
 	"tp1/internal/gateway/rabbit"
@@ -19,8 +21,7 @@ import (
 	"tp1/pkg/dup"
 	"tp1/pkg/logs"
 	"tp1/pkg/recovery"
-	"tp1/pkg/sequence"
-	"tp1/pkg/utils/id_generator"
+	"tp1/pkg/utils/id"
 )
 
 const (
@@ -44,15 +45,15 @@ type Gateway struct {
 	ChunkChans               [chunkChans]chan chunk.Item
 	finished                 bool
 	finishedMu               sync.Mutex
-	IdGenerator              *id_generator.IdGenerator
+	IdGenerator              *id.Generator
 	IdGeneratorMu            sync.Mutex
 	clientChannels           sync.Map
 	clientGamesAckChannels   sync.Map
 	clientReviewsAckChannels sync.Map
 	healthCheckService       *healthcheck.Service
-	recovery                 recovery.Handler
+	recovery                 *recovery.Handler
 	logChannel               chan recovery.Record
-	dup                      dup.Handler
+	dup                      *dup.Handler
 }
 
 func New() (*Gateway, error) {
@@ -96,7 +97,7 @@ func New() (*Gateway, error) {
 		finished:                 false,
 		finishedMu:               sync.Mutex{},
 		Listeners:                [connections]net.Listener{},
-		IdGenerator:              id_generator.New(uint8(gId), ""),
+		IdGenerator:              id.NewGenerator(uint8(gId), ""),
 		IdGeneratorMu:            sync.Mutex{},
 		clientChannels:           sync.Map{},
 		clientGamesAckChannels:   sync.Map{},
@@ -203,13 +204,13 @@ func (g *Gateway) recoverResults(
 				continue
 			}
 
-			g.dup.Add(*seqSource)
+			g.dup.RecoverSequenceId(*seqSource)
 		}
 
 		switch originId {
-		case amqp.Query1originId, amqp.Query2originId, amqp.Query3originId:
+		case amqp.Query1OriginId, amqp.Query2OriginId, amqp.Query3OriginId:
 			persistence.HandleSimpleQueryRecovery(recoveredMsg, recoveredMessages)
-		case amqp.Query4originId, amqp.Query5originId:
+		case amqp.Query4OriginId, amqp.Query5OriginId:
 			persistence.HandleAccumulatingQueryRecovery(
 				recoveredMsg,
 				clientAccumulatedResults,
@@ -235,7 +236,7 @@ func (g *Gateway) free(sigs chan os.Signal) {
 	_ = g.Listeners[utils.GamesListener].Close()
 	_ = g.Listeners[utils.ResultsListener].Close()
 	_ = g.Listeners[utils.ClientIdListener].Close()
-	_ = g.healthCheckService.Close()
+	g.healthCheckService.Close()
 	close(g.ChunkChans[utils.ReviewsListener])
 	close(g.ChunkChans[utils.GamesListener])
 	close(sigs)

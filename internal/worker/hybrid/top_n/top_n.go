@@ -22,7 +22,7 @@ type filter struct {
 	agg      bool
 }
 
-func New() (worker.W, error) {
+func New() (worker.Node, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err
@@ -57,9 +57,9 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 	var sequenceIds []sequence.Destination
 
 	switch headers.MessageId {
-	case message.EofMsg:
+	case message.EofId:
 		sequenceIds = f.processEof(headers, false)
-	case message.ScoredReviewID:
+	case message.ScoredReviewId:
 		f.updateTop(delivery.Body, headers.ClientId)
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
@@ -131,7 +131,7 @@ func (f *filter) publish(headers amqp.Header, recovery bool) []sequence.Destinat
 	}
 
 	var sequenceIds []sequence.Destination
-	headers = headers.WithOriginId(amqp.Query3originId)
+	headers = headers.WithOriginId(amqp.Query3OriginId)
 
 	topNScoredReviews := f.getTopNScoredReviews(headers.ClientId)
 	logs.Logger.Infof("Top %d games with most votes: %v", f.n, topNScoredReviews)
@@ -150,7 +150,7 @@ func (f *filter) publish(headers amqp.Header, recovery bool) []sequence.Destinat
 	}
 
 	sequenceId := f.w.NextSequenceId(output.Key)
-	headers = headers.WithMessageId(message.ScoredReviewID).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
+	headers = headers.WithMessageId(message.ScoredReviewId).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 	sequenceIds = append(sequenceIds, sequence.DstNew(output.Key, sequenceId))
 
 	if err = f.w.Broker.Publish(output.Exchange, output.Key, bytes, headers); err != nil {
@@ -189,9 +189,9 @@ func (f *filter) recover() {
 
 	for recoveredMsg := range ch {
 		switch recoveredMsg.Header().MessageId {
-		case message.EofMsg:
+		case message.EofId:
 			f.processEof(recoveredMsg.Header(), true)
-		case message.ScoredReviewID:
+		case message.ScoredReviewId:
 			f.updateTop(recoveredMsg.Message(), recoveredMsg.Header().ClientId)
 		default:
 			logs.Logger.Errorf(errors.InvalidMessageId.Error(), recoveredMsg.Header().MessageId)

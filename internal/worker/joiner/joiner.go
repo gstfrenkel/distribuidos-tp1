@@ -76,11 +76,11 @@ func (j *joiner) recover(instance processor) {
 
 	for recoveredMsg := range ch {
 		switch recoveredMsg.Header().MessageId {
-		case message.EofMsg:
+		case message.EofId:
 			j.processEof(recoveredMsg.Header(), nil)
-		case message.ScoredReviewID:
+		case message.ScoredReviewId:
 			instance.processReview(recoveredMsg.Header(), recoveredMsg.Message(), true)
-		case message.GameNameID:
+		case message.GameNameId:
 			instance.processGame(recoveredMsg.Header(), recoveredMsg.Message(), true)
 		default:
 			logs.Logger.Errorf(errors.InvalidMessageId.Error(), recoveredMsg.Header().MessageId)

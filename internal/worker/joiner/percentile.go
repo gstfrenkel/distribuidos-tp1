@@ -14,7 +14,7 @@ type percentile struct {
 	batchSize uint16
 }
 
-func NewPercentile() (worker.W, error) {
+func NewPercentile() (worker.Node, error) {
 	j, err := newJoiner()
 	if err != nil {
 		return nil, err
@@ -44,11 +44,11 @@ func (p *percentile) Process(delivery amqp.Delivery, headers amqp.Header) ([]seq
 	var sequenceIds []sequence.Destination
 
 	switch headers.MessageId {
-	case message.EofMsg:
+	case message.EofId:
 		sequenceIds = p.joiner.processEof(headers, p.processEof)
-	case message.ScoredReviewID:
+	case message.ScoredReviewId:
 		p.processReview(headers, delivery.Body, false)
-	case message.GameNameID:
+	case message.GameNameId:
 		p.processGame(headers, delivery.Body, false)
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
@@ -152,7 +152,7 @@ func (p *percentile) publish(headers amqp.Header, reviews message.ScoredReviews)
 	key := p.joiner.w.Outputs[0].Key
 	sequenceId := p.joiner.w.NextSequenceId(key)
 
-	headers = headers.WithMessageId(message.ScoredReviewID).WithSequenceId(sequence.SrcNew(p.joiner.w.Uuid, sequenceId))
+	headers = headers.WithMessageId(message.ScoredReviewId).WithSequenceId(sequence.SrcNew(p.joiner.w.Uuid, sequenceId))
 
 	if err = p.joiner.w.Broker.Publish(p.joiner.w.Outputs[0].Exchange, key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())

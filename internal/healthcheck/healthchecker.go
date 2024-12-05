@@ -29,13 +29,12 @@ const (
 	hcContainerNameKey     = "hc.container-name"
 	hcDefaultContainerName = "healthchecker-%d"
 
-	configFilePath   = "config.toml"
-	sleepSecs        = 2
-	waitAfterRestart = 5
-	maxErrors        = 2
-	hcMsg            = 1
-	dockerRestart    = "docker restart "
-	timeoutSecs      = 1
+	configFilePath     = "config.toml"
+	waitAfterRestartMs = 1750
+	maxErrors          = 2
+	hcMsg              = 1
+	dockerRestart      = "docker restart "
+	timeoutSecs        = 1
 )
 
 type HealthChecker struct {
@@ -84,7 +83,7 @@ func (hc *HealthChecker) Start() {
 
 	go func() {
 		<-sigs
-		hc.HandleSIGTERM()
+		hc.handleSigterm()
 	}()
 
 	go func() {
@@ -97,16 +96,16 @@ func (hc *HealthChecker) Start() {
 	for _, node := range hc.nodes {
 		go func(node string) {
 			defer wg.Done()
-			hc.Check(node)
+			hc.check(node)
 		}(node)
 	}
 
 	wg.Wait()
 }
 
-// Check checks if the node is alive and restarts it if it is not.
+// check checks if the node is alive and restarts it if it is not.
 // nodeIp is the container name of the node
-func (hc *HealthChecker) Check(nodeIp string) {
+func (hc *HealthChecker) check(nodeIp string) {
 	for {
 		hc.finishedMu.Lock()
 		if hc.finished {
@@ -124,7 +123,7 @@ func (hc *HealthChecker) Check(nodeIp string) {
 		}
 
 		errCount := hc.sendHcMsg(conn)
-		conn.Close()
+		_ = conn.Close()
 
 		if errCount == maxErrors {
 			hc.restartNode(nodeIp)
@@ -166,7 +165,7 @@ func (hc *HealthChecker) sendHcMsg(conn *net.UDPConn) int {
 			errCount = 0
 		}
 
-		time.Sleep(waitAfterRestart * time.Second)
+		time.Sleep(waitAfterRestartMs * time.Millisecond)
 	}
 
 	return errCount
@@ -201,7 +200,7 @@ func (hc *HealthChecker) connect(nodeAddr string) (*net.UDPConn, error) {
 func (hc *HealthChecker) restartNode(containerName string) {
 	logs.Logger.Errorf("Node %s is probably down", containerName)
 
-	// Check if the container is running
+	// check if the container is running
 	checkCmd := fmt.Sprintf("docker ps --filter name=%s --filter status=running", containerName)
 	output, err := io.ExecCommand(checkCmd)
 	if err != nil {
@@ -242,7 +241,7 @@ func hcAddrFromId(containerName string, id int) string {
 	return fmt.Sprintf(containerName, id)
 }
 
-func (hc *HealthChecker) HandleSIGTERM() {
+func (hc *HealthChecker) handleSigterm() {
 	logs.Logger.Info("Received SIGTERM, shutting down")
 	hc.finishedMu.Lock()
 	hc.finished = true

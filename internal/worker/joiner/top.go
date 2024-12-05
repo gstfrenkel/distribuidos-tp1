@@ -15,7 +15,7 @@ type top struct {
 	output amqp.Destination
 }
 
-func NewTop() (worker.W, error) {
+func NewTop() (worker.Node, error) {
 	j, err := newJoiner()
 	if err != nil {
 		return nil, err
@@ -47,11 +47,11 @@ func (t *top) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.D
 	var sequenceIds []sequence.Destination
 
 	switch headers.MessageId {
-	case message.EofMsg:
+	case message.EofId:
 		sequenceIds = t.joiner.processEof(headers, t.processEof)
-	case message.ScoredReviewID:
+	case message.ScoredReviewId:
 		sequenceIds = t.processReview(headers, delivery.Body, false)
-	case message.GameNameID:
+	case message.GameNameId:
 		sequenceIds = t.processGame(headers, delivery.Body, false)
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
@@ -153,7 +153,7 @@ func (t *top) publish(headers amqp.Header, b []byte) []sequence.Destination {
 	key := t.output.Key
 	sequenceId := t.joiner.w.NextSequenceId(key)
 
-	headers = headers.WithMessageId(message.ScoredReviewID).WithSequenceId(sequence.SrcNew(t.joiner.w.Uuid, sequenceId))
+	headers = headers.WithMessageId(message.ScoredReviewId).WithSequenceId(sequence.SrcNew(t.joiner.w.Uuid, sequenceId))
 
 	if err := t.joiner.w.Broker.Publish(t.output.Exchange, key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())

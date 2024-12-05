@@ -28,7 +28,6 @@ func NewService() (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	logs.Logger.Infof("Health check service listening on port %d", port)
 
 	return &Service{listener: listener}, nil
 }
@@ -56,6 +55,6 @@ func (h *Service) Listen() {
 	h.Close()
 }
 
-func (h *Service) Close() error {
-	return h.listener.Close()
+func (h *Service) Close() {
+	_ = h.listener.Close()
 }

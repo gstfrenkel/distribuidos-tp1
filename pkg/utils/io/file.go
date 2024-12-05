@@ -18,6 +18,7 @@ type File struct {
 	file *os.File
 }
 
+// NewFile creates a CSV file reader and writer for the specified filePath.
 func NewFile(filePath string) (*File, error) {
 	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, fileMode)
 	if err != nil {
@@ -34,10 +35,12 @@ func NewFile(filePath string) (*File, error) {
 	}, nil
 }
 
+// Read reads the next line.
 func (r *File) Read() ([]string, error) {
 	return r.r.Read()
 }
 
+// Write writes a record into the file. Upon finishing, the writer's buffer gets flushed.
 func (r *File) Write(record []string) error {
 	defer r.w.Flush()
 	return r.w.Write(record)

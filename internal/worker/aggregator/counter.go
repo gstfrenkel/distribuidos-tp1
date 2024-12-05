@@ -14,8 +14,8 @@ type counter struct {
 	games map[string]message.GameNames // <clientId, []GameName>
 }
 
-func NewCounter() (worker.W, error) {
-	a, err := newAggregator(amqp.Query4originId)
+func NewCounter() (worker.Node, error) {
+	a, err := newAggregator(amqp.Query4OriginId)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +32,7 @@ func (c *counter) Init() error {
 		return err
 	}
 
-	c.agg.recover(c, message.GameNameID)
+	c.agg.recover(c, message.GameNameId)
 
 	return nil
 }
@@ -45,9 +45,9 @@ func (c *counter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequen
 	var sequenceIds []sequence.Destination
 
 	switch headers.MessageId {
-	case message.EofMsg:
+	case message.EofId:
 		sequenceIds = c.agg.processEof(c, headers.WithOriginId(c.agg.originId), false)
-	case message.GameNameID:
+	case message.GameNameId:
 		c.save(delivery.Body, headers.ClientId)
 		sequenceIds = c.publish(headers)
 	default:

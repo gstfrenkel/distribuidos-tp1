@@ -19,7 +19,7 @@ type indie struct {
 	w *worker.Worker
 }
 
-func NewIndie() (worker.W, error) {
+func NewIndie() (worker.Node, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err
@@ -47,12 +47,12 @@ func (f *indie) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence
 	var err error
 
 	switch headers.MessageId {
-	case message.EofMsg:
+	case message.EofId:
 		sequenceIds, err = f.w.HandleEofMessage(delivery.Body, headers.WithOriginId(amqp.GameOriginId))
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
-	case message.GameIdMsg:
+	case message.GameId:
 		msg, err := message.GameFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
@@ -76,7 +76,7 @@ func (f *indie) publish(headers amqp.Header, msg message.Game) []sequence.Destin
 func (f *indie) publishGameNames(headers amqp.Header, msg message.Game, genre string) []sequence.Destination {
 	gameNames := msg.ToGameNamesMessage(genre)
 	sequenceIdsNames := make([]sequence.Destination, 0, len(gameNames))
-	headers = headers.WithMessageId(message.GameNameID)
+	headers = headers.WithMessageId(message.GameNameId)
 	output := f.w.Outputs[q3]
 
 	for _, game := range gameNames {
@@ -111,9 +111,9 @@ func (f *indie) publishGameReleases(headers amqp.Header, msg message.Game, genre
 
 	key := shard.String(headers.SequenceId, output.Key, output.Consumers)
 	sequenceId := f.w.NextSequenceId(key)
-	headers = headers.WithMessageId(message.GameReleaseID).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
+	headers = headers.WithMessageId(message.GameReleaseId).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 
-	if err = f.w.Broker.Publish(output.Exchange, key, b, headers.WithMessageId(message.GameReleaseID)); err != nil {
+	if err = f.w.Broker.Publish(output.Exchange, key, b, headers.WithMessageId(message.GameReleaseId)); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err.Error())
 	}
 

@@ -16,7 +16,7 @@ type releaseDate struct {
 	endYear   int
 }
 
-func NewReleaseDate() (worker.W, error) {
+func NewReleaseDate() (worker.Node, error) {
 	w, err := worker.New()
 	if err != nil {
 		return nil, err
@@ -46,12 +46,12 @@ func (f *releaseDate) Process(delivery amqp.Delivery, headers amqp.Header) ([]se
 	var err error
 
 	switch headers.MessageId {
-	case message.EofMsg:
+	case message.EofId:
 		sequenceIds, err = f.w.HandleEofMessage(delivery.Body, headers)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
-	case message.GameReleaseID:
+	case message.GameReleaseId:
 		msg, err := message.ReleasesFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
@@ -78,7 +78,7 @@ func (f *releaseDate) publish(msg message.Releases, headers amqp.Header) []seque
 	key := shard.String(headers.SequenceId, output.Key, output.Consumers)
 	sequenceId := f.w.NextSequenceId(key)
 
-	headers = headers.WithMessageId(message.GameWithPlaytimeID).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
+	headers = headers.WithMessageId(message.GameWithPlaytimeId).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 
 	if err = f.w.Broker.Publish(output.Exchange, key, b, headers); err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
