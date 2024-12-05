@@ -49,14 +49,14 @@ type Node interface {
 // and communicates with other system components.
 type Worker struct {
 	config             config.Config
-	HealthCheckService healthcheck.Service
+	HealthCheckService *healthcheck.Service
 	Broker             amqp.MessageBroker
 	inputEof           amqp.DestinationEof
 	outputsEof         []amqp.DestinationEof
 	Outputs            []amqp.Destination
-	recovery           recovery.Handler
-	sequenceIdGen      sequence.Generator
-	dup                dup.Handler
+	recovery           *recovery.Handler
+	sequenceIdGen      *sequence.Generator
+	dup                *dup.Handler
 	Uuid               string
 	Id                 uint8
 	peers              uint8

@@ -50,10 +50,10 @@ type Gateway struct {
 	clientChannels           sync.Map
 	clientGamesAckChannels   sync.Map
 	clientReviewsAckChannels sync.Map
-	healthCheckService       healthcheck.Service
-	recovery                 recovery.Handler
+	healthCheckService       *healthcheck.Service
+	recovery                 *recovery.Handler
 	logChannel               chan recovery.Record
-	dup                      dup.Handler
+	dup                      *dup.Handler
 }
 
 func New() (*Gateway, error) {

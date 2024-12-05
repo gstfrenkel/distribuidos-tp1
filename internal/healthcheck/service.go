@@ -14,16 +14,11 @@ const (
 	maxError          = 3
 )
 
-type Service interface {
-	Listen()
-	Close()
-}
-
-type service struct {
+type Service struct {
 	listener *net.UDPConn
 }
 
-func NewService() (Service, error) {
+func NewService() (*Service, error) {
 	udpAddr, err := net.ResolveUDPAddr(transportProtocol, fmt.Sprintf(":%d", port))
 	if err != nil {
 		return nil, err
@@ -34,12 +29,12 @@ func NewService() (Service, error) {
 		return nil, err
 	}
 
-	return &service{listener: listener}, nil
+	return &Service{listener: listener}, nil
 }
 
 // Listen reads the health checker messages.
 // If it fails to read (timeout occurred), it means the health checker is down.
-func (h *service) Listen() {
+func (h *Service) Listen() {
 	buf := make([]byte, msgBytes)
 	i := 0
 	for i < maxError {
@@ -60,6 +55,6 @@ func (h *service) Listen() {
 	h.Close()
 }
 
-func (h *service) Close() {
+func (h *Service) Close() {
 	_ = h.listener.Close()
 }
