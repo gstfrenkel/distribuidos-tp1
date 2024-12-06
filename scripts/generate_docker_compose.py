@@ -1,19 +1,22 @@
+import json
 import sys
+from pathlib import Path
 
 
 def generate_docker_compose(
-    gateway_count,
-    reviews_count,
-    review_text_count,
-    action_count,
-    indie_count,
-    platform_count,
-    joiner_counter_count,
-    joiner_top_count,
-    joiner_percentile_count,
-    topn_count,
-    topn_playtime_count,
-    release_date_count,
+    gateway,
+    reviews_filter,
+    review_text_filter,
+    action_filter,
+    indie_filter,
+    platform_filter,
+    counter_joiner,
+    top_joiner,
+    percentile_joiner,
+    topn_filter,
+    platform_counter,
+    topn_playtime_filter,
+    release_date_filter,
 ):
     docker_compose = """services:
   rabbitmq:
@@ -31,9 +34,9 @@ def generate_docker_compose(
       start_period: 50s
     logging:
       driver: none
-  """
+      """
 
-    for i in range(gateway_count):
+    for i in range(gateway):
         docker_compose += f"""
   gateway-{i+1}:
     container_name: gateway-{i+1}
@@ -52,9 +55,10 @@ def generate_docker_compose(
       - ./configs/gateway.toml:/config.toml
       - ./configs/healthcheck_service.toml:/healthcheck_service.toml
       - ./volumes/gateway-{i+1}.csv:/recovery.csv
+      - ./configs/healthcheck_service.toml:/healthcheck_service.toml
       - ./volumes/id-generator-{i+1}.csv:/pkg/utils/id/id-generator-{i+1}.csv
 """
-    for i in range(reviews_count):
+    for i in range(reviews_filter):
         docker_compose += f"""
   reviews-filter-{i + 1}:
     container_name: reviews-filter-{i + 1}
@@ -75,7 +79,7 @@ def generate_docker_compose(
       - ./volumes/reviews-filter-{i+1}.csv:/recovery.csv
 """
 
-    for i in range(review_text_count):
+    for i in range(review_text_filter):
         docker_compose += f"""
   review-text-filter-{i + 1}:
     container_name: review-text-filter-{i + 1}
@@ -96,7 +100,7 @@ def generate_docker_compose(
       - ./volumes/review-text-filter-{i+1}.csv:/recovery.csv
 """
 
-    for i in range(action_count):
+    for i in range(action_filter):
         docker_compose += f"""
   action-filter-{i + 1}:
     container_name: action-filter-{i + 1}
@@ -117,7 +121,7 @@ def generate_docker_compose(
       - ./volumes/action-filter-{i+1}.csv:/recovery.csv
 """
 
-    for i in range(indie_count):
+    for i in range(indie_filter):
         docker_compose += f"""
   indie-filter-{i + 1}:
     container_name: indie-filter-{i + 1}
@@ -138,7 +142,7 @@ def generate_docker_compose(
       - ./volumes/indie-filter-{i+1}.csv:/recovery.csv
 """
 
-    for i in range(platform_count):
+    for i in range(platform_filter):
         docker_compose += f"""
   platform-filter-{i + 1}:
     container_name: platform-filter-{i + 1}
@@ -159,7 +163,7 @@ def generate_docker_compose(
       - ./volumes/platform-filter-{i+1}.csv:/recovery.csv
 """
 
-    for i in range(joiner_counter_count):
+    for i in range(counter_joiner):
         docker_compose += f"""
   counter-joiner-{i + 1}:
     container_name: counter-joiner-{i + 1}
@@ -180,7 +184,7 @@ def generate_docker_compose(
       - ./volumes/counter-joiner-{i+1}.csv:/recovery.csv
 """
 
-    for i in range(joiner_top_count):
+    for i in range(top_joiner):
         docker_compose += f"""
   top-joiner-{i + 1}:
     container_name: top-joiner-{i + 1}
@@ -201,7 +205,7 @@ def generate_docker_compose(
       - ./volumes/top-joiner-{i+1}.csv:/recovery.csv
 """
 
-    for i in range(joiner_percentile_count):
+    for i in range(percentile_joiner):
         docker_compose += f"""
   percentile-joiner-{i + 1}:
     container_name: percentile-joiner-{i + 1}
@@ -242,7 +246,7 @@ def generate_docker_compose(
       - ./volumes/percentile-aggregator.csv:/recovery.csv
 """
 
-    for i in range(topn_count):
+    for i in range(topn_filter):
         docker_compose += f"""
   topn-filter-{i + 1}:
     container_name: topn-filter-{i + 1}
@@ -283,7 +287,7 @@ def generate_docker_compose(
       - ./volumes/topn-aggregator.csv:/recovery.csv
 """
 
-    for i in range(platform_counter_count):
+    for i in range(platform_counter):
         docker_compose += f"""
   platform-counter-{i + 1}:
     container_name: platform-counter-{i + 1}
@@ -324,7 +328,7 @@ def generate_docker_compose(
       - ./volumes/platform-aggregator.csv:/recovery.csv
 """
 
-    for i in range(topn_playtime_count):
+    for i in range(topn_playtime_filter):
         docker_compose += f"""
   topn-playtime-filter-{i + 1}:
     container_name: topn-playtime-filter-{i + 1}
@@ -345,7 +349,7 @@ def generate_docker_compose(
       - ./volumes/topn-playtime-filter-{i+1}.csv:/recovery.csv
 """
 
-    for i in range(release_date_count):
+    for i in range(release_date_filter):
         docker_compose += f"""
   release-date-filter-{i + 1}:
     container_name: release-date-filter-{i + 1}
@@ -413,43 +417,20 @@ networks:
 
 
 if __name__ == "__main__":
+    config_path = Path("generate-compose-config.json")
 
-    if len(sys.argv) != 14:
-        print(
-            "Usage: python3 generate_docker_compose.py <gateway_count> <reviews_count> <review_text_count> <action_count> "
-            "<indie_count> <platform_count> <joiner_counter_count> <joiner_top_count> <joiner_percentile_count> "
-            "<topn_count> <topn_playtime_count> <release_date_count>"
-        )
+    if not config_path.exists():
+        print(f"Error: Config file not found at {config_path}")
         sys.exit(1)
 
-    gateway_count = int(sys.argv[1])
-    reviews_count = int(sys.argv[2])
-    review_text_count = int(sys.argv[3])
-    action_count = int(sys.argv[4])
-    indie_count = int(sys.argv[5])
-    platform_count = int(sys.argv[6])
-    joiner_counter_count = int(sys.argv[7])
-    joiner_top_count = int(sys.argv[8])
-    joiner_percentile_count = int(sys.argv[9])
-    topn_count = int(sys.argv[10])
-    platform_counter_count = int(sys.argv[11])
-    topn_playtime_count = int(sys.argv[12])
-    release_date_count = int(sys.argv[13])
+    with open(config_path, "r") as config_file:
+        config = json.load(config_file)
 
-    docker_compose = generate_docker_compose(
-        gateway_count,
-        reviews_count,
-        review_text_count,
-        action_count,
-        indie_count,
-        platform_count,
-        joiner_counter_count,
-        joiner_top_count,
-        joiner_percentile_count,
-        topn_count,
-        topn_playtime_count,
-        release_date_count,
-    )
+    try:
+        docker_compose = generate_docker_compose(**config)
+    except KeyError as e:
+        print(f"Missing configuration key: {e}")
+        sys.exit(1)
 
     with open("../docker-compose.yaml", "w") as f:
         f.write(docker_compose)
