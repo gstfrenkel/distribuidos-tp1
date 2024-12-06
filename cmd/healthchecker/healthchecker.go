@@ -9,7 +9,7 @@ import (
 func main() {
 	service, err := healthcheck.NewService()
 	if err != nil {
-		logs.Logger.Errorf("Failed to launch health checker: %s", err.Error())
+		logs.Logger.Errorf("Failed to launch health check service: %s", err.Error())
 		return
 	}
 
