@@ -29,11 +29,7 @@ build-hc:
 	docker build -f ./build/healthchecker.Dockerfile -t "healthchecker:latest" .
 .PHONY: build-hc
 
-create-files:
-	cd ./scripts && python3 recovery-files-creator.py && cd ..
-.PHONY: create-files
-
-docker-compose-up: build create-files
+docker-compose-up: build
 	docker compose -f docker-compose.yaml up -d --build
 .PHONY: docker-compose-up
 

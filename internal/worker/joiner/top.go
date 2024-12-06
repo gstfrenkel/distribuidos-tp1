@@ -43,12 +43,13 @@ func (t *top) Start() {
 	t.joiner.w.Start(t)
 }
 
-func (t *top) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+func (t *top) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte, bool) {
 	var sequenceIds []sequence.Destination
+	var done bool
 
 	switch headers.MessageId {
 	case message.EofId:
-		sequenceIds = t.joiner.processEof(headers, t.processEof)
+		sequenceIds, done = t.joiner.processEof(headers, t.processEof)
 	case message.ScoredReviewId:
 		sequenceIds = t.processReview(headers, delivery.Body, false)
 	case message.GameNameId:
@@ -57,7 +58,7 @@ func (t *top) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.D
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
-	return sequenceIds, delivery.Body
+	return sequenceIds, delivery.Body, done
 }
 
 func (t *top) processEof(headers amqp.Header) []sequence.Destination {

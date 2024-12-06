@@ -2,28 +2,50 @@ package recovery
 
 import (
 	"io"
-
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
 	"tp1/pkg/sequence"
+
 	ioutils "tp1/pkg/utils/io"
 )
 
-const filePath = "recovery.csv"
+const (
+	dirPath   = "recovery/"
+	extension = ".csv"
+)
 
 type Handler struct {
-	file *ioutils.File
+	files map[string]*ioutils.File
 }
 
 // NewHandler creates a new recovery handler.
 func NewHandler() (*Handler, error) {
-	file, err := ioutils.NewFile(filePath)
+	files := make(map[string]*ioutils.File)
+
+	entries, err := os.ReadDir(dirPath)
 	if err != nil {
 		return nil, err
 	}
 
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != extension {
+			continue
+		}
+
+		file, err := ioutils.NewFile(entry.Name())
+		if err != nil {
+			return nil, err
+		}
+
+		files[strings.TrimSuffix(entry.Name(), extension)] = file
+	}
+
 	return &Handler{
-		file: file,
+		files: files,
 	}, nil
 }
 
@@ -32,8 +54,56 @@ func NewHandler() (*Handler, error) {
 func (h *Handler) Recover(ch chan<- Record) {
 	defer close(ch)
 
+	var wg sync.WaitGroup
+	wg.Add(len(h.files))
+
+	for _, file := range h.files {
+		go recoverFile(file, ch, &wg)
+	}
+
+	wg.Wait()
+}
+
+// Log saves a record into the underlying file.
+func (h *Handler) Log(record Record) error {
+	var err error
+
+	file, ok := h.files[record.Header().ClientId]
+	if !ok {
+		file, err = ioutils.NewFile(fullPath(record.Header().ClientId))
+		if err != nil {
+			return err
+		}
+	}
+
+	h.files[record.Header().ClientId] = file
+	return file.Write(record.toString())
+}
+
+func (h *Handler) Delete(clientId string) {
+	file, ok := h.files[clientId]
+	if !ok {
+		return
+	}
+	file.Close()
+	if err := os.Remove(fullPath(clientId)); err != nil {
+		logs.Logger.Errorf("failed to delete file: %s", err.Error())
+	}
+	delete(h.files, clientId)
+}
+
+// Close closes the files descriptors linked to the underlying files.
+func (h *Handler) Close() {
+	for _, file := range h.files {
+		file.Close()
+	}
+}
+
+func recoverFile(file *ioutils.File, ch chan<- Record, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	for {
-		line, err := h.file.Read()
+		line, err := file.Read()
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -62,12 +132,6 @@ func (h *Handler) Recover(ch chan<- Record) {
 	}
 }
 
-// Log saves a record into the underlying file.
-func (h *Handler) Log(record Record) error {
-	return h.file.Write(record.toString())
-}
-
-// Close closes the file descriptor linked to the underlying file.
-func (h *Handler) Close() {
-	h.file.Close()
+func fullPath(clientId string) string {
+	return dirPath + clientId + extension
 }

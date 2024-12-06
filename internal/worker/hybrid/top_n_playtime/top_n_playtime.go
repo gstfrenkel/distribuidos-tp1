@@ -47,19 +47,20 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte, bool) {
 	var sequenceIds []sequence.Destination
+	var done bool
 
 	switch headers.MessageId {
 	case message.EofId:
-		sequenceIds = f.processEof(delivery.Body, headers, false)
+		sequenceIds, done = f.processEof(delivery.Body, headers, false)
 	case message.GameWithPlaytimeId:
 		f.processGame(delivery.Body, headers.ClientId)
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
-	return sequenceIds, delivery.Body
+	return sequenceIds, delivery.Body, done
 }
 
 func (f *filter) processGame(msgBytes []byte, clientId string) {
@@ -77,14 +78,16 @@ func (f *filter) processGame(msgBytes []byte, clientId string) {
 	clientHeap.UpdateReleases(msg, int(f.n))
 }
 
-func (f *filter) processEof(msgBytes []byte, headers amqp.Header, recovery bool) []sequence.Destination {
+func (f *filter) processEof(msgBytes []byte, headers amqp.Header, recovery bool) ([]sequence.Destination, bool) {
 	var sequenceIds []sequence.Destination
+	var done bool
+
 	headers = headers.WithOriginId(amqp.Query2OriginId)
 
 	workersVisited, err := message.EofFromBytes(msgBytes)
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
-		return sequenceIds
+		return sequenceIds, done
 	}
 
 	if !workersVisited.Contains(f.w.Id) {
@@ -92,6 +95,7 @@ func (f *filter) processEof(msgBytes []byte, headers amqp.Header, recovery bool)
 			sequenceIds = f.publish(headers)
 		}
 		delete(f.clientHeaps, headers.ClientId)
+		done = true
 	}
 
 	if !f.agg && !recovery {
@@ -103,7 +107,7 @@ func (f *filter) processEof(msgBytes []byte, headers amqp.Header, recovery bool)
 		}
 	}
 
-	return sequenceIds
+	return sequenceIds, done
 }
 
 func (f *filter) publish(headers amqp.Header) []sequence.Destination {
