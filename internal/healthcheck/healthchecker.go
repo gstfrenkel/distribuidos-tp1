@@ -42,7 +42,6 @@ type HealthChecker struct {
 	serverPort string
 	nextHc     string   //address of the next health checker
 	nodes      []string //addresses of the nodes to check
-	service    *Service
 	finished   bool
 	finishedMu sync.Mutex
 }
@@ -51,11 +50,6 @@ func New() (*HealthChecker, error) {
 	cfg, err := provider.LoadConfig(configFilePath)
 	serverPort, containerName := getConfig(cfg)
 	id, nextId, nodes, err := getEnvVars()
-	if err != nil {
-		return nil, err
-	}
-
-	hcService, err := NewService()
 	if err != nil {
 		return nil, err
 	}
@@ -71,23 +65,17 @@ func New() (*HealthChecker, error) {
 		nextHc:     nextHc,
 		nodes:      nodes,
 		serverPort: serverPort,
-		service:    hcService,
 	}, nil
 }
 
 // Start starts the health checker for every node
 func (hc *HealthChecker) Start() {
-	defer hc.service.Close()
 	sigs := make(chan os.Signal, 2)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
 		<-sigs
 		hc.handleSigterm()
-	}()
-
-	go func() {
-		hc.service.Listen()
 	}()
 
 	wg := sync.WaitGroup{}

@@ -13,7 +13,6 @@ import (
 	"tp1/internal/gateway/persistence"
 	"tp1/internal/gateway/rabbit"
 	"tp1/internal/gateway/utils"
-	"tp1/internal/healthcheck"
 	"tp1/pkg/amqp"
 	"tp1/pkg/amqp/broker"
 	"tp1/pkg/config"
@@ -50,7 +49,6 @@ type Gateway struct {
 	clientChannels           sync.Map
 	clientGamesAckChannels   sync.Map
 	clientReviewsAckChannels sync.Map
-	healthCheckService       *healthcheck.Service
 	recovery                 *recovery.Handler
 	logChannel               chan recovery.Record
 	dup                      *dup.Handler
@@ -77,11 +75,6 @@ func New() (*Gateway, error) {
 		return nil, err
 	}
 
-	hc, err := healthcheck.NewService()
-	if err != nil {
-		return nil, err
-	}
-
 	recoveryHandler, err := recovery.NewHandler()
 	if err != nil {
 		return nil, err
@@ -102,7 +95,6 @@ func New() (*Gateway, error) {
 		clientChannels:           sync.Map{},
 		clientGamesAckChannels:   sync.Map{},
 		clientReviewsAckChannels: sync.Map{},
-		healthCheckService:       hc,
 		recovery:                 recoveryHandler,
 		logChannel:               make(chan recovery.Record),
 		dup:                      dup.NewHandler(),
@@ -138,7 +130,6 @@ func (g *Gateway) Start() {
 	)
 
 	go g.ListenResults()
-
 	go g.logResults()
 
 	wg := &sync.WaitGroup{}
@@ -154,7 +145,6 @@ func (g *Gateway) startListeners(wg *sync.WaitGroup) {
 	go g.startDataListener(wg, utils.ReviewsListener, "reviews")
 	go g.startDataListener(wg, utils.GamesListener, "games")
 	go g.startResultsListener(wg)
-	go g.startHealthCheckListener(wg)
 }
 
 func (g *Gateway) startNewClientListener(wg *sync.WaitGroup) {
@@ -179,11 +169,6 @@ func (g *Gateway) startResultsListener(wg *sync.WaitGroup) {
 	if err != nil {
 		logs.Logger.Errorf("Error listening results: %s", err)
 	}
-}
-
-func (g *Gateway) startHealthCheckListener(wg *sync.WaitGroup) {
-	defer wg.Done()
-	g.healthCheckService.Listen()
 }
 
 func (g *Gateway) recoverResults(
@@ -236,7 +221,6 @@ func (g *Gateway) free(sigs chan os.Signal) {
 	_ = g.Listeners[utils.GamesListener].Close()
 	_ = g.Listeners[utils.ResultsListener].Close()
 	_ = g.Listeners[utils.ClientIdListener].Close()
-	g.healthCheckService.Close()
 	close(g.ChunkChans[utils.ReviewsListener])
 	close(g.ChunkChans[utils.GamesListener])
 	close(sigs)

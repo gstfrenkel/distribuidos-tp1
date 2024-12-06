@@ -1,11 +1,20 @@
 package main
 
 import (
+	"tp1/internal/healthcheck"
 	"tp1/internal/worker/joiner"
 	"tp1/pkg/logs"
 )
 
 func main() {
+	hc, err := healthcheck.NewService()
+	if err != nil {
+		logs.Logger.Errorf("Failed to launch health checker: %s", err.Error())
+		return
+	}
+
+	go hc.Listen() //TODO ver si sale con 0 al stoppear
+
 	filter, err := joiner.NewTop()
 	if err != nil {
 		logs.Logger.Errorf("Failed to create new joiner: %s", err.Error())
