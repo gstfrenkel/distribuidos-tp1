@@ -142,7 +142,6 @@ func (hc *HealthChecker) sendHcMsg(conn *net.UDPConn) uint8 {
 		hc.finishedMu.Unlock()
 
 		_, err := conn.Write([]byte{hcMsg})
-		logs.Logger.Infof("Sent health check message to %v", conn.RemoteAddr())
 		if err != nil {
 			errCount++
 			logs.Logger.Errorf("Error sending health check message: %v. Count: %d", err, errCount)
@@ -159,7 +158,6 @@ func (hc *HealthChecker) sendHcMsg(conn *net.UDPConn) uint8 {
 			errCount++
 			logs.Logger.Debugf("Error recv health check ack: %v. Error count: %d", err, errCount)
 		} else {
-			logs.Logger.Infof("Received health check ack from %v", conn.RemoteAddr())
 			errCount = 0
 		}
 
