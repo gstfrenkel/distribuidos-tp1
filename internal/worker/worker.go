@@ -10,7 +10,6 @@ import (
 	"syscall"
 
 	"tp1/internal/errors"
-	"tp1/internal/healthcheck"
 	"tp1/pkg/amqp"
 	"tp1/pkg/amqp/broker"
 	"tp1/pkg/config"
@@ -48,21 +47,20 @@ type Node interface {
 // Worker represents a worker node which processes messages from a broker, manages its state,
 // and communicates with other system components.
 type Worker struct {
-	config             config.Config
-	HealthCheckService *healthcheck.Service
-	Broker             amqp.MessageBroker
-	inputEof           amqp.DestinationEof
-	outputsEof         []amqp.DestinationEof
-	Outputs            []amqp.Destination
-	recovery           *recovery.Handler
-	sequenceIdGen      *sequence.Generator
-	dup                *dup.Handler
-	Uuid               string
-	Id                 uint8
-	peers              uint8
-	ExpectedEofs       uint8
-	Query              any
-	signalChan         chan os.Signal
+	config        config.Config
+	Broker        amqp.MessageBroker
+	inputEof      amqp.DestinationEof
+	outputsEof    []amqp.DestinationEof
+	Outputs       []amqp.Destination
+	recovery      *recovery.Handler
+	sequenceIdGen *sequence.Generator
+	dup           *dup.Handler
+	Uuid          string
+	Id            uint8
+	peers         uint8
+	ExpectedEofs  uint8
+	Query         any
+	signalChan    chan os.Signal
 }
 
 // New initializes and returns a new instance of Worker.
@@ -103,24 +101,18 @@ func New() (*Worker, error) {
 		return nil, err
 	}
 
-	hc, err := healthcheck.NewService()
-	if err != nil {
-		return nil, err
-	}
-
 	return &Worker{
-		config:             cfg,
-		Query:              query,
-		Broker:             b,
-		signalChan:         signalChan,
-		Uuid:               os.Getenv(workerUuidKey),
-		Id:                 uint8(id),
-		recovery:           recoveryHandler,
-		dup:                dup.NewHandler(),
-		sequenceIdGen:      sequence.NewGenerator(),
-		peers:              peers,
-		ExpectedEofs:       expectedEofs,
-		HealthCheckService: hc,
+		config:        cfg,
+		Query:         query,
+		Broker:        b,
+		signalChan:    signalChan,
+		Uuid:          os.Getenv(workerUuidKey),
+		Id:            uint8(id),
+		recovery:      recoveryHandler,
+		dup:           dup.NewHandler(),
+		sequenceIdGen: sequence.NewGenerator(),
+		peers:         peers,
+		ExpectedEofs:  expectedEofs,
 	}, nil
 }
 
@@ -137,9 +129,6 @@ func (f *Worker) Init() error {
 func (f *Worker) Start(filter Node) {
 	defer close(f.signalChan)
 	defer f.Broker.Close()
-	defer f.HealthCheckService.Close()
-
-	go f.HealthCheckService.Listen()
 
 	var inputQ []amqp.Destination
 	err := f.config.Unmarshal(inputQKey, &inputQ)
