@@ -31,8 +31,8 @@ const (
 	maxErrorsDef           = 2
 	timeoutSecsKey         = "hc.timeout-secs"
 	defTimeoutSecs         = 1
-	intervalKey            = "hc.wait-after-restart-ms"
-	defInterval            = 1750
+	intervalKey            = "hc.interval"
+	defInterval            = 1000
 
 	configFilePath = "config.toml"
 	hcMsg          = 1
