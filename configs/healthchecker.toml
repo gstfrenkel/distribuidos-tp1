@@ -1,3 +1,6 @@
 [hc]
 server-port = 9290
 container-name = "healthchecker-%d"
+max-err = 2
+timeout-secs = 1
+interval = 100

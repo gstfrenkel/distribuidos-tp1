@@ -53,6 +53,7 @@ def generate_docker_compose(
       - tp1_net
     volumes:
       - ./configs/gateway.toml:/config.toml
+      - ./configs/healthcheck_service.toml:/healthcheck_service.toml
       - ./volumes/gateway-{i+1}.csv:/recovery.csv
       - ./configs/healthcheck_service.toml:/healthcheck_service.toml
       - ./volumes/id-generator-{i+1}.csv:/pkg/utils/id/id-generator-{i+1}.csv
@@ -95,7 +96,7 @@ def generate_docker_compose(
       - tp1_net
     volumes:
       - ./configs/text.json:/config.json
-      - ./configs/healthcheck_service.toml:/healthcheck_service.toml      
+      - ./configs/healthcheck_service.toml:/healthcheck_service.toml
       - ./volumes/review-text-filter-{i+1}.csv:/recovery.csv
 """
 
@@ -116,7 +117,7 @@ def generate_docker_compose(
       - tp1_net
     volumes:
       - ./configs/action.json:/config.json
-      - ./configs/healthcheck_service.toml:/healthcheck_service.toml 
+      - ./configs/healthcheck_service.toml:/healthcheck_service.toml
       - ./volumes/action-filter-{i+1}.csv:/recovery.csv
 """
 
@@ -137,7 +138,7 @@ def generate_docker_compose(
       - tp1_net
     volumes:
       - ./configs/indie.json:/config.json
-      - ./configs/healthcheck_service.toml:/healthcheck_service.toml 
+      - ./configs/healthcheck_service.toml:/healthcheck_service.toml
       - ./volumes/indie-filter-{i+1}.csv:/recovery.csv
 """
 
@@ -158,7 +159,7 @@ def generate_docker_compose(
       - tp1_net
     volumes:
       - ./configs/platform.json:/config.json
-      - ./configs/healthcheck_service.toml:/healthcheck_service.toml 
+      - ./configs/healthcheck_service.toml:/healthcheck_service.toml
       - ./volumes/platform-filter-{i+1}.csv:/recovery.csv
 """
 
@@ -179,7 +180,7 @@ def generate_docker_compose(
       - tp1_net
     volumes:
       - ./configs/joiner_counter.json:/config.json
-      - ./configs/healthcheck_service.toml:/healthcheck_service.toml 
+      - ./configs/healthcheck_service.toml:/healthcheck_service.toml
       - ./volumes/counter-joiner-{i+1}.csv:/recovery.csv
 """
 
@@ -200,7 +201,7 @@ def generate_docker_compose(
       - tp1_net
     volumes:
       - ./configs/joiner_top.json:/config.json
-      - ./configs/healthcheck_service.toml:/healthcheck_service.toml 
+      - ./configs/healthcheck_service.toml:/healthcheck_service.toml
       - ./volumes/top-joiner-{i+1}.csv:/recovery.csv
 """
 
@@ -221,7 +222,7 @@ def generate_docker_compose(
       - tp1_net
     volumes:
       - ./configs/joiner_percentile.json:/config.json
-      - ./configs/healthcheck_service.toml:/healthcheck_service.toml 
+      - ./configs/healthcheck_service.toml:/healthcheck_service.toml
       - ./volumes/percentile-joiner-{i+1}.csv:/recovery.csv
 """
 
@@ -241,7 +242,7 @@ def generate_docker_compose(
       - tp1_net
     volumes:
       - ./configs/percentile.json:/config.json
-      - ./configs/healthcheck_service.toml:/healthcheck_service.toml 
+      - ./configs/healthcheck_service.toml:/healthcheck_service.toml
       - ./volumes/percentile-aggregator.csv:/recovery.csv
 """
 
@@ -262,7 +263,7 @@ def generate_docker_compose(
       - tp1_net
     volumes:
       - ./configs/topn.json:/config.json
-      - ./configs/healthcheck_service.toml:/healthcheck_service.toml 
+      - ./configs/healthcheck_service.toml:/healthcheck_service.toml
       - ./volumes/topn-filter-{i+1}.csv:/recovery.csv
 """
 
@@ -282,7 +283,7 @@ def generate_docker_compose(
       - tp1_net
     volumes:
       - ./configs/topn_agg.json:/config.json
-      - ./configs/healthcheck_service.toml:/healthcheck_service.toml 
+      - ./configs/healthcheck_service.toml:/healthcheck_service.toml
       - ./volumes/topn-aggregator.csv:/recovery.csv
 """
 
@@ -303,7 +304,7 @@ def generate_docker_compose(
       - tp1_net
     volumes:
       - ./configs/platform_counter.json:/config.json
-      - ./configs/healthcheck_service.toml:/healthcheck_service.toml 
+      - ./configs/healthcheck_service.toml:/healthcheck_service.toml
       - ./volumes/platform-counter-{i+1}.csv:/recovery.csv
 """
 
@@ -323,7 +324,7 @@ def generate_docker_compose(
       - tp1_net
     volumes:
       - ./configs/platform_counter_agg.json:/config.json
-      - ./configs/healthcheck_service.toml:/healthcheck_service.toml 
+      - ./configs/healthcheck_service.toml:/healthcheck_service.toml
       - ./volumes/platform-aggregator.csv:/recovery.csv
 """
 
@@ -344,7 +345,7 @@ def generate_docker_compose(
       - tp1_net
     volumes:
       - ./configs/topn_playtime.json:/config.json
-      - ./configs/healthcheck_service.toml:/healthcheck_service.toml 
+      - ./configs/healthcheck_service.toml:/healthcheck_service.toml
       - ./volumes/topn-playtime-filter-{i+1}.csv:/recovery.csv
 """
 
@@ -365,7 +366,7 @@ def generate_docker_compose(
       - tp1_net
     volumes:
       - ./configs/release_date.json:/config.json
-      - ./configs/healthcheck_service.toml:/healthcheck_service.toml 
+      - ./configs/healthcheck_service.toml:/healthcheck_service.toml
       - ./volumes/release-date-filter-{i+1}.csv:/recovery.csv
 """
 
@@ -385,7 +386,7 @@ def generate_docker_compose(
       - tp1_net
     volumes:
       - ./configs/topn_playtime_agg.json:/config.json
-      - ./configs/healthcheck_service.toml:/healthcheck_service.toml 
+      - ./configs/healthcheck_service.toml:/healthcheck_service.toml
       - ./volumes/topn-playtime-aggregator.csv:/recovery.csv
 """
 
@@ -405,7 +406,7 @@ def generate_docker_compose(
       - tp1_net
     volumes:
       - ./configs/counter_agg.json:/config.json
-      - ./configs/healthcheck_service.toml:/healthcheck_service.toml 
+      - ./configs/healthcheck_service.toml:/healthcheck_service.toml
       - ./volumes/review-counter-aggregator.csv:/recovery.csv
 
 networks:
