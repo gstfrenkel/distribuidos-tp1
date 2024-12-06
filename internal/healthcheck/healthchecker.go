@@ -22,28 +22,33 @@ const (
 	hcNextIdKey   = "next"
 	hcNodesKey    = "nodes"
 	hcNodesSepKey = " "
-
 	// Config keys
 	hcServerPort           = "hc.server-port"
 	hcServerDefaultPort    = "9290"
 	hcContainerNameKey     = "hc.container-name"
 	hcDefaultContainerName = "healthchecker-%d"
+	hcMaxErrKey            = "hc.max-errors"
+	maxErrorsDef           = 2
+	timeoutSecsKey         = "hc.timeout-secs"
+	defTimeoutSecs         = 1
+	intervalKey            = "hc.wait-after-restart-ms"
+	defInterval            = 1750
 
-	configFilePath     = "config.toml"
-	waitAfterRestartMs = 1750
-	maxErrors          = 2
-	hcMsg              = 1
-	dockerRestart      = "docker restart "
-	timeoutSecs        = 1
+	configFilePath = "config.toml"
+	hcMsg          = 1
+	dockerRestart  = "docker restart "
 )
 
 type HealthChecker struct {
-	hcAddr     string
-	serverPort string
-	nextHc     string   //address of the next health checker
-	nodes      []string //addresses of the nodes to check
-	finished   bool
-	finishedMu sync.Mutex
+	hcAddr      string
+	serverPort  string
+	nextHc      string   //address of the next health checker
+	nodes       []string //addresses of the nodes to check
+	finished    bool
+	finishedMu  sync.Mutex
+	maxErrors   uint8
+	timeoutSecs time.Duration
+	interval    time.Duration
 }
 
 func New() (*HealthChecker, error) {
@@ -61,10 +66,13 @@ func New() (*HealthChecker, error) {
 	}
 
 	return &HealthChecker{
-		hcAddr:     hcAddr,
-		nextHc:     nextHc,
-		nodes:      nodes,
-		serverPort: serverPort,
+		hcAddr:      hcAddr,
+		nextHc:      nextHc,
+		nodes:       nodes,
+		serverPort:  serverPort,
+		maxErrors:   cfg.Uint8(hcMaxErrKey, maxErrorsDef),
+		timeoutSecs: time.Duration(cfg.Uint8(timeoutSecsKey, defTimeoutSecs)),
+		interval:    time.Duration(cfg.Uint32(intervalKey, defInterval)),
 	}, nil
 }
 
@@ -113,7 +121,7 @@ func (hc *HealthChecker) check(nodeIp string) {
 		errCount := hc.sendHcMsg(conn)
 		_ = conn.Close()
 
-		if errCount == maxErrors {
+		if errCount == hc.maxErrors {
 			hc.restartNode(nodeIp)
 		}
 	}
@@ -121,11 +129,11 @@ func (hc *HealthChecker) check(nodeIp string) {
 
 // Send health check message to the node and wait for the ack.
 // If it fails to send the message or receive ack maxError times, returns.
-func (hc *HealthChecker) sendHcMsg(conn *net.UDPConn) int {
-	errCount := 0
+func (hc *HealthChecker) sendHcMsg(conn *net.UDPConn) uint8 {
+	errCount := uint8(0)
 	buffer := make([]byte, msgBytes)
-	for errCount < maxErrors {
 
+	for errCount < hc.maxErrors {
 		hc.finishedMu.Lock()
 		if hc.finished {
 			hc.finishedMu.Unlock()
@@ -134,13 +142,14 @@ func (hc *HealthChecker) sendHcMsg(conn *net.UDPConn) int {
 		hc.finishedMu.Unlock()
 
 		_, err := conn.Write([]byte{hcMsg})
+		logs.Logger.Infof("Sent health check message to %v", conn.RemoteAddr())
 		if err != nil {
 			errCount++
 			logs.Logger.Errorf("Error sending health check message: %v. Count: %d", err, errCount)
 			continue
 		}
 
-		err = conn.SetReadDeadline(time.Now().Add(timeoutSecs * time.Second))
+		err = conn.SetReadDeadline(time.Now().Add(hc.timeoutSecs * time.Second))
 		if err != nil {
 			logs.Logger.Errorf("Error setting read deadline: %v", err)
 		}
@@ -150,10 +159,11 @@ func (hc *HealthChecker) sendHcMsg(conn *net.UDPConn) int {
 			errCount++
 			logs.Logger.Debugf("Error recv health check ack: %v. Error count: %d", err, errCount)
 		} else {
+			logs.Logger.Infof("Received health check ack from %v", conn.RemoteAddr())
 			errCount = 0
 		}
 
-		time.Sleep(waitAfterRestartMs * time.Millisecond)
+		time.Sleep(hc.interval * time.Millisecond)
 	}
 
 	return errCount
@@ -163,14 +173,14 @@ func (hc *HealthChecker) sendHcMsg(conn *net.UDPConn) int {
 // If it fails to connect, it tries to reconnect maxErrors times.
 // If it fails to reconnect, it restarts the node.
 func (hc *HealthChecker) connect(nodeAddr string) (*net.UDPConn, error) {
-	i := 0
+	i := uint8(0)
 	udpAddr, err := net.ResolveUDPAddr(transportProtocol, nodeAddr)
 	if err != nil {
 		logs.Logger.Errorf("Error resolving address %s: %v", nodeAddr, err)
 		return nil, err
 	}
 
-	for i < maxErrors {
+	for i < hc.maxErrors {
 		conn, connErr := net.DialUDP(transportProtocol, nil, udpAddr)
 		if connErr == nil {
 			logs.Logger.Infof("Connected to node %v", udpAddr)
@@ -186,30 +196,16 @@ func (hc *HealthChecker) connect(nodeAddr string) (*net.UDPConn, error) {
 
 // Using DinD to restart the health checker
 func (hc *HealthChecker) restartNode(containerName string) {
-	logs.Logger.Errorf("Node %s is probably down", containerName)
+	logs.Logger.Errorf("Node %s is down", containerName)
 
-	// check if the container is running
-	checkCmd := fmt.Sprintf("docker ps --filter name=%s --filter status=running", containerName)
-	output, err := io.ExecCommand(checkCmd)
-	if err != nil {
-		logs.Logger.Errorf("Error checking container status: %s", err)
-		return
-	}
-
-	if strings.Contains(output, containerName) {
-		logs.Logger.Infof("Node %s is already running, won't restart it", containerName)
-		return
-	}
-
-	// Restart the container
-	_, err = io.ExecCommand(dockerRestart + containerName)
+	output, err := io.ExecCommand(dockerRestart + containerName)
 	if err != nil {
 		logs.Logger.Errorf("Error restarting node: %s", err)
 		return
 	}
 
-	logs.Logger.Infof("Node %s restarted", containerName)
-	time.Sleep(1 * time.Second)
+	logs.Logger.Infof("Node restarted: %s", output)
+	time.Sleep(hc.interval * time.Second)
 }
 
 func getConfig(cfg config.Config) (string, string) {
