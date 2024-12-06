@@ -46,7 +46,7 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte, bool) {
 	var sequenceIds []sequence.Destination
 
 	switch headers.MessageId {
@@ -58,7 +58,7 @@ func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
-	return sequenceIds, delivery.Body
+	return sequenceIds, delivery.Body, headers.MessageId == message.EofId
 }
 
 func (f *filter) processPlatform(msgBytes []byte, clientId string) {

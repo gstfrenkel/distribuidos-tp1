@@ -46,19 +46,20 @@ func (p *percentile) Start() {
 	p.agg.w.Start(p)
 }
 
-func (p *percentile) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+func (p *percentile) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte, bool) {
 	var sequenceIds []sequence.Destination
+	var done bool
 
 	switch headers.MessageId {
 	case message.EofId:
-		sequenceIds = p.agg.processEof(p, headers.WithOriginId(p.agg.originId), false)
+		sequenceIds, done = p.agg.processEof(p, headers.WithOriginId(p.agg.originId), false)
 	case message.ScoredReviewId:
 		p.save(delivery.Body, headers.ClientId)
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
-	return sequenceIds, delivery.Body
+	return sequenceIds, delivery.Body, done
 }
 
 func (p *percentile) save(msgBytes []byte, clientId string) {

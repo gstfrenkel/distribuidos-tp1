@@ -53,29 +53,33 @@ func (f *filter) Start() {
 	f.w.Start(f)
 }
 
-func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+func (f *filter) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte, bool) {
 	var sequenceIds []sequence.Destination
+	var done bool
 
 	switch headers.MessageId {
 	case message.EofId:
-		sequenceIds = f.processEof(headers, false)
+		sequenceIds, done = f.processEof(headers, false)
 	case message.ScoredReviewId:
 		f.updateTop(delivery.Body, headers.ClientId)
 	default:
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
-	return sequenceIds, delivery.Body
+	return sequenceIds, delivery.Body, done
 }
 
-func (f *filter) processEof(headers amqp.Header, recovery bool) []sequence.Destination {
+func (f *filter) processEof(headers amqp.Header, recovery bool) ([]sequence.Destination, bool) {
 	var sequenceIds []sequence.Destination
+	var done bool
+
 	f.eofsRecv[headers.ClientId]++
 	if f.eofsRecv[headers.ClientId] >= f.w.ExpectedEofs {
 		sequenceIds = f.publish(headers, recovery)
+		done = true
 	}
 
-	return sequenceIds
+	return sequenceIds, done
 }
 
 func (f *filter) updateTop(msgBytes []byte, clientId string) {

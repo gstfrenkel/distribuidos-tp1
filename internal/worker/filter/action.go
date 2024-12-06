@@ -36,7 +36,7 @@ func (f *action) Start() {
 	f.w.Start(f)
 }
 
-func (f *action) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+func (f *action) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte, bool) {
 	var sequenceIds []sequence.Destination
 	var err error
 
@@ -57,7 +57,7 @@ func (f *action) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequenc
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
-	return sequenceIds, nil
+	return sequenceIds, nil, headers.MessageId == message.EofId
 }
 
 func (f *action) publish(headers amqp.Header, msg message.Game) []sequence.Destination {

@@ -40,12 +40,13 @@ func (p *percentile) Start() {
 	p.joiner.w.Start(p)
 }
 
-func (p *percentile) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+func (p *percentile) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte, bool) {
 	var sequenceIds []sequence.Destination
+	var done bool
 
 	switch headers.MessageId {
 	case message.EofId:
-		sequenceIds = p.joiner.processEof(headers, p.processEof)
+		sequenceIds, done = p.joiner.processEof(headers, p.processEof)
 	case message.ScoredReviewId:
 		p.processReview(headers, delivery.Body, false)
 	case message.GameNameId:
@@ -54,7 +55,7 @@ func (p *percentile) Process(delivery amqp.Delivery, headers amqp.Header) ([]seq
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
-	return sequenceIds, delivery.Body
+	return sequenceIds, delivery.Body, done
 }
 
 func (p *percentile) processEof(headers amqp.Header) []sequence.Destination {

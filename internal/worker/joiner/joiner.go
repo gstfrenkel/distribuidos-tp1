@@ -46,8 +46,9 @@ func newJoiner() (*joiner, error) {
 	}, nil
 }
 
-func (j *joiner) processEof(header amqp.Header, sendEof func(header amqp.Header) []sequence.Destination) []sequence.Destination {
+func (j *joiner) processEof(header amqp.Header, sendEof func(header amqp.Header) []sequence.Destination) ([]sequence.Destination, bool) {
 	var sequenceIds []sequence.Destination
+	var done bool
 
 	recv, ok := j.eofsByClient[header.ClientId]
 	if !ok {
@@ -65,9 +66,10 @@ func (j *joiner) processEof(header amqp.Header, sendEof func(header amqp.Header)
 		}
 		delete(j.gameInfoByClient, header.ClientId)
 		delete(j.eofsByClient, header.ClientId)
+		done = true
 	}
 
-	return sequenceIds
+	return sequenceIds, done
 }
 
 func (j *joiner) recover(instance processor) {

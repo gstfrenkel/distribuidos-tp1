@@ -41,7 +41,7 @@ func (f *releaseDate) Start() {
 	f.w.Start(f)
 }
 
-func (f *releaseDate) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+func (f *releaseDate) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte, bool) {
 	var sequenceIds []sequence.Destination
 	var err error
 
@@ -62,7 +62,7 @@ func (f *releaseDate) Process(delivery amqp.Delivery, headers amqp.Header) ([]se
 		logs.Logger.Errorf(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
-	return sequenceIds, nil
+	return sequenceIds, nil, headers.MessageId == message.EofId
 }
 
 func (f *releaseDate) publish(msg message.Releases, headers amqp.Header) []sequence.Destination {

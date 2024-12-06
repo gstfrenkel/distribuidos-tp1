@@ -30,7 +30,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/gateway.toml:/config.toml
-      - ./volumes/gateway-1.csv:/recovery.csv
+      - ./volumes/gateway-1:/recovery
       - ./volumes/id-generator-1.csv:/pkg/utils/id/id-generator-1.csv
 
   reviews-filter-1:
@@ -48,7 +48,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/review.json:/config.json
-      - ./volumes/reviews-filter-1.csv:/recovery.csv
+      - ./volumes/reviews-filter-1:/recovery
 
   review-text-filter-1:
     container_name: review-text-filter-1
@@ -65,7 +65,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/text.json:/config.json
-      - ./volumes/review-text-filter-1.csv:/recovery.csv
+      - ./volumes/review-text-filter-1:/recovery
 
   review-text-filter-2:
     container_name: review-text-filter-2
@@ -82,7 +82,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/text.json:/config.json
-      - ./volumes/review-text-filter-2.csv:/recovery.csv
+      - ./volumes/review-text-filter-2:/recovery
 
   review-text-filter-3:
     container_name: review-text-filter-3
@@ -99,7 +99,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/text.json:/config.json
-      - ./volumes/review-text-filter-3.csv:/recovery.csv
+      - ./volumes/review-text-filter-3:/recovery
 
   review-text-filter-4:
     container_name: review-text-filter-4
@@ -116,7 +116,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/text.json:/config.json
-      - ./volumes/review-text-filter-4.csv:/recovery.csv
+      - ./volumes/review-text-filter-4:/recovery
 
   review-text-filter-5:
     container_name: review-text-filter-5
@@ -133,7 +133,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/text.json:/config.json
-      - ./volumes/review-text-filter-5.csv:/recovery.csv
+      - ./volumes/review-text-filter-5:/recovery
 
   action-filter-1:
     container_name: action-filter-1
@@ -150,7 +150,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/action.json:/config.json
-      - ./volumes/action-filter-1.csv:/recovery.csv
+      - ./volumes/action-filter-1:/recovery
 
   indie-filter-1:
     container_name: indie-filter-1
@@ -167,7 +167,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/indie.json:/config.json
-      - ./volumes/indie-filter-1.csv:/recovery.csv
+      - ./volumes/indie-filter-1:/recovery
 
   platform-filter-1:
     container_name: platform-filter-1
@@ -184,7 +184,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/platform.json:/config.json
-      - ./volumes/platform-filter-1.csv:/recovery.csv
+      - ./volumes/platform-filter-1:/recovery
 
   counter-joiner-1:
     container_name: counter-joiner-1
@@ -201,7 +201,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/joiner_counter.json:/config.json
-      - ./volumes/counter-joiner-1.csv:/recovery.csv
+      - ./volumes/counter-joiner-1:/recovery
 
   counter-joiner-2:
     container_name: counter-joiner-2
@@ -218,7 +218,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/joiner_counter.json:/config.json
-      - ./volumes/counter-joiner-2.csv:/recovery.csv
+      - ./volumes/counter-joiner-2:/recovery
 
   top-joiner-1:
     container_name: top-joiner-1
@@ -235,7 +235,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/joiner_top.json:/config.json
-      - ./volumes/top-joiner-1.csv:/recovery.csv
+      - ./volumes/top-joiner-1:/recovery
 
   top-joiner-2:
     container_name: top-joiner-2
@@ -252,7 +252,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/joiner_top.json:/config.json
-      - ./volumes/top-joiner-2.csv:/recovery.csv
+      - ./volumes/top-joiner-2:/recovery
 
   percentile-joiner-1:
     container_name: percentile-joiner-1
@@ -269,7 +269,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/joiner_percentile.json:/config.json
-      - ./volumes/percentile-joiner-1.csv:/recovery.csv
+      - ./volumes/percentile-joiner-1:/recovery
 
   percentile-joiner-2:
     container_name: percentile-joiner-2
@@ -286,7 +286,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/joiner_percentile.json:/config.json
-      - ./volumes/percentile-joiner-2.csv:/recovery.csv
+      - ./volumes/percentile-joiner-2:/recovery
 
   percentile-aggregator:
     container_name: percentile-aggregator
@@ -303,7 +303,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/percentile.json:/config.json
-      - ./volumes/percentile-aggregator.csv:/recovery.csv
+      - ./volumes/percentile-aggregator:/recovery
 
   topn-filter-1:
     container_name: topn-filter-1
@@ -320,7 +320,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/topn.json:/config.json
-      - ./volumes/topn-filter-1.csv:/recovery.csv
+      - ./volumes/topn-filter-1:/recovery
 
   topn-filter-2:
     container_name: topn-filter-2
@@ -337,7 +337,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/topn.json:/config.json
-      - ./volumes/topn-filter-2.csv:/recovery.csv
+      - ./volumes/topn-filter-2:/recovery
 
   topn-aggregator:
     container_name: topn-aggregator
@@ -354,7 +354,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/topn_agg.json:/config.json
-      - ./volumes/topn-aggregator.csv:/recovery.csv
+      - ./volumes/topn-aggregator:/recovery
 
   platform-counter-1:
     container_name: platform-counter-1
@@ -371,7 +371,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/platform_counter.json:/config.json
-      - ./volumes/platform-counter-1.csv:/recovery.csv
+      - ./volumes/platform-counter-1:/recovery
 
   platform-aggregator:
     container_name: platform-aggregator
@@ -388,7 +388,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/platform_counter_agg.json:/config.json
-      - ./volumes/platform-aggregator.csv:/recovery.csv
+      - ./volumes/platform-aggregator:/recovery
 
   topn-playtime-filter-1:
     container_name: topn-playtime-filter-1
@@ -405,7 +405,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/topn_playtime.json:/config.json
-      - ./volumes/topn-playtime-filter-1.csv:/recovery.csv
+      - ./volumes/topn-playtime-filter-1:/recovery
 
   release-date-filter-1:
     container_name: release-date-filter-1
@@ -422,7 +422,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/release_date.json:/config.json
-      - ./volumes/release-date-filter-1.csv:/recovery.csv
+      - ./volumes/release-date-filter-1:/recovery
 
   topn-playtime-aggregator:
     container_name: topn-playtime-aggregator
@@ -439,7 +439,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/topn_playtime_agg.json:/config.json
-      - ./volumes/topn-playtime-aggregator.csv:/recovery.csv
+      - ./volumes/topn-playtime-aggregator:/recovery
 
   review-counter-aggregator:
     container_name: review-counter-aggregator
@@ -456,7 +456,7 @@ services:
       - tp1_net
     volumes:
       - ./configs/counter_agg.json:/config.json
-      - ./volumes/review-counter-aggregator.csv:/recovery.csv
+      - ./volumes/review-counter-aggregator:/recovery
 
 networks:
   tp1_net:

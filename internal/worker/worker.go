@@ -42,7 +42,7 @@ const (
 type Node interface {
 	Init() error
 	Start()
-	Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte)
+	Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte, bool)
 }
 
 // Worker represents a worker node which processes messages from a broker, manages its state,
@@ -334,9 +334,13 @@ func (f *Worker) consume(filter Node, signalChan chan os.Signal, deliveryChan ..
 			continue
 		}
 
+		var sequenceIds []sequence.Destination
+		var msg []byte
+		var done bool
+
 		// Node and only process non-duplicate messages
 		if !f.dup.IsDuplicate(*srcSequenceId) {
-			sequenceIds, msg := filter.Process(delivery, header)
+			sequenceIds, msg, done = filter.Process(delivery, header)
 
 			if err = f.recovery.Log(recovery.NewRecord(header, sequenceIds, msg)); err != nil {
 				logs.Logger.Errorf("%s: %s", errors.FailedToLog.Error(), err)
@@ -346,6 +350,10 @@ func (f *Worker) consume(filter Node, signalChan chan os.Signal, deliveryChan ..
 		// Acknowledge all duplicate and processed messages
 		if err = delivery.Ack(false); err != nil {
 			logs.Logger.Errorf("Failed to acknowledge message: %s", err.Error())
+		}
+
+		if done {
+			f.recovery.Delete(header.ClientId)
 		}
 	}
 }

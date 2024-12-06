@@ -42,8 +42,10 @@ func newAggregator(originId uint8) (*aggregator, error) {
 // processEof processes an EOF message.
 // If recovery is false, it publishes the EOF message and publishes the saved messages.
 // Note: `headers` must contain the originId
-func (a *aggregator) processEof(instance processor, headers amqp.Header, recovery bool) []sequence.Destination {
+func (a *aggregator) processEof(instance processor, headers amqp.Header, recovery bool) ([]sequence.Destination, bool) {
 	var sequenceIds []sequence.Destination
+	var done bool
+
 	a.eofsRecv[headers.ClientId]++
 	if a.eofsReached(headers) {
 		if !recovery {
@@ -52,8 +54,9 @@ func (a *aggregator) processEof(instance processor, headers amqp.Header, recover
 		}
 		a.reset(headers.ClientId)
 		instance.reset(headers.ClientId)
+		done = true
 	}
-	return sequenceIds
+	return sequenceIds, done
 }
 
 func (a *aggregator) reset(clientId string) {

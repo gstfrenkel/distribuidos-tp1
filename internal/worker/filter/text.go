@@ -66,7 +66,7 @@ func (f *text) Start() {
 	f.w.Start(f)
 }
 
-func (f *text) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte) {
+func (f *text) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.Destination, []byte, bool) {
 	var sequenceIds []sequence.Destination
 	var err error
 	headers = headers.WithOriginId(amqp.ReviewOriginId)
@@ -88,7 +88,7 @@ func (f *text) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence.
 		logs.Logger.Infof(errors.InvalidMessageId.Error(), headers.MessageId)
 	}
 
-	return sequenceIds, nil
+	return sequenceIds, nil, headers.MessageId == message.EofId
 }
 
 func (f *text) publish(msg message.TextReviews, headers amqp.Header) []sequence.Destination {
