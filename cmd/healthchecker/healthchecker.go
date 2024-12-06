@@ -13,7 +13,7 @@ func main() {
 		return
 	}
 
-	go service.Listen() //TODO ver si sale con 0 al stoppear
+	go service.Listen()
 
 	hc, err := healthcheck.New()
 	if err != nil {

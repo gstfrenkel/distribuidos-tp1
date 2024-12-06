@@ -13,7 +13,7 @@ func main() {
 		return
 	}
 
-	go hc.Listen() //TODO ver si sale con 0 al stoppear
+	go hc.Listen()
 
 	filter, err := f.NewText()
 	if err != nil {
