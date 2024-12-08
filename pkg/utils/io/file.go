@@ -42,8 +42,16 @@ func (r *File) Read() ([]string, error) {
 
 // Write writes a record into the file. Upon finishing, the writer's buffer gets flushed.
 func (r *File) Write(record []string) error {
-	defer r.w.Flush()
-	return r.w.Write(record)
+	if err := r.w.Write(record); err != nil {
+		return err
+	}
+	r.w.Flush()
+
+	if err := r.w.Error(); err != nil {
+		return err
+	}
+
+	return r.file.Sync()
 }
 
 // Close closes the underlying file associated with the File and logs an error if the file cannot be closed.

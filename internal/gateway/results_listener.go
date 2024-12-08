@@ -105,10 +105,10 @@ func (g *Gateway) handleMessage(m amqp.Delivery, clientAccumulatedResults map[st
 		return
 	}
 
-	if g.dup.IsDuplicate(*seqSource) {
+	if g.dup.IsDuplicate(*seqSource, clientID) {
 		return
 	} else {
-		g.dup.RecoverSequenceId(*seqSource)
+		g.dup.RecoverSequenceId(*seqSource, clientID)
 	}
 
 	g.logChannel <- recovery.NewRecord(amqp.HeadersFromDelivery(m), nil, m.Body)

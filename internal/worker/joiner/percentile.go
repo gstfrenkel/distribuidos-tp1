@@ -151,7 +151,7 @@ func (p *percentile) publish(headers amqp.Header, reviews message.ScoredReviews)
 	}
 
 	key := p.joiner.w.Outputs[0].Key
-	sequenceId := p.joiner.w.NextSequenceId(key)
+	sequenceId := p.joiner.w.NextSequenceId(key, headers.ClientId)
 
 	headers = headers.WithMessageId(message.ScoredReviewId).WithSequenceId(sequence.SrcNew(p.joiner.w.Uuid, sequenceId))
 

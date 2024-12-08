@@ -196,6 +196,7 @@ func (g *Gateway) recoverResults(
 	for recoveredMsg := range ch {
 		originId := recoveredMsg.Header().OriginId
 		sequenceId := recoveredMsg.Header().SequenceId
+		clientId := recoveredMsg.Header().ClientId
 
 		if string(recoveredMsg.Message()) != utils.Ack {
 			seqSource, err := sequence.SrcFromString(sequenceId)
@@ -204,7 +205,7 @@ func (g *Gateway) recoverResults(
 				continue
 			}
 
-			g.dup.RecoverSequenceId(*seqSource)
+			g.dup.RecoverSequenceId(*seqSource, clientId)
 		}
 
 		switch originId {

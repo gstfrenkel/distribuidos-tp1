@@ -102,7 +102,7 @@ func (f *text) publish(msg message.TextReviews, headers amqp.Header) []sequence.
 		}
 
 		k := shard.Int64(gameId, f.w.Outputs[0].Key, f.w.Outputs[0].Consumers)
-		sequenceId := f.w.NextSequenceId(k)
+		sequenceId := f.w.NextSequenceId(k, headers.ClientId)
 		sequenceIds = append(sequenceIds, sequence.DstNew(k, sequenceId))
 		b, err := message.ScoredReview{GameId: gameId, Votes: uint64(count)}.ToBytes()
 		if err != nil {

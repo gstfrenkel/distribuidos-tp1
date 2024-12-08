@@ -76,7 +76,7 @@ func (f *releaseDate) publish(msg message.Releases, headers amqp.Header) []seque
 	}
 
 	key := shard.String(headers.SequenceId, output.Key, output.Consumers)
-	sequenceId := f.w.NextSequenceId(key)
+	sequenceId := f.w.NextSequenceId(key, headers.ClientId)
 
 	headers = headers.WithMessageId(message.GameWithPlaytimeId).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 

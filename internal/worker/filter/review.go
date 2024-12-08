@@ -103,7 +103,7 @@ func (f *review) publishReviewWithText(msg message.Review, headers amqp.Header) 
 
 	output := f.w.Outputs[query4]
 	key := shard.String(headers.SequenceId, output.Key, output.Consumers)
-	sequenceId := f.w.NextSequenceId(key)
+	sequenceId := f.w.NextSequenceId(key, headers.ClientId)
 	headers = headers.WithMessageId(message.ReviewWithTextId).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 
 	if err = f.w.Broker.Publish(output.Exchange, key, b, headers); err != nil {
@@ -123,7 +123,7 @@ func (f *review) shardPublish(reviews message.ScoredReviews, output amqp.Destina
 		}
 
 		k := shard.Int64(rv.GameId, output.Key, output.Consumers)
-		sequenceId := f.w.NextSequenceId(k)
+		sequenceId := f.w.NextSequenceId(k, headers.ClientId)
 		sequenceIds = append(sequenceIds, sequence.DstNew(k, sequenceId))
 		headers = headers.WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 

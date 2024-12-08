@@ -73,7 +73,7 @@ func (f *action) publish(headers amqp.Header, msg message.Game) []sequence.Desti
 
 		for _, output := range f.w.Outputs {
 			key := shard.Int64(game.GameId, output.Key, output.Consumers)
-			sequenceId := f.w.NextSequenceId(key)
+			sequenceId := f.w.NextSequenceId(key, headers.ClientId)
 			sequenceIds = append(sequenceIds, sequence.DstNew(key, sequenceId))
 
 			headers = headers.WithMessageId(message.GameNameId).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))

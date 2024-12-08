@@ -153,7 +153,7 @@ func (f *filter) publish(headers amqp.Header, recovery bool) []sequence.Destinat
 		}
 	}
 
-	sequenceId := f.w.NextSequenceId(output.Key)
+	sequenceId := f.w.NextSequenceId(output.Key, headers.ClientId)
 	headers = headers.WithMessageId(message.ScoredReviewId).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 	sequenceIds = append(sequenceIds, sequence.DstNew(output.Key, sequenceId))
 

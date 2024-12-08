@@ -146,7 +146,7 @@ func (c *counter) processGame(headers amqp.Header, msgBytes []byte, recovery boo
 // Otherwise, returns the sequenceId of the message sent.
 func (c *counter) publish(headers amqp.Header, msgBytes []byte) []sequence.Destination {
 	key := c.joiner.w.Outputs[0].Key
-	sequenceId := c.joiner.w.NextSequenceId(key)
+	sequenceId := c.joiner.w.NextSequenceId(key, headers.ClientId)
 
 	headers = headers.WithMessageId(message.GameNameId).WithSequenceId(sequence.SrcNew(c.joiner.w.Uuid, sequenceId))
 

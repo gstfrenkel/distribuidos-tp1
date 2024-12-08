@@ -78,7 +78,7 @@ func (c *counter) publish(headers amqp.Header) []sequence.Destination {
 func (c *counter) sendBatch(headers amqp.Header, b []byte) []sequence.Destination {
 	output := shardOutput(c.agg.w.Outputs[0], headers.ClientId)
 	key := output.Key
-	sequenceId := c.agg.w.NextSequenceId(key)
+	sequenceId := c.agg.w.NextSequenceId(key, headers.ClientId)
 	headers = headers.WithSequenceId(sequence.SrcNew(c.agg.w.Uuid, sequenceId)).WithOriginId(c.agg.originId)
 
 	if err := c.agg.w.Broker.Publish(output.Exchange, key, b, headers); err != nil {

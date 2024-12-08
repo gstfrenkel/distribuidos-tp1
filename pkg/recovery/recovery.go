@@ -6,10 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
 	"tp1/pkg/amqp"
 	"tp1/pkg/logs"
+	msg "tp1/pkg/message"
 	"tp1/pkg/sequence"
-
 	ioutils "tp1/pkg/utils/io"
 )
 
@@ -74,14 +75,18 @@ func (h *Handler) Log(record Record) error {
 		if err != nil {
 			return err
 		}
+
+		h.files[record.Header().ClientId] = file
 	}
 
-	h.files[record.Header().ClientId] = file
+	if record.Header().MessageId == msg.EofId {
+		logs.Logger.Infof("Logging message: %v", record)
+	}
 	return file.Write(record.toString())
 }
 
 func (h *Handler) Delete(clientId string) {
-	file, ok := h.files[clientId]
+	/*file, ok := h.files[clientId]
 	if !ok {
 		return
 	}
@@ -89,7 +94,7 @@ func (h *Handler) Delete(clientId string) {
 	if err := os.Remove(fullPath(clientId)); err != nil {
 		logs.Logger.Errorf("failed to delete file: %s", err.Error())
 	}
-	delete(h.files, clientId)
+	delete(h.files, clientId)*/
 }
 
 // Close closes the files descriptors linked to the underlying files.

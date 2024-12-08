@@ -194,16 +194,16 @@ func (f *Worker) Recover(ch chan<- recovery.Message) {
 		}
 
 		for _, seq := range record.SequenceIds() {
-			f.sequenceIdGen.RecoverId(seq)
+			f.sequenceIdGen.RecoverId(seq, record.Header().ClientId)
 		}
 
-		f.dup.RecoverSequenceId(*src)
+		f.dup.RecoverSequenceId(*src, record.Header().ClientId)
 	}
 }
 
 // NextSequenceId generates and returns the next sequence ID for a given key.
-func (f *Worker) NextSequenceId(key string) uint64 {
-	return f.sequenceIdGen.NextId(key)
+func (f *Worker) NextSequenceId(key, clientId string) uint64 {
+	return f.sequenceIdGen.NextId(key, clientId)
 }
 
 // HandleEofMessage processes an EOF message and determines the next action based on the workers visited.
@@ -244,7 +244,7 @@ func (f *Worker) HandleEofMessage(msg []byte, headers amqp.Header, output ...amq
 // - workersVisited (message.Eof): A list of worker IDs that have already processed the EOF message.
 func (f *Worker) sendEofToNextInput(headers amqp.Header, workersVisited message.Eof) ([]sequence.Destination, error) {
 	key := fmt.Sprintf(f.inputEof.Key, f.Id+1)
-	sequenceId := f.NextSequenceId(key)
+	sequenceId := f.NextSequenceId(key, headers.ClientId)
 	sequenceIds := []sequence.Destination{sequence.DstNew(key, sequenceId)}
 
 	bytes, err := workersVisited.ToBytes()
@@ -278,7 +278,7 @@ func (f *Worker) sendEofToOutputs(headers amqp.Header, output ...amqp.Destinatio
 	sequenceIds := make([]sequence.Destination, 0, len(outputs))
 
 	for _, o := range outputs {
-		sequenceId := f.NextSequenceId(o.Key)
+		sequenceId := f.NextSequenceId(o.Key, headers.ClientId)
 		sequenceIds = append(sequenceIds, sequence.DstNew(o.Key, sequenceId))
 		if err := f.Broker.Publish(
 			o.Exchange,
@@ -338,12 +338,20 @@ func (f *Worker) consume(filter Node, signalChan chan os.Signal, deliveryChan ..
 		var msg []byte
 		var done bool
 
+		if header.MessageId == message.EofId {
+			logs.Logger.Infof("Received EOF: %v", header)
+		}
+
 		// Node and only process non-duplicate messages
-		if !f.dup.IsDuplicate(*srcSequenceId) {
+		if !f.dup.IsDuplicate(*srcSequenceId, header.ClientId) {
 			sequenceIds, msg, done = filter.Process(delivery, header)
 
 			if err = f.recovery.Log(recovery.NewRecord(header, sequenceIds, msg)); err != nil {
 				logs.Logger.Errorf("%s: %s", errors.FailedToLog.Error(), err)
+			}
+
+			if header.MessageId == message.EofId {
+				logs.Logger.Infof("Finished logging")
 			}
 		}
 

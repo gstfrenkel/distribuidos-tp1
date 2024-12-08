@@ -88,7 +88,7 @@ func (f *indie) publishGameNames(headers amqp.Header, msg message.Game, genre st
 
 		output = f.w.Outputs[q3]
 		key := shard.Int64(game.GameId, output.Key, output.Consumers)
-		sequenceId := f.w.NextSequenceId(key)
+		sequenceId := f.w.NextSequenceId(key, headers.ClientId)
 		sequenceIdsNames = append(sequenceIdsNames, sequence.DstNew(key, sequenceId))
 
 		if err = f.w.Broker.Publish(output.Exchange, key, b, headers.WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))); err != nil {
@@ -110,7 +110,7 @@ func (f *indie) publishGameReleases(headers amqp.Header, msg message.Game, genre
 	}
 
 	key := shard.String(headers.SequenceId, output.Key, output.Consumers)
-	sequenceId := f.w.NextSequenceId(key)
+	sequenceId := f.w.NextSequenceId(key, headers.ClientId)
 	headers = headers.WithMessageId(message.GameReleaseId).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 
 	if err = f.w.Broker.Publish(output.Exchange, key, b, headers.WithMessageId(message.GameReleaseId)); err != nil {

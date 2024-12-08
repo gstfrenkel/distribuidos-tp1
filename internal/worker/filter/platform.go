@@ -63,7 +63,7 @@ func (f *platform) Process(delivery amqp.Delivery, headers amqp.Header) ([]seque
 func (f *platform) publish(headers amqp.Header, msg message.Game) []sequence.Destination {
 	output := f.w.Outputs[0]
 	key := shard.String(headers.SequenceId, output.Key, output.Consumers)
-	sequenceId := f.w.NextSequenceId(key)
+	sequenceId := f.w.NextSequenceId(key, headers.ClientId)
 	headers = headers.WithMessageId(message.PlatformId).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 
 	platforms := msg.ToPlatformMessage()

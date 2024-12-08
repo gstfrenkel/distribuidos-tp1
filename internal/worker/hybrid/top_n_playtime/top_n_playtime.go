@@ -133,7 +133,7 @@ func (f *filter) publish(headers amqp.Header) []sequence.Destination {
 		}
 	}
 
-	sequenceId := f.w.NextSequenceId(output.Key)
+	sequenceId := f.w.NextSequenceId(output.Key, headers.ClientId)
 	headers = headers.WithMessageId(message.GameWithPlaytimeId).WithSequenceId(sequence.SrcNew(f.w.Uuid, sequenceId))
 	sequenceIds = append(sequenceIds, sequence.DstNew(output.Key, sequenceId))
 

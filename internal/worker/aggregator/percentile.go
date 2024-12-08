@@ -121,7 +121,7 @@ func (p *percentile) sendBatches(headers amqp.Header, output amqp.Destination, m
 			return sequenceIds
 		}
 
-		sequenceId := p.agg.w.NextSequenceId(output.Key)
+		sequenceId := p.agg.w.NextSequenceId(output.Key, headers.ClientId)
 		sequenceIds = append(sequenceIds, sequence.DstNew(output.Key, sequenceId))
 		headers = headers.WithSequenceId(sequence.SrcNew(p.agg.w.Uuid, sequenceId))
 

@@ -152,7 +152,7 @@ func (t *top) processGame(headers amqp.Header, msgBytes []byte, recovery bool) [
 
 func (t *top) publish(headers amqp.Header, b []byte) []sequence.Destination {
 	key := t.output.Key
-	sequenceId := t.joiner.w.NextSequenceId(key)
+	sequenceId := t.joiner.w.NextSequenceId(key, headers.ClientId)
 
 	headers = headers.WithMessageId(message.ScoredReviewId).WithSequenceId(sequence.SrcNew(t.joiner.w.Uuid, sequenceId))
 
