@@ -29,7 +29,11 @@ build-hc:
 	docker build -f ./build/healthchecker.Dockerfile -t "healthchecker:latest" .
 .PHONY: build-hc
 
-docker-compose-up: build
+delete-vol:
+	cd ./scripts && chmod +x delete-recovery-files.sh && ./delete-recovery-files.sh && cd ..
+.PHONY: delete-vol
+
+docker-compose-up: build delete-vol
 	docker compose -f docker-compose.yaml up -d --build
 .PHONY: docker-compose-up
 

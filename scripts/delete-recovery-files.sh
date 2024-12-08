@@ -5,5 +5,7 @@ DIR="../volumes"
 if [ -d "$DIR" ]; then
     rm -rf "$DIR"/*
 else
-    echo "$DIR does not exist."
+    mkdir "$DIR"
 fi
+
+python3 create-id-gen-csv.py

@@ -3,12 +3,11 @@ package io
 import (
 	"encoding/csv"
 	"os"
-
 	"tp1/pkg/logs"
 )
 
 const (
-	fileMode = 0666
+	fileMode = 0777
 )
 
 // File is a structure that encapsulates a CSV reader and the associated file.
