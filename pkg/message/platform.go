@@ -3,9 +3,9 @@ package message
 import "fmt"
 
 type Platform struct {
-	Windows int
-	Linux   int
-	Mac     int
+	Windows uint
+	Linux   uint
+	Mac     uint
 }
 
 func (p Platform) ToBytes() ([]byte, error) {
@@ -18,7 +18,7 @@ func (p *Platform) Increment(other Platform) {
 	p.Mac += other.Mac
 }
 
-func PlatfromFromBytes(b []byte) (Platform, error) {
+func PlatformFromBytes(b []byte) (Platform, error) {
 	var m Platform
 	return m, fromBytes(b, &m)
 }

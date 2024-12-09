@@ -192,7 +192,7 @@ func sendResultThroughChannel(g *Gateway, clientID string, resultStr string) {
 func parseMessageBody(originID uint8, body []byte) (interface{}, error) {
 	switch originID {
 	case amqp.Query1OriginId:
-		return message.PlatfromFromBytes(body)
+		return message.PlatformFromBytes(body)
 	case amqp.Query2OriginId:
 		return message.DateFilteredReleasesFromBytes(body)
 	case amqp.Query3OriginId:

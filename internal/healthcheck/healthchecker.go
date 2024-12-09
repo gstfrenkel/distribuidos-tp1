@@ -28,10 +28,10 @@ const (
 	hcContainerNameKey     = "hc.container-name"
 	hcDefaultContainerName = "healthchecker-%d"
 	hcMaxErrKey            = "hc.max-errors"
-	maxErrorsDef           = 2
-	timeoutSecsKey         = "hc.timeout-secs"
-	defTimeoutSecs         = 1
-	intervalKey            = "hc.interval"
+	maxErrorsDef           = 3
+	timeoutSecsKey         = "hc.timeout-ms"
+	defTimeoutMs           = 1500
+	intervalKey            = "hc.interval-ms"
 	defInterval            = 1000
 
 	configFilePath = "config.toml"
@@ -40,15 +40,15 @@ const (
 )
 
 type HealthChecker struct {
-	hcAddr      string
-	serverPort  string
-	nextHc      string   //address of the next health checker
-	nodes       []string //addresses of the nodes to check
-	finished    bool
-	finishedMu  sync.Mutex
-	maxErrors   uint8
-	timeoutSecs time.Duration
-	interval    time.Duration
+	hcAddr     string
+	serverPort string
+	nextHc     string   //address of the next health checker
+	nodes      []string //addresses of the nodes to check
+	finished   bool
+	finishedMu sync.Mutex
+	maxErrors  uint8
+	timeout    time.Duration
+	interval   time.Duration
 }
 
 func New() (*HealthChecker, error) {
@@ -66,13 +66,13 @@ func New() (*HealthChecker, error) {
 	}
 
 	return &HealthChecker{
-		hcAddr:      hcAddr,
-		nextHc:      nextHc,
-		nodes:       nodes,
-		serverPort:  serverPort,
-		maxErrors:   cfg.Uint8(hcMaxErrKey, maxErrorsDef),
-		timeoutSecs: time.Duration(cfg.Uint8(timeoutSecsKey, defTimeoutSecs)),
-		interval:    time.Duration(cfg.Uint32(intervalKey, defInterval)),
+		hcAddr:     hcAddr,
+		nextHc:     nextHc,
+		nodes:      nodes,
+		serverPort: serverPort,
+		maxErrors:  cfg.Uint8(hcMaxErrKey, maxErrorsDef),
+		timeout:    time.Millisecond * time.Duration(cfg.Int64(timeoutSecsKey, defTimeoutMs)),
+		interval:   time.Millisecond * time.Duration(cfg.Int64(intervalKey, defInterval)),
 	}, nil
 }
 
@@ -153,7 +153,7 @@ func (hc *HealthChecker) sendHcMsg(conn *net.UDPConn) uint8 {
 			continue
 		}
 
-		err = conn.SetReadDeadline(time.Now().Add(hc.timeoutSecs * time.Second))
+		err = conn.SetReadDeadline(time.Now().Add(hc.timeout))
 		if err != nil {
 			logs.Logger.Errorf("Error setting read deadline: %v", err)
 		}
@@ -166,7 +166,7 @@ func (hc *HealthChecker) sendHcMsg(conn *net.UDPConn) uint8 {
 			errCount = 0
 		}
 
-		time.Sleep(hc.interval * time.Millisecond)
+		time.Sleep(hc.interval)
 	}
 
 	return errCount
@@ -208,7 +208,7 @@ func (hc *HealthChecker) restartNode(containerName string) {
 	}
 
 	logs.Logger.Infof("Node restarted: %s", output)
-	time.Sleep(hc.interval * time.Millisecond)
+	time.Sleep(hc.interval)
 }
 
 func getConfig(cfg config.Config) (string, string) {
