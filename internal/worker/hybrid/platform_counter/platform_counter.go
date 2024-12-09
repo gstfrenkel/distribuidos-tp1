@@ -66,7 +66,7 @@ func (f *filter) processPlatform(msgBytes []byte, clientId string) {
 		f.counters[clientId] = &message.Platform{Windows: 0, Linux: 0, Mac: 0}
 	}
 
-	msg, err := message.PlatfromFromBytes(msgBytes)
+	msg, err := message.PlatformFromBytes(msgBytes)
 	if err != nil {
 		logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 	} else {

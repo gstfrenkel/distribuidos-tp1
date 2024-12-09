@@ -1,10 +1,14 @@
 package message
 
-import "time"
+import (
+	"bytes"
+	"time"
+	"tp1/pkg/utils/encoding"
+)
 
-type Releases []Release
+type Releases []release
 
-type Release struct {
+type release struct {
 	GameId      int64
 	GameName    string
 	ReleaseDate string
@@ -12,12 +16,72 @@ type Release struct {
 }
 
 func (r Releases) ToBytes() ([]byte, error) {
-	return toBytes(r)
+	buf := bytes.NewBuffer(nil)
+
+	if err := encoding.EncodeNumber(buf, uint32(len(r))); err != nil {
+		return nil, err
+	}
+
+	for _, rev := range r {
+		if err := encoding.EncodeNumber(buf, rev.GameId); err != nil {
+			return nil, err
+		}
+
+		if err := encoding.EncodeString(buf, rev.GameName); err != nil {
+			return nil, err
+		}
+
+		if err := encoding.EncodeString(buf, rev.ReleaseDate); err != nil {
+			return nil, err
+		}
+
+		if err := encoding.EncodeNumber(buf, rev.AvgPlaytime); err != nil {
+			return nil, err
+		}
+	}
+
+	return buf.Bytes(), nil
 }
 
 func ReleasesFromBytes(b []byte) (Releases, error) {
-	var r Releases
-	return r, fromBytes(b, &r)
+	buf := bytes.NewBuffer(b)
+
+	size, err := encoding.DecodeUint32(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	releases := make([]release, 0, size)
+	for i := uint32(0); i < size; i++ {
+		id, err := encoding.DecodeInt64(buf)
+		if err != nil {
+			return nil, err
+		}
+
+		name, err := encoding.DecodeString(buf)
+		if err != nil {
+			return nil, err
+		}
+
+		date, err := encoding.DecodeString(buf)
+		if err != nil {
+			return nil, err
+		}
+
+		playtime, err := encoding.DecodeInt64(buf)
+		if err != nil {
+			return nil, err
+		}
+
+		releases = append(releases, release{
+			GameId:      id,
+			GameName:    name,
+			ReleaseDate: date,
+			AvgPlaytime: playtime,
+		})
+	}
+
+	return releases, nil
 }
 
 func (r Releases) ToPlaytimeMessage(startYear int, endYear int) DateFilteredReleases {

@@ -53,7 +53,7 @@ func (f *indie) Process(delivery amqp.Delivery, headers amqp.Header) ([]sequence
 			logs.Logger.Errorf("%s: %s", errors.FailedToPublish.Error(), err)
 		}
 	case message.GameId:
-		msg, err := message.GameFromBytes(delivery.Body)
+		msg, err := message.GamesFromBytes(delivery.Body)
 		if err != nil {
 			logs.Logger.Errorf("%s: %s", errors.FailedToParse.Error(), err.Error())
 		} else {

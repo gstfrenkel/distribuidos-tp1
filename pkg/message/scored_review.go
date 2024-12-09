@@ -1,9 +1,12 @@
 package message
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"strings"
+
+	"tp1/pkg/utils/encoding"
 )
 
 type ScoredReviews []ScoredReview
@@ -15,21 +18,87 @@ type ScoredReview struct {
 }
 
 func ScoredReviewFromBytes(b []byte) (ScoredReview, error) {
-	var m ScoredReview
-	return m, fromBytes(b, &m)
+	return scoredReviewFromBuf(bytes.NewBuffer(b))
 }
 
 func ScoredReviewsFromBytes(b []byte) (ScoredReviews, error) {
-	var m ScoredReviews
-	return m, fromBytes(b, &m)
+	buf := bytes.NewBuffer(b)
+
+	size, err := encoding.DecodeUint32(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	scoredReviews := make(ScoredReviews, 0, size)
+	for i := uint32(0); i < size; i++ {
+		scoredReview, err := scoredReviewFromBuf(buf)
+		if err != nil {
+			return nil, err
+		}
+		scoredReviews = append(scoredReviews, scoredReview)
+	}
+
+	return scoredReviews, nil
+}
+
+func scoredReviewFromBuf(buf *bytes.Buffer) (ScoredReview, error) {
+	id, err := encoding.DecodeInt64(buf)
+	if err != nil {
+		return ScoredReview{}, err
+	}
+
+	votes, err := encoding.DecodeUint64(buf)
+	if err != nil {
+		return ScoredReview{}, err
+	}
+
+	name, err := encoding.DecodeString(buf)
+	if err != nil {
+		return ScoredReview{}, err
+	}
+
+	return ScoredReview{
+		GameId:   id,
+		Votes:    votes,
+		GameName: name,
+	}, nil
 }
 
 func (m ScoredReview) ToBytes() ([]byte, error) {
-	return toBytes(m)
+	buf := bytes.NewBuffer(nil)
+
+	if err := encoding.EncodeNumber(buf, m.GameId); err != nil {
+		return nil, err
+	}
+
+	if err := encoding.EncodeNumber(buf, m.Votes); err != nil {
+		return nil, err
+	}
+
+	if err := encoding.EncodeString(buf, m.GameName); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
 
 func (m ScoredReviews) ToBytes() ([]byte, error) {
-	return toBytes(m)
+	buf := bytes.NewBuffer(nil)
+
+	if err := encoding.EncodeNumber(buf, uint32(len(m))); err != nil {
+		return nil, err
+	}
+
+	b := buf.Bytes()
+	for _, scoredReview := range m {
+		aux, err := scoredReview.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		b = append(b, aux...)
+	}
+
+	return b, nil
 }
 
 func (m ScoredReviews) ToQ3ResultString() string {
