@@ -31,7 +31,7 @@ const (
 	workerUuidKey       = "worker-uuid"
 	queryKey            = "query"
 	peersKey            = "peers"
-	expectedEofsKey     = "expected_eofs"
+	expectedEofsKey     = "expected-eofs"
 	inputQKey           = "input-queues"
 	manyConsumersSubstr = "%d"
 	exchangesKey        = "exchanges"

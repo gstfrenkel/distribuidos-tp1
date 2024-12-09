@@ -96,9 +96,8 @@ func (f *filter) processEof(msgBytes []byte, headers amqp.Header, recovery bool)
 func (f *filter) publish(headers amqp.Header) []sequence.Destination {
 	var sequenceIds []sequence.Destination
 	platforms := f.counters[headers.ClientId]
-
-	if platforms.IsEmpty() {
-		return sequenceIds
+	if platforms == nil {
+		platforms = &message.Platform{Windows: 0, Linux: 0, Mac: 0}
 	}
 
 	b, err := platforms.ToBytes()
