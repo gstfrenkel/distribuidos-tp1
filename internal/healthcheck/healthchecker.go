@@ -102,6 +102,7 @@ func (hc *HealthChecker) Start() {
 // check checks if the node is alive and restarts it if it is not.
 // nodeIp is the container name of the node
 func (hc *HealthChecker) check(nodeIp string) {
+	connErr := uint8(0)
 	for {
 		hc.finishedMu.Lock()
 		if hc.finished {
@@ -114,7 +115,11 @@ func (hc *HealthChecker) check(nodeIp string) {
 		conn, err := hc.connect(nodeAddr)
 		if err != nil {
 			logs.Logger.Errorf("Node conn error: %v", err)
-			hc.restartNode(nodeIp)
+			connErr++
+			if connErr == hc.maxErrors {
+				hc.restartNode(nodeIp)
+				connErr = 0
+			}
 			continue
 		}
 
@@ -203,7 +208,7 @@ func (hc *HealthChecker) restartNode(containerName string) {
 	}
 
 	logs.Logger.Infof("Node restarted: %s", output)
-	time.Sleep(hc.interval * time.Second)
+	time.Sleep(hc.interval * time.Millisecond)
 }
 
 func getConfig(cfg config.Config) (string, string) {

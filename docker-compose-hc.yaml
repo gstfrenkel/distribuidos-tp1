@@ -6,8 +6,8 @@ services:
     networks:
       - tp1_net
     volumes:
-      - ./configs/healthcheck_service.toml:/app/healthcheck_service.toml
       - ./configs/healthchecker.toml:/app/config.toml
+      - ./configs/healthcheck_service.toml:/app/healthcheck_service.toml
       - /var/run/docker.sock:/var/run/docker.sock
   healthchecker-2:
     container_name: healthchecker-2
@@ -23,6 +23,16 @@ services:
     container_name: healthchecker-3
     image: healthchecker:latest
     env_file: ./configs/env/healthchecker-3.env
+    networks:
+      - tp1_net
+    volumes:
+      - ./configs/healthchecker.toml:/app/config.toml
+      - ./configs/healthcheck_service.toml:/app/healthcheck_service.toml
+      - /var/run/docker.sock:/var/run/docker.sock
+  healthchecker-4:
+    container_name: healthchecker-4
+    image: healthchecker:latest
+    env_file: ./configs/env/healthchecker-4.env
     networks:
       - tp1_net
     volumes:
