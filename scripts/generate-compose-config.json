@@ -1,0 +1,15 @@
+{
+  "gateway": 1,
+  "reviews_filter": 1,
+  "review_text_filter": 5,
+  "action_filter": 1,
+  "indie_filter": 1,
+  "platform_filter": 1,
+  "counter_joiner": 2,
+  "top_joiner": 2,
+  "percentile_joiner": 2,
+  "topn_filter": 2,
+  "platform_counter": 1,
+  "topn_playtime_filter": 1,
+  "release_date_filter": 1
+}

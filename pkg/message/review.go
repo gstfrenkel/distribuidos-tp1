@@ -1,5 +1,10 @@
 package message
 
+import (
+	"bytes"
+	"tp1/pkg/utils/encoding"
+)
+
 type Review []review
 
 type review struct {
@@ -10,8 +15,52 @@ type review struct {
 }
 
 func ReviewFromBytes(b []byte) (Review, error) {
-	var m Review
-	return m, fromBytes(b, &m)
+	buf := bytes.NewBuffer(b)
+
+	size, err := encoding.DecodeUint32(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	reviews := make([]review, 0, size)
+	for i := uint32(0); i < size; i++ {
+		rev, err := reviewFromBuf(buf)
+		if err != nil {
+			return nil, err
+		}
+		reviews = append(reviews, rev)
+	}
+
+	return reviews, nil
+}
+
+func reviewFromBuf(buf *bytes.Buffer) (review, error) {
+	id, err := encoding.DecodeInt64(buf)
+	if err != nil {
+		return review{}, err
+	}
+
+	name, err := encoding.DecodeString(buf)
+	if err != nil {
+		return review{}, err
+	}
+
+	text, err := encoding.DecodeString(buf)
+	if err != nil {
+		return review{}, err
+	}
+
+	score, err := encoding.DecodeInt8(buf)
+	if err != nil {
+		return review{}, err
+	}
+
+	return review{
+		GameId:   id,
+		GameName: name,
+		Text:     text,
+		Score:    score,
+	}, nil
 }
 
 func ReviewsFromClientReviews(clientReview []DataCSVReviews) ([]byte, error) {
@@ -29,7 +78,31 @@ func ReviewsFromClientReviews(clientReview []DataCSVReviews) ([]byte, error) {
 }
 
 func (m Review) ToBytes() ([]byte, error) {
-	return toBytes(m)
+	buf := bytes.NewBuffer(nil)
+
+	if err := encoding.EncodeNumber(buf, uint32(len(m))); err != nil {
+		return nil, err
+	}
+
+	for _, rev := range m {
+		if err := encoding.EncodeNumber(buf, rev.GameId); err != nil {
+			return nil, err
+		}
+
+		if err := encoding.EncodeString(buf, rev.GameName); err != nil {
+			return nil, err
+		}
+
+		if err := encoding.EncodeString(buf, rev.Text); err != nil {
+			return nil, err
+		}
+
+		if err := encoding.EncodeNumber(buf, rev.Score); err != nil {
+			return nil, err
+		}
+	}
+
+	return buf.Bytes(), nil
 }
 
 func (m Review) ToScoredReviewMessage(targetScore int8) ScoredReviews {

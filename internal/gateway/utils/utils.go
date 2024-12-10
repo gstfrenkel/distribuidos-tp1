@@ -35,7 +35,7 @@ func ResultBodyToString(originIDUint8 uint8, result interface{}) (string, bool) 
 func ParseMessageBody(originID uint8, body []byte) (interface{}, error) {
 	switch originID {
 	case amqp.Query1OriginId:
-		return message.PlatfromFromBytes(body)
+		return message.PlatformFromBytes(body)
 	case amqp.Query2OriginId:
 		return message.DateFilteredReleasesFromBytes(body)
 	case amqp.Query3OriginId:

@@ -1,7 +1,9 @@
 package message
 
 import (
+	"bytes"
 	"strings"
+	"tp1/pkg/utils/encoding"
 )
 
 const sep = ","
@@ -19,9 +21,77 @@ type game struct {
 	Linux           bool
 }
 
-func GameFromBytes(b []byte) (Game, error) {
-	var m Game
-	return m, fromBytes(b, &m)
+func GamesFromBytes(b []byte) (Game, error) {
+	var gs Game
+	buff := bytes.NewBuffer(b)
+	size, err := encoding.DecodeUint32(buff)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := uint32(0); i < size; i++ {
+		g, err := gameFromBytes(buff)
+		if err != nil {
+			return nil, err
+		}
+
+		gs = append(gs, g)
+	}
+
+	return gs, nil
+}
+
+func gameFromBytes(buff *bytes.Buffer) (game, error) {
+	gameId, err := encoding.DecodeInt64(buff)
+	if err != nil {
+		return game{}, err
+	}
+
+	averagePlaytime, err := encoding.DecodeInt64(buff)
+	if err != nil {
+		return game{}, err
+	}
+
+	name, err := encoding.DecodeString(buff)
+	if err != nil {
+		return game{}, err
+	}
+
+	genres, err := encoding.DecodeString(buff)
+	if err != nil {
+		return game{}, err
+	}
+
+	releaseDate, err := encoding.DecodeString(buff)
+	if err != nil {
+		return game{}, err
+	}
+
+	windows, err := encoding.DecodeBool(buff)
+	if err != nil {
+		return game{}, err
+	}
+
+	mac, err := encoding.DecodeBool(buff)
+	if err != nil {
+		return game{}, err
+	}
+
+	linux, err := encoding.DecodeBool(buff)
+	if err != nil {
+		return game{}, err
+	}
+
+	return game{
+		GameId:          gameId,
+		AveragePlaytime: averagePlaytime,
+		Name:            name,
+		Genres:          genres,
+		ReleaseDate:     releaseDate,
+		Windows:         windows,
+		Mac:             mac,
+		Linux:           linux,
+	}, nil
 }
 
 func GamesFromClientGames(clientGame []DataCSVGames) ([]byte, error) {
@@ -43,7 +113,62 @@ func GamesFromClientGames(clientGame []DataCSVGames) ([]byte, error) {
 }
 
 func (g Game) ToBytes() ([]byte, error) {
-	return toBytes(g)
+	size := uint32(len(g))
+	sizeBuff := bytes.Buffer{}
+	if err := encoding.EncodeNumber(&sizeBuff, size); err != nil {
+		return nil, err
+	}
+
+	b := make([]byte, 0, size)
+	b = append(b, sizeBuff.Bytes()...)
+
+	for _, gm := range g {
+		gameB, err := gm.gameToBytes()
+		if err != nil {
+			return nil, err
+		}
+		b = append(b, gameB...)
+	}
+
+	return b, nil
+}
+
+func (g game) gameToBytes() ([]byte, error) {
+	buff := bytes.Buffer{}
+
+	if err := encoding.EncodeNumber(&buff, g.GameId); err != nil {
+		return nil, err
+	}
+
+	if err := encoding.EncodeNumber(&buff, g.AveragePlaytime); err != nil {
+		return nil, err
+	}
+
+	if err := encoding.EncodeString(&buff, g.Name); err != nil {
+		return nil, err
+	}
+
+	if err := encoding.EncodeString(&buff, g.Genres); err != nil {
+		return nil, err
+	}
+
+	if err := encoding.EncodeString(&buff, g.ReleaseDate); err != nil {
+		return nil, err
+	}
+
+	if err := encoding.EncodeBool(&buff, g.Windows); err != nil {
+		return nil, err
+	}
+
+	if err := encoding.EncodeBool(&buff, g.Mac); err != nil {
+		return nil, err
+	}
+
+	if err := encoding.EncodeBool(&buff, g.Linux); err != nil {
+		return nil, err
+	}
+
+	return buff.Bytes(), nil
 }
 
 func (g Game) ToGameNamesMessage(genreToFilter string) GameNames {
@@ -69,7 +194,7 @@ func (g Game) ToGameReleasesMessage(genreToFilter string) Releases {
 		genres := strings.Split(h.Genres, sep)
 		for _, genre := range genres {
 			if genre == genreToFilter {
-				result = append(result, Release{GameId: h.GameId, GameName: h.Name, ReleaseDate: h.ReleaseDate, AvgPlaytime: h.AveragePlaytime})
+				result = append(result, release{GameId: h.GameId, GameName: h.Name, ReleaseDate: h.ReleaseDate, AvgPlaytime: h.AveragePlaytime})
 				break
 			}
 		}

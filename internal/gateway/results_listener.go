@@ -189,21 +189,6 @@ func sendResultThroughChannel(g *Gateway, clientID string, resultStr string) {
 	clientChan <- []byte(resultStr)
 }
 
-func parseMessageBody(originID uint8, body []byte) (interface{}, error) {
-	switch originID {
-	case amqp.Query1OriginId:
-		return message.PlatfromFromBytes(body)
-	case amqp.Query2OriginId:
-		return message.DateFilteredReleasesFromBytes(body)
-	case amqp.Query3OriginId:
-		return message.ScoredReviewsFromBytes(body)
-	case amqp.Query4OriginId, amqp.Query5OriginId:
-		return nil, fmt.Errorf("parseMessageBody should not be called for queries 4 and 5")
-	default:
-		return nil, fmt.Errorf("unknown origin Id: %v", originID)
-	}
-}
-
 func readAck(conn net.Conn) error {
 	ackBuf := make([]byte, 1)
 	_, err := conn.Read(ackBuf)

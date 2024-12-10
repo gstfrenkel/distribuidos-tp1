@@ -42,6 +42,7 @@ for ((i=1; i<=NUM_HEALTHCHECKERS; i++)); do
       - tp1_net
     volumes:
       - ./configs/healthchecker.toml:/app/config.toml
+      - ./configs/healthcheck_service.toml:/app/healthcheck_service.toml
       - /var/run/docker.sock:/var/run/docker.sock
 EOL
 done
